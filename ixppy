@@ -1,0 +1,10 @@
+#!/bin/bash
+
+export PYTHONPATH=/lib/reg/common/package/python/2.7.2/lib/python2.7/site-packages::/reg/g/xpp/xppcode/python:/reg/g/xpp/xppcode/python/ixppy
+export LD_LIBRARY_PATH=/reg/common/package/root/5.30.00/lib:/reg/common/package/python/2.7.2-rhel5/lib
+export PATH=/reg/common/package/python/2.7.2-rhel5/bin:/usr/lib64/qt-3.3/bin:/usr/kerberos/bin:/usr/local/bin:/bin:/usr/bin:/usr/X11R6/bin:/reg/g/pcds/package/epics/3.14/base/current/bin/linux-x86_64
+
+export XPPFOLDER=/reg/g/xpp/xppcode/python/
+
+ipython -i --no-banner --deep-reload -c "%run '$XPPFOLDER/ixppy/ixppy_startup.py'" --pdb --pylab
+

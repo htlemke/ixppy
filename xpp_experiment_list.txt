@@ -1,0 +1,48 @@
+xpp82312	211	 	 	Yiping Feng	In-house
+xpp63412	209	 	 	Shuyun Zhou	Revealing the ultrafast charge ordering and lattice dynamics in the laser induced insulator-metal transition in manganites and the emergence of electronic ferroelectricity in multiferroics
+xpp63012	206	 	 	Joshua Saul Wittenberg	Shock-driven transformations in nanocrystals
+xpp61412	202	 	 	Michael Soltis	Structure Determination of Oxidized ba3 Cytochrome c Oxidase using Femtosecond Crystallography
+xpp61212	201	 	 	Klaus Sokolowski-Tinten	Ultrafast switching dynamics in laser-driven phase change materials
+xpp56012	191	 	 	Jerome Hastings	Structural Dynamics in the Femtoseconds Domain: the 1,3-Cyclohexadiene Model System
+xpp50312	178	 	 	Kelly Gaffney	Ultrafast Resonant Inelastic X-ray Scattering Measurements of Photoinduced Electron Transfer Dynamics
+xpp40312	132	 	 	Philip Anfinrud	Towards ultrafast time-resolved diffraction studies of proteins - the myoglobin showcase
+xpp36711	112	 	 	Reis, David	The role of lattice instabilities in ultrafast semiconductor to metal phase-transitions.
+xpp30411	107	 	 	Gruebel, Gerhard	X-Ray Split-Pulse Experiments (II).
+xpp56712	193	2012-06-12	2012-06-17	Steve Johnson	Driving coherent atomic motion in solids with impulsive stimulated x-ray scattering
+xpp52512	176	2012-05-30	2012-06-02	Henrik Till Lemke	Photoinduced phase transition in a bistable molecular crystal: ultrafast, coherent and cooperative response.
+xppi0412	175	2012-05-06	2012-05-08	Henrik Till Lemke	XPP timing in-house/development experiment
+xppi0312	174	2012-05-03	2012-06-06	Feng, Yiping	XPP In-House
+xppi0212	171	2012-04-12	2012-04-26	Oleg Krupin	In-house
+xpp43512	160	2012-03-08	2012-03-13	Kelly Gaffney , David Mark Fritz	Coherent structural dynamics of aqueous complex using time-resolved diffuse x-ray scattering
+xpp45612	149	2012-05-10	2012-05-22	Faton Krasniqi	Ultrafast Dynamics in Laser-Excited Magnetic Semiconductors
+xpp44112	145	2012-03-29	2012-04-11	Timothy J. Graber	Ultrafast photoisomerization in biological photoreceptors
+xpp43012	139	2012-02-08	2012-02-17	Michael Foerst	Nonlinear Phonon Control in Quantum Solids: A Femtosecond Crystallographic Determination
+xpp41912	137	2012-03-13	2012-03-20	Lin X. Chen	Transition State Structural Dynamics in Photochemical Processes
+xpp39012	126	2012-02-23	2012-02-25	Urs Staub	Time scales of charge and orbital order in relation to the Jahn-Teller distortion and structural modifications in manganites
+xppi0112	162	2011-12-01	2011-12-04	Henrik Till Lemke	In-house
+xpp48712	153	2011-12-05	2011-12-12	Klaus Sokolowski-Tinten	Transient structure of laser-generated disordered states investigated by ultrafast diffuse X-ray scattering
+xpp47712	151	2011-11-17	2011-11-22	Ian Robinson	Pump-probe investigation of femtosecond laser-irradiation of gold nanocrystals
+xpp44712	148	2011-12-13	2011-12-16	Marion Harmand	A reliable, easy-to-use timing tool for pump-probe experiments at FEL facilities
+xppi0211	118	2011-08-16	2011-08-17	Yiping Feng	In-house
+xppi0111	117	2011-08-11	2011-08-30	Henrik Till Lemke	In-house
+xpp36211	111	2011-09-01	2011-09-12	Reis, David	Time-and momentum resolved imaging of nonequilibrium phonons.
+xpp36111	110	2011-09-21	2011-09-24	David, Christian	Diffraction-limited nanofocusing of hard X-FEL radiation using diAMOnd-based Fresnel zone plates.
+xpp34511	109	2011-08-17	2011-08-22	Bressler, Christian	Femtosecond Spin State Changes – Implications for Photocatalysis.
+xpp33311	108	2011-07-26	2011-08-11	Krasniqi, Faton	Ultrafast Dynamics in Highly Excited Semiconductors: Relaxation of Hot Carriers and Coherent Motion of Atoms under Space-Charge Fields.
+xpp26810	71	2011-06-11	2011-06-23	Wark, Justin	X-Ray Studies of Strength in Laser-Shocked Nanocrystalline Foils and Shock-Induced Melt
+xpp23710	65	2011-01-20	2011-02-02	Gruebel, Gerhard	X-Ray Split-Pulse Experiments
+xpp22510	62	2011-02-02	2011-02-08	Lee, Richard W.	The Creation and Diagnosis of High-Pressure Off-Hugoniot States
+xppm0110	82	2010-11-02	2012-05-02	Yiping Feng	Machine Development Studies
+xppi0310	81	2010-11-24	2010-11-27	Jan Feldkamp	In-house experiment.
+xppi0210	80	2010-11-28	2011-08-16	Diling Zhu	In-house experiment.
+xppi0110	79	2010-11-27	2010-11-28	Marc Messerschmidt	In-house experiment.
+xpp23510	77	2010-12-01	2010-12-06	Gregori, Gianluca	Irreversible microscopic dynamics in strongly driven carbon
+xpp23310	76	2010-10-27	2010-11-02	Glover, Ernest	X-ray / optical wave mixing : microprobing optical interactions
+xpp26410	70	2010-11-10	2010-11-17	Stephenson, Gregory	Coherent X-ray Observation of Atomic Structure and Dynamics in Liquids and Glasses
+xpp26310	69	2010-12-08	2010-12-10	Soltis, Michael	Mitigation of Radiation Damage in Macromolecular Crystallography Experiments
+xpp24810	67	2010-10-20	2010-10-25	Lindenberg, Aaron	All-optical manipulation of the polarization in perovskite ferroelectrics
+xpp23810	66	2010-11-17	2010-11-23	Gutt, Christian	DESY-MPI-SLAC-ANL Proposal ‘Detecting order in the disorder – investigating local symmetries in liquids and glasses via speckle correlation'
+xpp23410	64	2010-12-13	2010-12-17	Neutze, Richard	Deterministic Protein Motions: Atomically Resolving Ultrafast Structure-Function Correlations in Biological Systems (Combined Proposal)
+xpp23210	63	2010-11-03	2010-11-09	Fritz, David	Ultrafast structural dynamics of bismuth under extreme photoexcitation
+xpp22110	61	2010-10-13	2010-10-18	David, Christian	Single-shot wave-front sensing and optics metrology using a grating interferometer
+xppcom10	40	2010-06-07	2012-03-21	Marco Cammarata	XPP Commissioning

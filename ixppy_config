@@ -1,0 +1,110 @@
+# default beamline
+#* beamline
+xpp
+
+# default hdf5 file path for instrument meant for lcls file system (beamline name will be added)
+#* default_datapath
+amo /reg/d/psdm
+sxr /reg/d/psdm
+xpp /reg/d/psdm
+cxi /reg/d/psdm
+xcs /reg/d/psdm
+mec /reg/d/psdm
+mob /reg/d/psdm
+
+# data paths for certain hosts for instrument
+#* default_datapath_hosts
+xpp userlaptop /media/super_disk/data
+xpp usercomp  /mnt/server_x/beamtimes/lcls/data
+#xpp lemke-E4300 /reg/d/psdm
+xpp lap /run/media/marcoc/Iomega_HDD/L525
+#xpp lap /run/media/L525
+
+# data paths for data cache. This holds preanalyzed data that can be copied between computers and are read additionally/instead the real datafile.
+#* cache_directory
+/home/lemke/ixppy_cache
+
+# Scan step definition, parent dataset, initialdataset name, digits
+#* scan_step
+/Configure:0000/Run:0000  CalibCycle:  4
+
+# Epics data dataset paths
+#* epics_dset
+/Configure:0000/Epics::EpicsPv/EpicsArch.0:NoDevice.0     Epics::EpicsPv/EpicsArch.0:NoDevice.0
+
+# XPP point detector configuration, label first, then line of different fields: detector alias, dataset link to data, dataset link to time, dataset for configuration.
+#* pointDet_xpp
+ipm1  Lusi::IpmFexV1/NH2-SB1-IPM-01/data  Lusi::IpmFexV1/NH2-SB1-IPM-01/time  dummy
+ipm2  Lusi::IpmFexV1/XppSb2_Ipm/data  Lusi::IpmFexV1/XppSb2_Ipm/time  dummy
+ipm3  Lusi::IpmFexV1/XppSb3_Ipm/data  Lusi::IpmFexV1/XppSb3_Ipm/time  dummy
+diode2  Lusi::IpmFexV1/XppSb3_Pim/data  Lusi::IpmFexV1/XppSb3_Pim/time  dummy
+diode3  Lusi::IpmFexV1/XppSb4_Pim/data  Lusi::IpmFexV1/XppSb4_Pim/time  dummy
+diodeU  Lusi::IpmFexV1/XppEnds_Ipm0/data  Lusi::IpmFexV1/XppEnds_Ipm0/time  dummy
+lom_bpm  Lusi::IpmFexV1/XppMon_Pim0/data  Lusi::IpmFexV1/XppMon_Pim0/time  dummy
+lom_diode  Lusi::IpmFexV1/XppMon_Pim1/data  Lusi::IpmFexV1/XppMon_Pim1/time  dummy
+ipm2  Lusi::IpmFexV1/XppSb2Ipm.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb2Ipm.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb2Ipm.1:Ipimb.0/config
+ipm2  Ipimb::DataV1/XppSb2Ipm.1:Ipimb.0/data  Ipimb::DataV1/XppSb2Ipm.1:Ipimb.0//time  /Configure:0000/Ipimb::ConfigV2/XppSb2Ipm.1:Ipimb.0/config
+ipm3  Lusi::IpmFexV1/XppSb3Ipm.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb3Ipm.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb3Ipm.1:Ipimb.0/config
+diode2  Lusi::IpmFexV1/XppSb3Pim.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb3Pim.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb3Pim.1:Ipimb.0/config
+diode2  Lusi::DiodeFexV1/XppSb3Pim.1:Ipimb.0/data  Lusi::DiodeFexV1/XppSb3Pim.1:Ipimb.0/time  dummy 
+diode3  Lusi::IpmFexV1/XppSb4Pim.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb4Pim.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb4Pim.1:Ipimb.0/config
+diode3  Lusi::DiodeFexV1/XppSb4Pim.1:Ipimb.0/data  Lusi::DiodeFexV1/XppSb4Pim.1:Ipimb.0/time  dummy 
+diodeU  Lusi::IpmFexV1/XppEndstation.1:Ipimb.0/data  Lusi::IpmFexV1/XppEndstation.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppEndstation.1:Ipimb.0/config
+lom_bpm Lusi::IpmFexV1/XppMonPim.1:Ipimb.0/data  Lusi::IpmFexV1/XppMonPim.1:Ipimb.0/time  Lusi::IpmFexV1/XppMonPim.1:Ipimb.0/data
+lom_diode Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/data  Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/time  Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/data
+ttPosRaw Epics::EpicsPv/XppEndstation.0:Opal1000.0/TIMETOOL:FLTPOS/data Epics::EpicsPv/XppEndstation.0:Opal1000.0/TIMETOOL:FLTPOS/time dummy
+encoder  Encoder::DataV2/XppGon.0:Encoder.0/data   Encoder::DataV2/XppGon.0:Encoder.0/time   dummy 
+
+# Special point detector configuration. Time stamp dataset is normal, data reading is replaced by functions defined in ixppy_specialdet
+#* pointDet_special
+timeTool  special  Epics::EpicsPv/XppEndstation.0:Opal1000.2/TTSPEC:AMPL/time  dummy
+timeTool  special  Epics::EpicsPv/XppEndstation.0:Opal1000.1/TTSPEC:AMPL/time  dummy
+timeTool  special  Epics::EpicsPv/EpicsArch.0:NoDevice.0/TTSPEC:FLTPOS/time  dummy
+timeTool  special  Epics::EpicsPv/XppEndstation.0:Opal1000.0/TTSPEC:AMPL/time  dummy
+eventCode special  EvrData::DataV3/NoDetector.0:Evr.0/time  dummy
+
+# XPP area detectors, label as #*line, then line of alias, and data, time, and config datasets
+#* areaDet_xpp
+cspad  CsPad::ElementV2/XppGon.0:Cspad.0/data  CsPad::ElementV2/XppGon.0:Cspad.0/time  /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
+cspad2x2  CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/data CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/time /Configure:0000/CsPad::ConfigV1/XppGon.0:Cspad.0/config
+cspad2x2 CsPad::ElementV2/XppGon.0:Cspad.0/data CsPad::ElementV2/XppGon.0:Cspad.0/time /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
+cs140  CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/data CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/time /Configure:0000/CsPad::ConfigV1/XppGon.0:Cspad.0/config
+cs140_1  CsPad2x2::ElementV1/XppGon.0:Cspad2x2.1/data CsPad2x2::ElementV1/XppGon.0:Cspad2x2.1/time /Configure:0000/CsPad::ConfigV1/XppGon.0:Cspad.0/config
+cs140 CsPad::ElementV2/XppGon.0:Cspad.0/data CsPad::ElementV2/XppGon.0:Cspad.0/time /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
+yag1 Camera::FrameV1/XppSb1Pim.1:Tm6740.1/image  Camera::FrameV1/XppSb1Pim.1:Tm6740.1/time  dummy 
+yag2 Camera::FrameV1/XppSb3Pim.1:Tm6740.1/image  Camera::FrameV1/XppSb3Pim.1:Tm6740.1/time  dummy 
+yag3 Camera::FrameV1/XppSb4Pim.1:Tm6740.1/image  Camera::FrameV1/XppSb4Pim.1:Tm6740.1/time  dummy
+acqiris  Acqiris::DataDescV1/XppLas.0:Acqiris.0/waveforms  Acqiris::DataDescV1/XppLas.0:Acqiris.0/time  dummy
+opal0 Camera::FrameV1/XppEndstation.0:Opal1000.0/image Camera::FrameV1/XppEndstation.0:Opal1000.0/time dummy
+opal1 Camera::FrameV1/XppEndstation.0:Opal1000.1/image Camera::FrameV1/XppEndstation.0:Opal1000.1/time dummy
+opal2 Camera::FrameV1/XppEndstation.0:Opal1000.2/image Camera::FrameV1/XppEndstation.0:Opal1000.2/time dummy
+yaglom Camera::FrameV1/XppEndstation.1:Tm6740.1/image Camera::FrameV1/XppEndstation.1:Tm6740.1/time dummy
+yag3m  Camera::FrameV1/XCS-YAG-3m/image Camera::FrameV1/XCS-YAG-3m/time  dummy
+orca Camera::FrameV1/XppEndstation.0:OrcaFl40.0/image Camera::FrameV1/XppEndstation.0:OrcaFl40.0/time dummy
+# CXI area detectors, label as #*line, then line of alias, and data, time, and config datasets
+#* areaDet_cxi
+dg1  Camera::FrameV1/CxiDg1.0:Tm6740.0/image  Camera::FrameV1/CxiDg1.0:Tm6740.0/time dummy
+dg2  Camera::FrameV1/CxiDg2.0:Tm6740.0/image  Camera::FrameV1/CxiDg2.0:Tm6740.0/time dummy
+dg4  Camera::FrameV1/CxiDg4.0:Tm6740.0/image  Camera::FrameV1/CxiDg2.0:Tm6740.0/time dummy
+
+# AMO area detectors, label as #*line, then line of alias, and data, time, and config datasets
+#* areaDet_amo
+opal0  Camera::FrameV1/AmoBPS.0:Opal1000.0/image  Camera::FrameV1/AmoBPS.0:Opal1000.0/time
+opal1  Camera::FrameV1/AmoVMI.0:Opal1000.0/image  Camera::FrameV1/AmoVMI.0:Opal1000.0/time
+
+# Common point detectors
+#* pointDet_common
+xrtipm1 Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/data  Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/time  dummy
+gasdet  Bld::BldDataFEEGasDetEnergy/NoDetector.0:NoDevice.2/data  Bld::BldDataFEEGasDetEnergy/NoDetector.0:NoDevice.2/time  dummy
+gasdet  Bld::BldDataFEEGasDetEnergy/FEEGasDetEnergy/data  Bld::BldDataFEEGasDetEnergy/FEEGasDetEnergy/time  dummy
+ebeam  Bld::BldDataEBeamV3/EBeam/data  Bld::BldDataEBeamV3/EBeam/time  dummy
+ebeam  Bld::BldDataEBeamV1/EBeam/data  Bld::BldDataEBeamV1/EBeam/time  dummy
+ebeam  Bld::BldDataEBeamV1/NoDetector.0:NoDevice.0/data  Bld::BldDataEBeamV1/NoDetector.0:NoDevice.0/time  dummy
+ebeam  Bld::BldDataEBeamV1/Ebeam/data  Bld::BldDataEBeamV1/Ebeam/time  dummy
+phasec  Bld::BldDataPhaseCavity/PhaseCavity/data  Bld::BldDataPhaseCavity/PhaseCavity/time dummy
+#phasec  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/data  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/time dummy
+#evr  EvrData::DataV3/NoDetector.0:Evr.0/evrData  EvrData::DataV3/NoDetector.0:Evr.0/time  dummy
+phasec  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/data  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/time dummy
+
+
+
