@@ -7,7 +7,7 @@ import pylab as pl
 import time
 import types
 import numpy.ma as ma
-import tools
+import toolsDistrAndHist
 try:
   import minuit
 except:
@@ -190,7 +190,7 @@ def convGauss2Exp(par=dict(pos=0,sig=.2,amp1=-.3,tau1=2,amp2=1,tau2=.3,y0=0),dat
 
 
 def convolveGauss(x,y,sig):
-  g = tools.gauss_norm
+  g = toolsDistrAndHist.gauss_norm
   o = np.empty_like(y)
   from scipy.integrate import simps
   for i in range(len(x)):

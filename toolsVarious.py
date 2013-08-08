@@ -3,6 +3,82 @@ import os
 import numpy as np
 from copy import deepcopy
 import re
+from itertools import takewhile
+
+def allnamesequal(name):
+  return all(n==name[0] for n in name[1:])
+
+def commonPathPrefix(paths, sep='/'):
+  bydirectorylevels = zip(*[p.split(sep) for p in paths])
+  return sep.join(x[0] for x in takewhile(allnamesequal, bydirectorylevels))
+
+class dropObject(object):
+  def __init__(self):
+    pass
+  def _add(self,name,data):
+    self.__dict__[name]=data
+  def __repr__(self):
+    return "dropObject with fields: "+str(self.__dict__.keys())
+  def __getitem__(self,x):
+    return self.__dict__[x]
+
+def itemgetToIndices(x,size,boolean=False):
+  if type(x) is int:
+    xo = np.array([x])
+  elif (type(x) is tuple) and isinstance(x[0],np.ndarray):
+    xo = x[0]
+  elif isinstance(x,slice):
+    xo = np.arange(*x.indices(size))
+  else:
+    raise IndexError
+    
+  if (max(xo)>=size):
+    raise IndexError
+  if boolean:
+    xo = np.zeros(size,dtype=bool)[xo] = True
+  return xo
+
+def getFromObj(obj,name):
+  temp = name
+  where = obj
+  while (temp.find(".")>0):
+    parent = temp[0:temp.find(".")]
+    where =  where.__dict__[parent]
+    temp = temp[temp.find(".")+1:]
+  return where.__dict__[temp]
+
+def existsInObj(obj,name):
+  temp = name
+  where = obj
+  while (temp.find(".")>0):
+    parent = temp[0:temp.find(".")]
+    if (parent in where.__dict__):
+      where =  where.__dict__[parent]
+      temp = temp[temp.find(".")+1:]
+    else:
+      return False
+  return (temp in where.__dict__)
+
+
+def addToObj(obj,name,value,overWrite=True):
+  """ Functions to add things to an object create intermediate dropObject if 
+  necessary
+  usage:
+  from a class you could call addToObj(self,"p1.p2.p3.a1",np.arange(10))
+  p1 p2 and p3 will be dropObject and a1 an attribute of p3 with value np.arange(10)
+  given an instance (for example data) of a class another use is addToObj(data,...)
+  """
+  temp = name
+  where = obj
+  while (temp.find(".")>0):
+    parent = temp[0:temp.find(".")]
+    if parent not in where.__dict__:
+      where.__dict__[parent] = dropObject()
+    where =  where.__dict__[parent]
+    temp = temp[temp.find(".")+1:]
+  if ( (temp not in where.__dict__) or overWrite ):
+    where.__dict__[temp] = value
+  return obj
 
 def fileExists(fname):
 	return os.path.exists(fname)
@@ -11,41 +87,77 @@ def removeFileIfExists(fname):
 	if (fileExists(fname)):
 		os.remove(fname)
 
-def h5group2class(d):
+def h5GroupToObj(d):
   import h5py
   if (not isinstance(d,h5py.Group) ):
     return None
   else:
-    class Dummy(object):
-      pass  
-    c = Dummy()
+    c = dropObject()
     for elem in d.keys():
-        c.__dict__[elem] = d[elem].value
+        c._add(elem,d[elem][...])
     return c
-   
 
-def dict2class(d):
+def isIterable(something):
+  return hasattr(something,'__iter__')
+
+def iterate(data,function,*args,**keywords):
+  if (not isIterable(data)):
+    data=iterfy(data)
+  nargs = len(args)
+  nkey  = len(keywords)
+  if   ( (nargs!=0) and (nkey!=0) ):
+    return [function(x,args,keywords) for x in data]
+  elif ( (nargs!=0) and (nkey==0) ):
+    return [function(x,*args) for x in data]
+  elif ( (nargs==0) and (nkey!=0) ):
+    return [function(x,**keywords) for x in data]
+  else:
+    return [function(x) for x in data]
+
+def iterdepth(iterable):
+  """only for lists/arrays, only along first element"""
+  if isiter(iterable):
+    N = 0
+    iter = True
+    while iter:
+      N+=1
+      iter = eval('isiter(iterable'+(N)*'[0]'+')')
+  else: 
+    N=0
+  return N
+
+def strucArrayToObj(data):
+  """
+  Transform a structured array as class
+  x = np.zeros(3, dtype=[('x','f4'),('y',np.float32),('value','f4',(2,2))])
+  A=strucArrayToObj(x)
+  print A.value
+  """
+  c = dropObject()
+  if data[0].dtype.names is not None:
+    for fieldname in data[0].dtype.names:
+      c._add(fieldname,data[fieldname])
+  else:
+    print "No clue on how to make an object out handle ",data
+  return c
+
+def dictToObj(d):
     """Return a class that has same attributes/values and 
        dictionaries key/value
     """
-    
     #see if it is indeed a dictionary
     if type(d) != types.DictType:
         return None
-    
-    #define a dummy class
-    class Dummy:
-        pass
-        
-    c = Dummy
+    c = dropObject()
     for elem in d.keys():
-        c.__dict__[elem] = d[elem]
+        c._add(elem,d[elem])
     return c
-
 
 def isodd(num):
   return num & 1 and True or False
 
+def get_copies(obj):                                                            
+    return [objname for objname,oid in globals().items() if id(oid)==id(obj)]  
 
 def iterfy(iterable):
     if isinstance(iterable, basestring):
@@ -55,6 +167,13 @@ def iterfy(iterable):
     except TypeError:
         iterable = [iterable]
     return iterable
+
+def iterDiff(it1,it2):
+  if (it1 is None) or (it2 is None):
+    diff = set([])
+  else:
+    diff = (set(it1)-set(it2))
+  return diff
 
 def num2sci(num,unit='',precision=3):
   exponents = np.arange(-24,24+1,3)
@@ -87,6 +206,7 @@ asind = arcsind
 acosd = arccosd
 atand = arctand
 atan2d = arctan2d
+
 
 def round_err(value,err,asstring=False):
 	""" returns value and err rounded to the number of
@@ -157,7 +277,7 @@ def saveTXT(fname,x,Ys,form="%+.6g",sep=" ",header=None,headerv=None):
 	f.close()
 
 
-def dict_merge(a, b):
+def dictMerge(a, b):
     '''recursively merges dict's. not just simple a['key'] = b['key'], if
     both a and bhave a key who's value is a dict then dict_merge is called
     on both values and the result stored in the returned dictionary.'''
@@ -166,7 +286,7 @@ def dict_merge(a, b):
     result = deepcopy(a)
     for k, v in b.iteritems():
         if k in result and isinstance(result[k], dict):
-                result[k] = dict_merge(result[k], v)
+                result[k] = dictMerge(result[k], v)
         else:
             result[k] = deepcopy(v)
     return result

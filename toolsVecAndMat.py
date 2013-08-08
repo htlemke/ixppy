@@ -5,7 +5,7 @@ import types
 import numpy.ma as ma
 from toolsLog import logbook
 from scipy import percentile
-import tools
+import toolsDistrAndHist
 
 def filtvec(v,lims,getbool=False):
   if not getbool:
@@ -24,7 +24,7 @@ def filterWithMad(v,fac=1,mad=None):
 	""" returns boolean indeces that are true when they satify the
 	relation of 'v' being within its median +/- 'fac' times the RMS calculated
 	with the MAD """
-	if (mad is None): mad = tools.mad(v)
+	if (mad is None): mad = toolsDistrAndHist.mad(v)
 	return (np.abs(v-np.median(v))<fac*mad)
 
 class AverageProfile(object):

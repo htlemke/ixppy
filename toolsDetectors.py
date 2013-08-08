@@ -1,6 +1,6 @@
 import numpy as np
 import pylab as pl
-import tools
+import toolsPlot
 
 def addScanVecToSingleShotReadings(scanv,tt):
 	""" tt must be either a list of vectors or a matrix """
@@ -32,7 +32,7 @@ class nonLinearCorrection(object):
 		self.dio = dio
 		self.poly = np.polyfit(mon,dio,2)
 		if (plot):
-			tools.nfigure("calibration")
+			toolsPlot.nfigure("calibration")
 			ax1=pl.subplot("211",title="det vs monitor (before correction)")
 			pl.plot(mon,dio,"+")
 			m=np.min(mon); M=np.max(mon)
@@ -44,11 +44,11 @@ class nonLinearCorrection(object):
 			m=mon.min()
 			h1 = np.histogram(mon,np.arange(m,M,(M-m)/30.),weights=dio/mon)
 			h0 = np.histogram(mon,np.arange(m,M,(M-m)/30.),)
-			pl.plot(tools.histVecCenter(h1[1]),h1[0]/h0[0],label="before")
+			pl.plot(toolsPlot.histVecCenter(h1[1]),h1[0]/h0[0],label="before")
 			mon,dio=self.correct(mon,dio)
 			h1 = np.histogram(mon,np.arange(m,M,(M-m)/30.),weights=dio/mon)
 			h0 = np.histogram(mon,np.arange(m,M,(M-m)/30.),)
-			pl.plot(tools.histVecCenter(h1[1]),h1[0]/h0[0],label="after")
+			pl.plot(toolsPlot.histVecCenter(h1[1]),h1[0]/h0[0],label="after")
 			pl.legend()
 
 	def correct(self,mon,dio,plot=False):
@@ -65,7 +65,7 @@ class nonLinearCorrection(object):
 		else:
 			dioC	= dioC - pp[0]*monC**2
 		if (plot):
-			tools.nfigure("Check non lin correction")
+			toolsPlot.nfigure("Check non lin correction")
 			pl.plot(mon,dio/mon,"+",label = "before correction")
 			pl.plot(monC,dioC/monC,"o",label = "after correction")
 			pl.ylabel("ratio signal/monitor")

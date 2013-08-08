@@ -6,15 +6,26 @@ from socket import gethostname
 import dateutil
 import sys
 import numpy as np
-import ixppy_specialdet
+#import ixppy_specialdet
 import tools
-from functools import partial
+import toolsHdf5 as tH5
+from toolsHdf5 import datasetRead as h5r
+from functools import partial,wraps
 from copy import copy
 import re
 import examples
 import ixppy
 import datetime
 import operator
+import time
+import lclsH5
+import copy as pycopy
+try:
+  import psana
+except:
+  psana = None
+  print "psana not available on present machine, hdf5 files required."
+
 #import cspad
 
 # Config file format
@@ -34,541 +45,261 @@ import operator
 
 class dataset(object):
   def __init__(self,
-    inputFileOrExpRunTuple='',
+    inputFilesOrExpRunTuple='',
     detectors = [],
     beamline = None,               
     rdPointDetectorsImmediately=True,
     rdTimestamps=True,
     sortForTimestamps=True,
-    inputDirectory = 'config',
     outputDirectory = '',
     readCachedData = True,
     cacheFile = None,
-    ignore_daqfile = False
+    ignore_daqHdf5file = False
               ):
-    # init start
-    self.config = dropObject()
+    # dropObject is a 'container'
+    self.config = tools.dropObject()
+    # read configuration file
+    self._rdConfiguration(beamline)
+    # boolean if cache data is taken into account 
+    self.config.readCachedData = readCachedData
+    # HDF5/XTC/IXP file(s) to read, it is a tuple of lists for files in the three formats, empty if files not available.
+    allfilenames   = self._getFilename(inputFilesOrExpRunTuple)
+    self.config.fileNamesH5 = allfilenames[0]
+    self.config.fileNamesXtc = allfilenames[1]
+    self.config.fileNamesIxp = allfilenames[2]
+    # check available formats, decide on strategy to use, user input possible, sets self.config.filestrategy variable.
+    self._getFileStrategy()
+
+    
+    if 'h5' in self.config.filestrategy:
+      self.config.lclsH5obj= lclsH5.lclsH5(self.config.fileNamesH5,self.config.cnfFile)
+      
+      self.config.lclsH5obj.checkFiles()
+      self.config.lclsH5obj.findDetectors(detectors)
+      self.config.lclsH5obj.initDetectors()
+      for detName in self.config.lclsH5obj.detectorsNames:
+        det = self.config.lclsH5obj.detectors[detName]
+        if det._isPointDet:
+	  self.__dict__[detName] = tools.dropObject()
+	  if hasattr(det,'fields'):
+	    for fieldName in det.fields.keys():
+              self.__dict__[detName].__dict__[fieldName] = memdata(name=fieldName,input = det.fields[fieldName])
+	else:
+	  self.__dict__[detName] = tools.dropObject()
+          self.__dict__[detName].data = data(name=detName,time=det.time,input = det.readData)
+
+      if hasattr(self.config.lclsH5obj,'scanVars'):
+	for name in self.config.lclsH5obj.scanVars.keys():
+	  tVar = self.config.lclsH5obj.scanVars[name]
+	  if not hasattr(tVar,'names'): continue
+	  self.__dict__[name] = tools.dropObject()
+	  for vname,vdat in zip(tVar.names,np.array(tVar.data).T):
+            self.__dict__[name].__dict__[vname] = vdat
+	  
+
+	  
+
+    #self._checkCalibConsistency()
+  # END OF DATASET.__init__
+
+  def _checkCalibConsistency(self):
+    import itertools
+    Nc = []
+    # upon initialization each detector check for Ncalib
+    tocheck = list(itertools.chain( self.detectors.values(),self._scanVars))
+    Nc = []
+    for d in tocheck:
+      Nc.append(d._numOfScanSteps)
+    Nc = np.array(Nc)
+    NcMin = Nc.min(axis=0)
+    NcMax = Nc.max(axis=0)
+    for d in tocheck:
+      # print out most limiting detector
+      if (list(NcMin) == list(d._numOfScanSteps)) and (list(NcMin)!=list(NcMax)):
+        print "WARNING: Detector/Scan ",d,"is limiting the number of Calybcycle to",str(NcMin),"instead of ",str(NcMax)
+      d._numOfScanSteps = list(NcMin)
+    self.numOfScanSteps = list(NcMin)
+    if len(NcMin) ==1:
+      self.numOfScanSteps = self.numOfScanSteps[0]
+
+  def _findData(self,subSelection=[]):
+    """ Finds detectors in hdf5 file matching with mnemonic given in config file;
+    the matching mnemonic names are as dictionaries (self.pointDet and self.areaDet)
+    The 
+    """
+    if (subSelection==[]) or (subSelection is None):
+      subSelection = self.config.cnfFile["pointDet"].keys() + self.config.cnfFile["areaDet"].keys()
+    h = self.config.fileHandlesH5[0]
+    pointDet = self.config.cnfFile["pointDet"]
+    # try to use only CalibCycle0
+    try:
+      base = "Configure:0000/Run:0000/CalibCycle:0000/"
+      h5names = tH5.getDataset(h[base])
+      h5names = [base+x for x in h5names]
+      # find all confs
+      base = "Configure:0000/"
+      confs = h[base].keys()
+      h5confs = []
+      for c in confs:
+        if (c.find("Run")==0):
+          continue
+        else:
+          temp = tH5.getDataset(h[base][c])
+          for t in temp:
+            h5confs.append(base+c+"/"+t)
+    except KeyError:
+      h5names = tH5.getDataset(h)
+    ret = {}
+    # *** start EpicsPV *** #
+    # look for epics name
+    epicsFound=False
+    if ("epics_dset" in self.config.cnfFile):
+      epicsMne = self.config.cnfFile["epics_dset"][0]
+      epicsReg = self.config.cnfFile["epics_dset"][1]
+      epicsH5Names=[x for x in h5names if (x.find(epicsReg)>-1)]
+      # common Epics path:
+      ntemp = min([len(x.split("/")) for x in epicsH5Names])
+      epicsCommon = "/".join(epicsH5Names[0].split("/")[0:ntemp])
+      # epics var
+      self._epicsPaths = {}
+      for d in h[epicsCommon]:
+        dpath = d
+        d = d.replace(':','_')
+        d = d.replace('-','_')
+        d = d.replace(' ','_')
+        d = d.replace('.','_')
+        mne = "%s.%s" % (epicsMne.split("/")[0],d)
+        self._epicsPaths[mne]={}
+        self._epicsPaths[mne]["data"] = epicsCommon.replace('CalibCycle:0000','CalibCycle:%04d')+"/"+dpath+"/data"
+        self._epicsPaths[mne]["time"] = epicsCommon.replace('CalibCycle:0000','CalibCycle:%04d')+"/"+dpath+"/time"
+        self._epicsPaths[mne]["conf"] = []
+      self._epicsNames = self._epicsPaths.keys()
+    else:
+      self._epicsNames = []
+    # *** stop EpicsPV *** #
+    for (mnemonic,name) in pointDet.iteritems():
+      if (mnemonic.find("epics")>-1) and (mnemonic.find("*")>-1):
+        continue
+      mnemonic = mnemonic.split('_bak')[0]
+      # skip if not in the group we want to read
+      if mnemonic not in subSelection:
+        continue
+      nameData = name["data"].replace("*","\S+")
+      detDataset = [x for x in h5names if (re.search(nameData,x) is not None)]
+      nameConf = name["conf"].replace("*","\S+")
+      detConf    = [x for x in h5confs if (re.search(nameConf,x) is not None)]
+      data = [x for x in detDataset if x[-5:]=="/data"]
+      time = [x for x in detDataset if x[-5:]=="/time"]
+      if ( (len(data) != 0) and (len(time) != 0) ):
+        ret[mnemonic] = {}
+        ret[mnemonic]["data"] = data[0].replace('CalibCycle:0000','CalibCycle:%04d')
+        ret[mnemonic]["time"] = time[0].replace('CalibCycle:0000','CalibCycle:%04d')
+        if len(detConf)>0:
+          ret[mnemonic]["conf"] = detConf[0]
+    self._pointDetPaths = ret
+    self.pointDetNames = ret.keys()
+    areaDet = self.config.cnfFile["areaDet"]
+    ret = {}
+    # 3D detectors need special care because data are written differently 
+    # /data, /image, /waveform
+    for (mnemonic,name) in areaDet.iteritems():
+      mnemonic = mnemonic.split('_bak')[0]
+      # skip if not in the group we want to read
+      if mnemonic not in subSelection:
+        continue
+      name = name["data"].replace("*","\S+")
+      name_nodata = "/".join(name.split("/")[0:-1])
+      detDataset = [x for x in h5names if (re.search(name_nodata,x) is not None)]
+      conf = [ ]
+      data = [x for x in detDataset if (re.search(name,x) is not None)]
+      time = [x for x in detDataset if x[-5:]=="/time"]
+      if ( (len(data) != 0) and (len(time) !=0) ):
+        ret[mnemonic] = {}
+        ret[mnemonic]["data"] = data[0].replace('CalibCycle:0000','CalibCycle:%04d')
+        ret[mnemonic]["time"] = time[0].replace('CalibCycle:0000','CalibCycle:%04d')
+        ret[mnemonic]["conf"] = conf
+    self._areaDetPaths = ret
+    self.areaDetNames = ret.keys()
+    self._detectorsPaths = tools.dictMerge(self._pointDetPaths,self._areaDetPaths)
+    self.detectorsNames = self.pointDetNames + self.areaDetNames
+    # *** start scan variables *** #
+    temp = []
+    if (len(self.config.cnfFile["scan_step"])>0):
+      for scan_var in self.config.cnfFile["scan_step"]:
+        mne,reg = scan_var
+        reg  = reg.replace("*","\S+")
+        data = [x for x in h5names if (re.search(reg,x) is not None)]
+        path = data[0].replace('CalibCycle:0000','CalibCycle:%04d')
+        try:
+          obj = scanVar(self.config.fileHandlesH5,mne,path)
+          tools.addToObj(self,mne,obj)
+          temp.append(obj)
+        except:
+          pass
+    self._scanVars = temp
+    # *** stop scan variables *** #
+    return
+
+  def _rdConfiguration(self,beamline):
     if not beamline==None:
       self.config.beamline = beamline
       self.config.cnfFile = rdConfiguration(beamline=beamline)
     else:
       self.config.cnfFile = rdConfiguration()
       self.config.beamline = self.config.cnfFile['beamline']
+    # setup path for data and cached files
     self.config.hostname = gethostname()
-    self.config.pointDetectors = []
-    self.config.areaDetectors = []
-    #self._cache_directory = 
-    self._getInputDirectory(inputDirectory)
-    self._getFilename(inputFileOrExpRunTuple)
-    if ignore_daqfile:
-      self.config.daqfile_available = False
-    self.config.fileHandle = []
-    self.pointDet = dropObject()
-    self.areaDet  = dropObject()
-    self.config.base = self
-    self.config.scanDataSets = []
-    self._controlPv = []
-    self.noofsteps = []
-    self._filter = []
-    self._saved_objects = []
-    self._savelist = ['_savelist','_saved_objects']
-    #self._dividePointArrayDets()
-    #self._initDetectorReaders()
-    if self.config.daqfile_available:
-      if detectors==[]:
-        detectors = self._find_detectors()
-      elif detectors=='parse':
-        if not self.config.fileHandle:
-          self.config.fileHandle = h5py.File(self.config.filename[0],mode='r')
-        print "parsing detectors in hd5 file"
-        cnf = parseToCnf(self.config.fileHandle)
-        self.config.cnfFile = tools.dict_merge(self.config.cnfFile,cnf)
-        detectors = cnf['areaDet'].keys()+cnf['pointDet'].keys()
-
-    if not outputDirectory:
-      if self.config.cnfFile['cache_directory']:
-        self.config.outputDirectory = self.config.cnfFile['cache_directory'][0]
-      else:
-        self.config.outputDirectory = os.getcwd()
+    knownhosts = self.config.cnfFile['dataPath'].keys()
+    if self.config.hostname in knownhosts:
+       self.config.dataPath = self.config.cnfFile['dataPath'][self.config.hostname]
     else:
-      self.config.outputDirectory = outputDirectory
-
-    if not cacheFile:
-      tfina = os.path.split(self.config.filename[0])[-1]
-      tfina = os.path.join(self.config.outputDirectory,tfina) 
-      if os.path.isfile(tfina):
-        if not tfina==self.config.filename:
-          self.config.cache_filename = tfina
-      else:
-        self.config.cache_filename = ''
+       self.config.dataPath = os.path.join(self.config.cnfFile['dataPath']['default'],self.config.beamline)
+    knownhosts = self.config.cnfFile['cachePath'].keys()
+    if self.config.hostname in knownhosts:
+       self.config.cachePath = self.config.cnfFile['cachePath'][self.config.hostname]
     else:
-        self.config.cache_filename = cacheFile
+       self.config.cachePath = os.path.join(self.config.cnfFile['cachePath'].keys()[0])
 
-    self.config.cache_fileHandle = []
-    self.config.cache = cache(self.config)
-
-    self.detectors = iterfy(detectors)
-    self.initdetectors()
-
-    # initialize epics pvs
-    self.epics = epics(self.config)
-    self._saved_objects.append('epics')
-    #print readCachedData
-    #print os.path.isfile(self.config.cache_filename)
-    if readCachedData and os.path.isfile(self.config.cache_filename):
-      self.config.cache.load()
-      self._unwrap_detectors()
-      self._initfilter()
-
-    if rdPointDetectorsImmediately:
-      self.rdPointDetectors()
-    if rdTimestamps:
-      self.filtTimestamps()
-    ##### END INIT #####
-
-  def initdetectors(self):
-    for det in self.detectors:
-      self._initdet(det)
-
-  def __getitem__(self,x):
-    return eval("self.%s"%x)
-
-  def rdPointDetectors(self):
-    """reads all point detectors from the defined list of detectors"""
-    for det in self.config.pointDetectors:
-      data = self.__dict__[det].rdAllData()
-      self.__dict__[det]._add_saved_datafield('data',data)
-    self._unwrap_detectors()
- 
-  def _find_detectors(self):
-    if not self.config.fileHandle:
-      self.config.fileHandle = h5py.File(self.config.filename[0],mode='r')
-    dets = []
-    for det in self.config.cnfFile['areaDet'].keys():
-      odet = det
-      det = det.split('_bak')[0]
-      if det in dets: continue
-      dset_time = self.config.cnfFile['areaDet'][odet]['dataset_time']
-      dsetstring = self._mkScanStepDataSetString(dset_time,0)
-      try:
-        self.config.fileHandle[dsetstring]
-        dets.append(det)
-      except:
-        pass
-    for det in self.config.cnfFile['pointDet'].keys():
-      odet = det
-      det = det.split('_bak')[0]
-      if det in dets: continue
-      dset_time = self.config.cnfFile['pointDet'][odet]['dataset_time']
-      dsetstring = self._mkScanStepDataSetString(dset_time,0)
-      try:
-        self.config.fileHandle[dsetstring]
-        dets.append(det)
-      except:
-        pass
-    return dets
-
-
-  def _unwrap_detectors(self):
-    """get structured array components from detector data and mke them masked arrays for easier use"""
-    for det in self.config.pointDetectors:
-      self.__dict__[det]._unwrap_data()
-
-  def rdTimestamps(self):
-    """reads timestamps of all selected detectors"""
-    for det in self.detectors:
-      self.__dict__[det]._add_saved_datafield('time',self._rdDetTimestamp(det))
-
-  def filtTimestamps(self):
-    """tests the detector timestamps for equality and generates a filter for each selected detector"""
-    # check if timestamps are already read.
-    for det in self.detectors:
-      if not hasattr(self.__dict__[det],'time'):
-	print "reading timestamps of %s" %det
-        self.rdTimestamps()
-        break
-      
-    for det in self.detectors:
-      self.__dict__[det]._add_saved_datafield('_filt_time',[])
-    for sNo in range(self.noofsteps):
-      for det in self.detectors:
-        try:
-          tfilt = np.ones(np.shape(self.__dict__[det].time[sNo]),dtype=bool)
-          ttime = self._timeInMs(self.__dict__[det].time[sNo])
-          for cdet in np.setdiff1d(self.detectors,[det]):
-            ctime = self._timeInMs(self.__dict__[cdet].time[sNo])
-            cfilt = np.in1d(ttime,ctime)
-            #if sum(np.logical_not(cfilt))>0:
-              #de=bug
-            tfilt = np.logical_and(tfilt,cfilt)
-          tfilt = np.logical_not(tfilt)
-          self.__dict__[det]._filt_time.append(tfilt)
-        except:
-          print "Problem in time stamp filtering with %s at step %d." %(det,sNo)
-    self._initfilter()
-
-  def old_initfilter(self):
-    for det in self.detectors:
-      # get all filter names
-      timefilt = []
-      for k in self.__dict__[det].__dict__.keys():
-        if '_filt_time' in k:
-          timefilt.append(k)
-      # make global filter
-      filt_tot = []
-      for filter in filters:
-        if not filt_tot:
-          filt_tot = self.__dict__[det].__dict__[filter]
-        for sNo in range(len(filt_tot)):
-          filt_tot[sNo] = np.logical_and(filt_tot[sNo],self.__dict__[det].__dict__[filter][sNo])
-      # add total filter to masked arrays
-      for sNo in range(len(filt_tot)):
-        for name in self.__dict__[det].data[sNo].dtype.names:
-          self.__dict__[det].__dict__[name][sNo].mask = np.logical_not(filt_tot[sNo])
-
-  #def _initfilter(self,filtername=None):
-    #for det in self.detectors:
-      ## get all filter names, timefilter first, then global filters
-      #allfilters = []
-      #for k in self.__dict__[det].__dict__.keys():
-        #if '_filt_time' in k:
-          #allfilters.append(self.__dict__[det].__dict__[k])
-      ##print allfilters
-      
-      #if not filtername:
-        ## Get global filters, first names, then names are sorted then the filter data. could be sorted by size at some point.
-        #allGfilters = []
-        #for k in self.__dict__.keys():
-          #if '_filt_' in k:
-            #allGfilters.append(k)
-        #allGfilters.sort()
-        #for key in allGfilters:
-          #allfilters.append(self.__dict__[key])
-        ##print allfilters
-      #else:
-        #filtername = iterfy(filtername)
-        #allGfilters = [self.__dict__['_filt_'+tfn] for tfn in filtername]
-      
-      #filt_tot = []
-      #for filter in allfilters:
-        #if not filt_tot:
-          #for sNo in range(self.noofsteps):
-            #filt_tot.append(filter[sNo].copy())
-        #else:
-          #for sNo in range(len(filt_tot)):
-            #tunmasked = filt_tot[sNo][~filt_tot[sNo]].copy()
-            #tunmasked[filter[sNo]] = True
-            #filt_tot[sNo][~filt_tot[sNo]] = tunmasked.copy()
-      #self.__dict__[det].filter = filt_tot
-      #try:
-        ## add total filter to masked arrays
-        #for sNo in range(len(filt_tot)):
-          ##for name in self.__dict__[det].data[sNo].dtype.names:
-          #for name in self.__dict__[det]._masked_arrays['data']:
-            ##print len(filt_tot[sNo])
-            #self.__dict__[det].__dict__[name][sNo].mask = filt_tot[sNo]
-      #except Exception,e:
-        ##print e
-        ##print "problem in initfilter"
-        #pass
-  ######quick hack for global filter
-    #allfilters = []
-    #for key in allGfilters:
-      #allfilters.append(self.__dict__[key])
-    #filt_tot = []
-    #for filter in allfilters:
-      #if not filt_tot:
-        #for sNo in range(self.noofsteps):
-          #filt_tot.append(filter[sNo].copy())
-      #else:
-        #for sNo in range(len(filt_tot)):
-          #tunmasked = filt_tot[sNo][~filt_tot[sNo]].copy()
-          #tunmasked[filter[sNo]] = True
-          #filt_tot[sNo][~filt_tot[sNo]] = tunmasked.copy()
-    #self.filter = filt_tot
-
-  def _mergefilters(self):
-    filter = []
-    for sNo in range(self.noofsteps):
-      tstepf = np.vstack([tfilt[sNo] for tfilt in self._filter])
-      filter.append(tstepf.any(axis=0))
-    return filter
-
-
-  def _addfilter(self,newfilter):
-    mergedfilter = self.filter
-    tfilter = self._filter[0]
-    Ofilter = []
-    for Stfilter,Snewfilter,Smergedfilter in zip(tfilter,newfilter,mergedfilter):
-      if len(Stfilter)==len(Snewfilter):
-        Ofilter.append(Snewfilter)
-      elif sum(~Smergedfilter)==len(Snewfilter):
-        tmpf = Smergedfilter
-        tunmasked = tmpf[~tmpf].copy()
-        tunmasked[Snewfilter] = True
-        tmpf[~tmpf] = tunmasked.copy()
-        Ofilter.append(tmpf)
-      else:
-        print "NB: Filter step doesn't fit in size!"
-    self._filter.append(Ofilter)
-    self._initfilter()
-
-  filter = property(_mergefilters,_addfilter)
-
-  def filterClear(self,remove=-1):
-    if type(remove) is str and remove=='all':
-      self._filter = []
-    else:
-      remove = iterfy(remove)
-      for ind in remove:
-	self._filter.pop(ind)
-    self._initfilter()
-
-      
-
-  def _initfilter(self,filtername=None):
-
-    if not self._filter:
-      
-      # get all detector filter, check if all are in line
-      alldetfilters = []
-      for det in self.detectors:
-        for k in self.__dict__[det].__dict__.keys():
-          if '_filt_time' in k:
-            alldetfilters.append(self.__dict__[det].__dict__[k])
-
-      tfilter = []
-      for sNo in range(self.noofsteps):
-        lengths = np.array([np.sum(~detfilt[sNo]) for detfilt in alldetfilters])
-        if ~(np.sum(np.abs(np.diff(lengths)))==0):
-          print "something went wrong with timestampfiltering in scan step %d."%(sNo)
-          #de=bug
-        tfilter.append(np.zeros(lengths[0],dtype=bool))
-      self._filter.append(tfilter)
-    
-    # Now initialize filter for each detector 
-    for det in self.detectors:
-      # get all filter names, timefilter first, then global filters
-      for k in self.__dict__[det].__dict__.keys():
-        if '_filt_time' in k:
-          detfilter = self.__dict__[det].__dict__[k]
-
-      Gfilter = self.filter
-      filt_tot = [tdf.copy() for tdf in detfilter]
-      for sNo in range(len(filt_tot)):
-        tunmasked = filt_tot[sNo][~filt_tot[sNo]].copy()
-        tunmasked[Gfilter[sNo]] = True
-        filt_tot[sNo][~filt_tot[sNo]] = tunmasked.copy()
-      self.__dict__[det].filter = [ft.copy() for ft in filt_tot]
-      # add total filter to masked arrays
-      for sNo in range(len(filt_tot)):
-        #for name in self.__dict__[det].data[sNo].dtype.names:
-        for name in self.__dict__[det]._masked_arrays['data']:
-          #print len(filt_tot[sNo])
-          self.__dict__[det].__dict__[name][sNo].mask = filt_tot[sNo]
-
-
-  def _add_saved_datafield(self,name,data):
-    """adds to a list of datasets to be saved. For faster data recovery and for saving custom analysis progresses (e.g. reduced data from pixel detectors)."""
-    if not "_savelist" in self.__dict__:
-      self._savelist = ['_savelist']
-    self._savelist.append(name)
-    self._savelist = list(set(self._savelist))
-    self.__dict__[name] = data
-
-
-  def _timeInMs(self,time):
-    """Makes millisecond array from the read second and nanosecond arrays"""
-    ms = np.uint64(time['seconds'])
-    ms = ms*1000 + np.round_(time['nanoseconds'],-6)/1000000
-    return ms
-
-  def _initdet(self,det):
-    class tclass(singledet):
-      pass
-
-    tdet = tclass(self.config,det)
-    self.__dict__[det] = tdet
-    self._saved_objects.append(det)
-
-    if self.__dict__[det]._ispointdet():
-      self.pointDet.__dict__[det] = tdet
-      self.config.pointDetectors.append(det)
-    if self.__dict__[det]._isareadet():
-      self.areaDet.__dict__[det] = tdet
-      self.config.areaDetectors.append(det)
-
-  def _rdScanPar(self):
-    """Reads the scan datasets and the scanned motor(s) into the dataset structure."""
-    if not self.config.fileHandle:
-      self.config.fileHandle = h5py.File(self.config.filename[0],mode='r')
-    if not self.config.scanDataSets:  
-      self.config.scanDataSets = self.config.fileHandle[self.config.cnfFile['scan_step'][0]].keys()
-    if not self.noofsteps:  
-      self._add_saved_datafield('noofsteps',len(self.config.scanDataSets))
-    if not self._controlPv:
-      controlPv = []
-      for tdsetbas in self.config.scanDataSets:
-        tdsetnames = [os.path.join(self.config.cnfFile['scan_step'][0],tdsetbas,'ControlData::ConfigV1/Control/pvControls'),
-                      os.path.join(self.config.cnfFile['scan_step'][0],tdsetbas,'ControlData::ConfigV1/NoDetector.0/pvControls'),
-                      os.path.join(self.config.cnfFile['scan_step'][0],tdsetbas,'ControlData::ConfigV2/Control/pvControls')]
-        trycycle = 0
-        done=False
-        while trycycle<len(tdsetnames) and not done:
-          try:
-            tdsetname = tdsetnames[trycycle]
-            try:
-              controlPv.append(self.config.fileHandle[tdsetname].value)
-            except:
-              controlPv.append(self.config.fileHandle[tdsetname])
-            done = True
-          except:
-            trycycle+=1
-            continue
-      self._controlPv = controlPv
-      try:
-        self._getScanMotVec()
-      except:
-        pass
-      return
-
-  def _getScanMotVec(self):
-    names = self._controlPv[0]['name']
-    if len(names)>1:
-      tname = [name for name in names]
-      self._add_saved_datafield('scanMot',tname)
-      scanVec=[]
-      for motNo in range(len(tname)):
-        tscanVec = []
-        for val in self._controlPv:
-          tscanVec.append(val['value'][motNo])
-        scanVec.append(np.array(tscanVec))
-      self._add_saved_datafield('scanVec',scanVec)
-    else:
-      self._add_saved_datafield('scanVec',np.array([val['value'][0] for val in self._controlPv]))
-      tname = self._controlPv[0]['name'][0]
-      #print tname
-      self._add_saved_datafield('scanMot',tname)
-
-  def _mkScanStepDataSetString(self,dsetString,stepIndex):
-    """Makes dataset sting for certain scan step and certain dtector daset (the fraction of the path string after the "calib cycle")"""
-    string0 = os.path.join(self.config.cnfFile['scan_step'][0],\
-             self.config.cnfFile['scan_step'][1])
-    #digits  = int(self.config.cnfFile['scan_step'][2]) 
-    output = []
-    for ind in iterfy(stepIndex):
-      ind = '%04d' %ind
-      output.append(os.path.join(string0+ind,dsetString))
-    if len(output) is 1:
-      output = output[0]
-    return output
-      
-
-    
-
-  def _rdDetTimestamp(self,detector):
-    self._rdScanPar()
-    for tdetdset in self.__dict__[detector]._dataset_time:
-      try:
-        data = ixppyList()
-        for stepNo in range(len(self._controlPv)):
-          dsetstring = self._mkScanStepDataSetString(tdetdset,stepNo)
-          #print dsetstring
-          dset = self.config.fileHandle[dsetstring]
-          data.append(rdHdf5dataFromDataSet(dset))
-        #print "found time data for %s" % detector
-        return data
-        #break
-      except Exception,e:
-        #print e
-        continue
-        #try:
-          #return data
-          #continue
-        #except:
-          #continue
-      
-  def _rdDetAllData(self,detector):
-    self._rdScanPar()
-    for tdetdset in self.__dict__[detector]._dataset_data:
-      try:
-        data = ixppyList()
-        for stepNo in range(len(self._controlPv)):
-          dsetstring = self._mkScanStepDataSetString(tdetdset,stepNo)
-          dset = self.config.fileHandle[dsetstring]
-          data.append(rdHdf5dataFromDataSet(dset))
-        return data
-        break
-      except:
-        #print "Problem reading %s at step %d !!!" %(detector,stepNo)
-        continue
-        #try:
-          #return data
-        #except:
-          #print "Problem reading %s at step %d !!!" %(detector,stepNo)
-          #continue
-        #except:
-          #continue
-
-
-  def _rdDetStepData(self,detector,stepNo=0,shotNos='all'):
-    self._rdScanPar()
-    #tdetdset = self.__dict__[detector]._dataset_data
-    for tdetdset in self.__dict__[detector]._dataset_data:
-      try:
-        dsetstring = self._mkScanStepDataSetString(tdetdset,stepNo)
-        dset = self.config.fileHandle[dsetstring]
-        data = rdHdf5dataFromDataSet(dset,shotNos)
-        return data
-        break
-      except:
-        continue
-
-    
-  def all_detectors(self):
-    """Prints list of all possible detectors in the present configuration. Useful when not certain about the aliases to use."""
-    pointdets = ''
-    for i in self.config.cnfFile['pointDet'].keys():
-      if not '_bak' in i:
-        pointdets+= ', ' + i
-    pointdets = pointdets.strip(', ')
-    print "Point detectors\n %s" %(pointdets)
-    print '\n'
-    areadets = ''
-    for i in self.config.cnfFile['areaDet'].keys():
-      if not '_bak' in i:
-        areadets+= ', ' + i
-    areadets = areadets.strip(', ')
-    print "Area detectors\n %s" %(areadets)
-
-
-
-  def _getInputDirectory(self,ipd):
-    if ipd=='config':
-      knownhosts = self.config.cnfFile['defaultPath'].keys()
-      if self.config.hostname in knownhosts:
-        self.config.inputDirectory = self.config.cnfFile['defaultPath'][self.config.hostname]
-      else:
-        self.config.inputDirectory = os.path.join(self.config.cnfFile['defaultPath']['default'],self.config.beamline)
-
-  def _getFilename(self,input):
-    if type(input) is str:
-      filenames = input
-    if type(input) is tuple:
-      if type(input[0]) is str:
-        self.config.experiment = input[0]
-      if type(input[0]) is int:
-        self.config.experiment = self.config.beamline+str(input[0])
-      self.config.run = input[1]
+  def _getFilename(self,inputFilesOrExpRunTuple):
+    # use a shorter local name
+    f = inputFilesOrExpRunTuple
+    # interprets input (either filename or
+    # check if all string
+    StrOrStrList = np.alltrue(tools.iterate(f,isinstance,str))
+    if (StrOrStrList):
+      filenames = f
+    elif type(f) is tuple:
+      if type(f[0]) is str:
+        """ you are just passing the experiment name, e.g. 'xpp66613' as first arg of f"""
+        self.config.experiment = f[0]
+      if type(f[0]) is int:
+        """ you are just passing the experiment number, e.g. 66613 as first arg of f"""
+        self.config.experiment = self.config.beamline+str(f[0])
+        
+      self.config.run = f[1]
       filenames = self._makeFilenameFromExpRun()
-    self.config.filename = iterfy(filenames)
-    for f in self.config.filename:
+    filenamesH5 =tools.iterfy(filenames)
+
+    # TODO: replace "isavailable" by properties checking for empty list
+    for f in filenamesH5:
       if (not os.path.exists(f)):
         print "Asked to read file %s, but is does not exist" % f
-	self.config.daqfile_available = False
+        self.config.daqHdf5file_available = False
       else:
-	self.config.daqfile_available = True
-       
+        self.config.daqHdf5file_available = True
+    
+    # TODO get according xtc path and check if present.
+    filenamesXtc = []
+    
+    # check if cached files are present
+    filenamesIxp = []
+    for f in filenamesH5:
+      cached_filename = os.path.join(self.config.cachePath,os.path.basename(f))
+      if tools.fileExists(cached_filename):
+	filenamesIxp.append(cached_filename)
+      
+    return (filenamesH5,filenamesXtc,filenamesIxp)
+
 
   def _makeFilenameFromExpRun(self):
     if type(self.config.run) is not list:
@@ -579,31 +310,536 @@ class dataset(object):
     for trun in run:
       tpath = '%s/hdf5'  %(self.config.experiment)
       tfile = '%s-r%04d.h5'  %(self.config.experiment,trun)
-      filenames.append(os.path.join(self.config.inputDirectory,tpath,tfile))
+      filenames.append(os.path.join(self.config.dataPath,tpath,tfile))
     return filenames
 
+  def _getFileStrategy(self):
+    if self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
+      self.config.filestrategy = ['ixp']
+    if not self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
+      if self.readCachedData:
+	print "found ixp file in cache, will try to use it (override with readCachedData keyword)"
+	self.config.filestrategy = ['h5','ixp']
+      else:
+	print "found ixp file in cache, will not be used, but might get overridden!!"
+	self.config.filestrategy = ['h5']
 
-  def _rdCachedData(self):
-    fina = self.config.cache_filename
-    F = h5py.File(fina)
-    fkeys = F.keys()
+    else:
+      self.config.filestrategy = ['h5']
 
-  def addSavedObject(self,name):
-    self.__dict__[name] = dropData()
-    self.__dict__[name]._savelist = []
-    self._saved_objects.append(name)
+
+
+def address(fileNum,stepNum,what):
+  return "_file%d.step%d.%s" % (fileNum,stepNum,what)
+
+class memdata(object):
+  def __init__(self,name=None,input=None):
+    self._name = name
+    if input==None:
+      raise Exception("memdata can not be initialized as no datasources were defined.")
+    if hasattr(input,'isevtObj') and input.isevtObj:
+      self._evtObj = input
+      self._rdAllData = None
+    elif hasattr(input,'__call__'):
+      self._rdAllData = input
+      self._evtObj = None
+    else:
+      self._evtObj = None
+      self._rdAllData = None
+      self._data,self._time = initmemdataraw(input)
+
+      lens = [len(td) for td in self._data]
+      self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+      self._Nsteps = len(lens)
+    self._expand = False
+    self.interp  = interp(self)
     
-  def _add_saved_datafield(self,name,data):
-    if not "_savelist" in self.__dict__:
-      self._savelist = ['_savelist']
-    self._savelist.append(name)
-    self._savelist = list(set(self._savelist))
-    self.__dict__[name] = data
+    if not self._evtObj==None:
+      self._evtObj.evt_cb = self._evtCall
+  
+  def _getFilteredData(self):
+    if not hasattr(self,'_data'):
+      if not self._rdAllData==None:
+	self._data,self._time = initmemdataraw(self._rdAllData())
+	lens = [len(td) for td in self._data]
+	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+	self._Nsteps = len(lens)
 
-  def save(self,force=False):
-    self.config.cache.save(force=force)
-      
-############## DETECTOR ############################
+    dat,stepsz = ravelScanSteps(self._data)
+    return [dat[tf] for tf in self._filter]
+  data = property(_getFilteredData)
+  
+  def _getFilteredTime(self):
+    if not hasattr(self,'_time'):
+      if not self._rdAllData==None:
+	self._data,self._time = initmemdataraw(self._rdAllData())
+	lens = [len(td) for td in self._data]
+	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+	self._Nsteps = len(lens)
+    dat,stepsz = ravelScanSteps(self._time)
+    return [dat[tf] for tf in self._filter]
+  time = property(_getFilteredTime)
+
+  def __repr__(self):
+    return "memdata associated to %s" % str(self._name) + '\n' + self._get_ana_str() 
+
+  def _get_ana_str(self):
+    ostr = ''
+    ad = self.R
+    hrange = np.percentile(ad,[5,95])
+
+    formnum = lambda(num): '{:<9}'.format('%0.4g' %(num))
+    for n in range(len(self)):
+      ostr+='Step %04d:'%n + tools.hist_asciicontrast(self[n],bins=40,range=hrange,disprange=False) +'\n'
+    ho = tools.hist_ascii(ad,range=hrange,bins=40)
+    ostr+=ho.horizontal()
+    return ostr
+  
+  def _evtCall(self):
+    dat,time,stepNo,fileNo = self._evtObj.rdEvent()
+    self._addEvt(dat,time,stepNo,fileNo)
+  def _addEvt(self,data,time,stepNo,fileNo):
+    pass
+  
+  def __len__(self):
+    return len(self._filter)
+  
+  def _dataSource(self):
+    if not self._data==None:
+      return 'data'
+    else:
+      if not self._rdStride==None:
+	return 'rdStride'
+      elif not self_evtObj==None:
+	return 'evtObj'
+      else:
+	return None
+
+  def ravel(self):
+    return np.hstack(self.data)
+
+  def filter(self,lims=None,inplace=False):
+    dat,stsz = ravelScanSteps(self.data)
+    lims,filt = filter(dat,lims)
+    filt = unravelIndexScanSteps(filt.nonzero()[0],stsz)
+    if inplace:
+      self._filter = filt
+      return self
+    else:
+      tim,dum = ravelScanSteps(self.time)
+      return memdata(input=[[dat[tf] for tf in filt],
+                            [tim[tf] for tf in filt]])
+  
+  def digitize(self,bins=None,inplace = False):
+    dat,stsz = ravelScanSteps(self.data)
+    inds,bins = digitize(dat,bins)
+    binrange = range(len(bins))
+
+    filt = [(inds==tbin).nonzero()[0] for tbin in binrange]
+    if inplace:
+      self._filter = filt
+      return self
+    else:
+      tim,dum = ravelScanSteps(self.time)
+      return memdata(input=[[dat[tf] for tf in filt],
+                            [tim[tf] for tf in filt]])
+  def ones(self):
+    odat = [np.ones(len(dat)) for dat in self._data]
+    return memdata(input=[odat,self.time])
+
+
+
+
+
+
+
+  R = property(ravel)
+
+
+  def __getitem__(self,x):
+    return self.data[x]
+  
+  # functions to make it feel like a datatype
+  def __add__(self,other):
+    return applyMemdataOperator(operator.add,self,other)
+  def __radd__(self,other):
+    return applyMemdataOperator(operator.add,self,other)
+  def __mul__(self,other):
+    return applyMemdataOperator(operator.mul,self,other)
+  def __rmul__(self,other):
+    return applyMemdataOperator(operator.mul,self,other)
+  def __div__(self,other):
+    return applyMemdataOperator(operator.div,self,other)
+  def __rdiv__(self,other):
+    return applyMemdataOperator(operator.div,self,other,isreverse=True)
+  def __truediv__(self,other):
+    return applyMemdataOperator(operator.truediv,self,other)
+  def __rtruediv__(self,other):
+    return applyMemdataOperator(operator.truediv,self,other,isreverse=True)
+  def __floordiv__(self,other):
+    return applyMemdataOperator(operator.floordiv,self,other)
+  def __rfloordiv__(self,other):
+    return applyMemdataOperator(operator.floordiv,self,other,isreverse=True)
+  def __mod__(self,other):
+    return applyMemdataOperator(operator.mod,self,other)
+  def __rmod__(self,other):
+    return applyMemdataOperator(operator.mod,self,other,isreverse=True)
+  def __sub__(self,other):
+    return applyMemdataOperator(operator.sub,self,other)
+  def __rsub__(self,other):
+    return applyMemdataOperator(operator.sub,self,other,isreverse=True)
+  def __pow__(self,other):
+    return applyMemdataOperator(operator.pow,self,other)
+  def __rpow__(self,other):
+    return applyMemdataOperator(operator.pow,self,other,isreverse=True)
+
+  def __and__(self,other):
+    return applyMemdataOperator(operator.and_,self,other)
+  def __rand__(self,other):
+    return applyMemdataOperator(operator.and_,self,other)
+  def __or__(self,other):
+    return applyMemdataOperator(operator.or_,self,other)
+  def __ror__(self,other):
+    return applyMemdataOperator(operator.or_,self,other)
+  def __xor__(self,other):
+    return applyMemdataOperator(operator.xor,self,other)
+  def __rxor__(self,other):
+    return applyMemdataOperator(operator.xor,self,other)
+  def __le__(self,other):
+    return applyMemdataOperator(operator.le,self,other)
+  def __lt__(self,other):
+    return applyMemdataOperator(operator.lt,self,other)
+  def __eq__(self,other):
+    return applyMemdataOperator(operator.eq,self,other)
+  def __ne__(self,other):
+    return applyMemdataOperator(operator.ne,self,other)
+  def __ge__(self,other):
+    return applyMemdataOperator(operator.ge,self,other)
+  def __gt__(self,other):
+    return applyMemdataOperator(operator.gt,self,other)
+
+def initmemdataraw(data):
+  if data==None:
+    return None,None
+  if type(data) is dict:
+    dk = data.keys()
+    if not (('data' in dk) and ('time' in dk)):
+      print "Raw memdata should be dict with keys data and time of same length"
+      return
+    dat = data['data']
+    tim = data['time']
+  elif type(data) is list:
+    dat = data[0]
+    tim = data[1]
+  if tim==None:
+
+    print "NB: memdata instance without timestamps!"
+  elif not len(dat)==len(tim):
+    print "data and time in raw memdata should have same length"
+    return
+  return dat,tim
+
+class interp(object):
+  def __init__(self,memdinst):
+    self.md = memdinst
+    self._apply_method = None
+  def closest(self):
+    self._apply_method = 'closest'
+  def linear(self):
+    self._apply_method = 'linear'
+  def closestBefore(self):
+    self._apply_method = 'closestBefore'
+  def spline(self):
+    self._apply_method = 'spline'
+  def linearAll(self):
+    self._apply_method = 'linearAll'
+
+  def _linear(self,timeOther):
+    self._apply_method = None
+  def _linearAll(self,timeOther):
+    self._apply_method = None
+  def _closest(self,timeOther):
+    self._apply_method = None
+  def _closestBefore(self,timeOther):
+    self._apply_method = None
+  
+
+class data(object):
+  def __init__(self,name=None,time=None,input=None,ixpAddress=None):
+    self.name = name
+    self._ixpAddress = ixpAddress
+    if input==None:
+      raise Exception("data can not be initialized as no datasources were defined.")
+    if hasattr(input,'isevtObj') and input.isevtObj:
+      self._procObj = None
+      self._evtObj = input
+      self._rdStride = None
+    elif hasattr(input,'__call__'):
+      self._procObj = None
+      self._rdStride = input
+      self._evtObj = None
+    elif type(input) is dict:
+      self._procObj = input
+      self._evtObj = None
+      self._rdStride = self._rdFromObj
+    else:
+      self._procObj = None
+      self._evtObj = None
+      self._rdStride = None
+
+    if time==None:
+      print Exception("Warning: Missing timestamps for data instance!")
+    if hasattr(time,'isevtObj') and input.isevtObj:
+      self._evtObjtime = input
+      self._rdTime = None
+    elif hasattr(time,'__call__'):
+      self._rdTime = input
+      self._evtObj = None
+    else:
+      self._time = time
+      self._evtObj = None
+      self._rdTime = None
+    lens = [len(td) for td in self._time]
+    self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+    self._Nsteps = len(lens)
+    self._lens = lens
+
+  def __repr__(self):
+      return "`data` object: %s " % self.name
+
+  def _getFilteredTime(self):
+    if not hasattr(self,'_time'):
+      if not self._rdAllData==None:
+	self._data,self._time = initmemdataraw(self._rdAllData())
+	lens = [len(td) for td in self._data]
+	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+	self._Nsteps = len(lens)
+    dat,stepsz = ravelScanSteps(self._time)
+    return [dat[tf] for tf in self._filter]
+  time = property(_getFilteredTime)
+  ## data object (self)manipulation
+  #def _getFromSelf(self,what):
+    #""" get data from object for example: d.ipm2.get("_file0.step3.channel") """
+    #return tools.getFromObj(self,what)
+  #def _existsInSelf(self,what):
+    #return tools.existsInObj(self,what)
+  #def _addToSelf(self,what,value,overWrite=True):
+    #return tools.addToObj(self,what,value,overWrite=overWrite)
+
+  def __getitem__(self,x):
+    n = self._Nsteps
+    lens = [len(tfilt) for tfilt in self._filter]
+    x = tools.iterfy(x)
+    if len(x)==1:
+      if n==1:
+        stepInd = [0]
+        evtInd = [tools.itemgetToIndices(x[0],lens[tind],boolean=True) for tind in stepInd]
+      else:
+	raise IndexError('More than one scanstep [scanstep,event] index pair required!')
+    elif len(x)==2:
+      stepInd = tools.itemgetToIndices(x[0],n)
+      evtInd = [tools.itemgetToIndices(x[1],lens[tind]) for tind in stepInd]
+    return self._getStepsShots(stepInd,evtInd)
+    
+
+  def _getStepsShots(self,stepInd,evtInd):
+    lens = [len(tfilt) for tfilt in self._filter]
+    inds = ravelIndexScanSteps(evtInd,lens,stepNo = stepInd)
+    indsdat = np.hstack(self._filter).argsort()[inds]
+    indsdat_sorted = np.sort(indsdat)
+    indsdat_read = unravelIndexScanSteps(indsdat_sorted,self._lens)
+    stepInd_read = [n for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+    evtInd_read  = [indsdat_read[n] - int(np.sum(self._lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+    dat = np.concatenate(
+	[self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)])
+    ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
+    dat = [dat[tind_resort,...] for tind_resort in ind_resort if len(tind_resort)>0]
+    return dat
+
+    #if len(stepInd)>1:
+    #return [self._rdStride(step,tevtInd) for step,tevtInd in zip(stepInd,evtInd)]
+  def _applyfun(self,procObj,stepStride,eventStride):
+    #TODO: 
+    pass
+  def _rdFromObj(self,step, evtInd):
+    ret = applyFunction(self._procObj['func'],
+	                 self._procObj['args'],
+			 self._procObj['kwargs'],
+			 stride = [step,evtInd],
+			 InputDependentOutput=True,
+			 NdataOut=1,NmemdataOut=0, picky=False)
+    return [tret[self._procObj['nargSelf']] for tret in ret]
+
+
+
+class scanVar(object):
+  def __init__(self,fhandle,name,paths):
+    self._h5s = fhandle
+    self._name = name
+    self._paths = paths
+    self._checkNcalib()
+    self._read()
+
+  def _read(self):
+    names = self._h5s[0][self._paths % 0]["name"]
+    self.name  = list(names)[0]
+    self.names = list(names)
+    for i in range(len(self._h5s)):
+      h=self._h5s[i]
+      v = []
+      for c in range(self._numOfScanSteps[i]):
+        val = h[self._paths % c]["value"]
+        for (n,v) in zip(names,val):
+          tools.addToObj(self,address(i,c,n),v)
+    for n in names:
+      dhelp = memdata(self,n,0)
+      tools.addToObj(self,n,dhelp)
+
+  def __repr__(self):
+    return "`scanVar` object: %s" % self._name
+
+  # data object (self)manipulation
+
+  def _checkNcalib(self):
+    self._numOfScanSteps = []
+    for h in self._h5s:
+      n=0
+      while( tH5.datasetExists(h,self._paths % n) ):
+        n+=1
+      self._numOfScanSteps.append(n)
+    return self._numOfScanSteps
+
+  def __getitem__(self,x):
+    return tools.getFromObj(self,self.name)[x]
+  
+
+
+  
+
+def ravelScanSteps(ip):
+  stepsizes = [len(tip) for tip in ip]
+  op = np.hstack(ip)
+  return op,stepsizes
+
+def ravelIndexScanSteps(ip,stepsizes,stepNo=None):
+  if (not len(ip)==len(stepsizes)):
+    if not stepNo==None:
+      stepNo = tools.iterfy(stepNo)
+      aip = [[]]*len(stepsizes)
+      for tstepNo,tip in zip(stepNo,ip): 
+	aip[tstepNo] = tip
+      ip = aip
+    else:
+      raise Exception('index list doesn\'t fit stepsizes; Extra keyword argument stepNo required.')
+  op = []
+  asz= 0
+  for tip,tsz in zip(ip,stepsizes):
+    tip = np.array(tip,dtype=int)
+    op.append(tip+asz)
+    asz+=tsz
+  return np.hstack(op)
+
+def unravelScanSteps(ip,stepsizes):
+  op = []
+  startind = 0
+  stopind = 0
+  for stepNO,stepsize in enumerate(stepsizes):
+    stopind += stepsize
+    op.append(ip[startind:stopind])
+    startind += stepsize
+  return op
+
+def unravelIndexScanSteps(ip,stepsizes,replacements=None):
+  op = []
+  startind = 0
+  stopind = 0
+  for stepsize in stepsizes:
+    stopind += stepsize
+    tind = np.logical_and(startind<=ip,ip<stopind)
+    if replacements==None:
+      op.append(ip[tind])
+    else:
+      op.append(replacements[tind])
+    startind += stepsize
+  return op
+
+####
+def getStepShotsFromIndsTime(inds,times,stride=None):
+  """ Takes inds (indices of the ravelled output sorted in lists of steps) as well as the time array of a detector to sort into inds. returns list for each nonempty inds step sontaining array of involved steps and shots in those steps.
+  """
+  addresses = [[(step,shot) for shot in range(len(ttime))] for step,ttime in enumerate(times)]
+  added = []
+  for addr in addresses:
+    added.extend(addr)
+  added = np.array(added)
+  stepShots = []
+  #print inds
+  for step,ind in enumerate(inds):
+    if len(ind)>0:
+      ts = np.vstack(added[np.ix_(ind)])
+      if not stride==None:
+	ts = ts[stride]
+      tsteps = np.unique(ts[:,0])
+      tshots = [ts[(ts[:,0]==n).nonzero()[0],1] for n in tsteps]
+      stepShots.append([tsteps,tshots])
+  #print stepShots
+  return stepShots
+
+
+####
+
+def filterTimestamps(ts0,ts1):
+  """returns 2 list of indices arrays: 
+    1) ts0 subset that is in ts1 
+    2) bring ts1 in the order of ts0"""
+  #raise NotImplementedError('Use the source, luke!')
+  ts0r,ss0 = ravelScanSteps(ts0)
+  ts1r,ss1 = ravelScanSteps(ts1)
+  ts0r = getTime(ts0r)
+  ts1r = getTime(ts1r)
+  sel0rb = np.in1d(ts0r,ts1r)
+  sel1rb = np.in1d(ts1r,ts0r)
+  sel1ri = sel1rb.nonzero()[0][ts1r[sel1rb].argsort()[ts0r[sel0rb].argsort().argsort()]]
+  op0 = unravelIndexScanSteps(sel0rb.nonzero()[0],ss0)
+  ss1a = [len(top0) for top0 in op0]
+  op1 = unravelScanSteps(sel1ri,ss1a)
+  return op0,op1
+
+def getTime(tsi):
+  if tsi.dtype.names:
+    nam = tsi.dtype.names
+    if ('nanoseconds' in nam) and ('seconds' in nam):
+      tso = tsi['seconds']*1000 + tsi['nanoseconds']/1000000
+  else:
+    tso = tsi
+  return tso
+
+  ## check if timestamps are already read.
+  #for det in self.detectors:
+    #if not hasattr(self.__dict__[det],'time'):
+      #print "reading timestamps of %s" %det
+      #self.rdTimestamps()
+      #break
+    
+  #for det in self.detectors:
+    #self.__dict__[det]._add_saved_datafield('_filt_time',[])
+  #for sNo in range(self.noofsteps):
+    #for det in self.detectors:
+      #try:
+	#tfilt = np.ones(np.shape(self.__dict__[det].time[sNo]),dtype=bool)
+	#ttime = self._timeInMs(self.__dict__[det].time[sNo])
+	#for cdet in np.setdiff1d(self.detectors,[det]):
+	  #ctime = self._timeInMs(self.__dict__[cdet].time[sNo])
+	  #cfilt = np.in1d(ttime,ctime)
+	  ##if sum(np.logical_not(cfilt))>0:
+	    ##de=bug
+	  #tfilt = np.logical_and(tfilt,cfilt)
+	#tfilt = np.logical_not(tfilt)
+	#self.__dict__[det]._filt_time.append(tfilt)
+      #except:
+	#print "Problem in time stamp filtering with %s at step %d." %(det,sNo)
+  #self._initfilter()
+
 
 class singledet(object):
   def __init__(self,config,det):
@@ -850,80 +1086,6 @@ class singledet(object):
       chunks.append(chunk(dataset,indices,chunkind[cN],pointdets))
     return chunks
 
-############## EPICS ############################
-class epics(object):
-  def __init__(self,config):
-    self.config = config
-    self._savelist = ['_savelist']
-    try:
-      self._initEpicsData()
-    except:
-      print "Epics Data not initialized, possibly not existing in datafile!"
-    
-    #for PV in self.PVnames:
-      #PVflat = PV.replace(':','_')
-      #PVflat = PVflat.replace(' ','_')
-      #PVflat = PVflat.replace('-','_')
-      #PVflat = PVflat.replace('.','_')
-      #exec('self.'+PVflat+' = property(self._get_'+PVflat+')')
-
-  def _add_saved_datafield(self,name,data):
-    if not "_savelist" in self.__dict__:
-      self._savelist = ['_savelist']
-    self._savelist.append(name)
-    self._savelist = list(set(self._savelist))
-    self.__dict__[name] = data
-
-  def _initEpicsData(self):
-    self._edset = self.config.cnfFile['epics_dset']
-    self._ccedset = self.config.cnfFile['epics_cc_dset']
-    if not self.config.fileHandle:
-      self.config.fileHandle = h5py.File(self.config.filename[0],mode='r')
-    dset = self.config.fileHandle[self._edset]
-    pvs = dset.keys()
-    self.PVnames = pvs
-    for PV in pvs:
-      PVflat = PV.replace(':','_')
-      PVflat = PVflat.replace('-','_')
-      PVflat = PVflat.replace(' ','_')
-      PVflat = PVflat.replace('.','_')
-      self.__dict__['_get_'+PVflat] = partial(self.getEpicsPVdata,PV)
-      setattr(self.__class__,PVflat,property(self.__dict__['_get_'+PVflat]))
-
-
-  def _rdEpicsPVsingle(self,PV):
-    edset = self._edset
-    dset = self.config.fileHandle[edset][PV]['data']
-    data = dset.value
-    return data
-
-    
-  def getEpicsPVdata(self,*args):
-    #print args
-    PV = args[0]      
-    PVflat = PV.replace(':','_')
-    PVflat = PVflat.replace('-','_')
-    PVflat = PVflat.replace(' ','_')
-    PVflat = PVflat.replace('.','_')
-    PVflat = str(PVflat)
-
-    try:
-      data = self.__dict__['_'+PVflat+'_data']
-    except:
-      data = self._rdEpicsPVdata(PV)
-      self._add_saved_datafield('_'+PVflat+'_data',data)
-    return data
-
-
-  def _rdEpicsPVdata(self,PV):
-    self.config.base._rdScanPar()
-    data = []
-    for stepNo in range(len(self.config.base._controlPv)):
-      dsetstring = self.config.base._mkScanStepDataSetString(self._ccedset+'/'+PV+'/data',stepNo)
-      dset = self.config.fileHandle[dsetstring]
-      data.append(rdHdf5dataFromDataSet(dset))
-    return data
-
 ############ CHUNK #############
 class chunk(object):
   def __init__(self,dataset,filtindices,chunkind,pointdets=dict()):
@@ -1122,28 +1284,22 @@ def _rdConfigurationRaw(fina="ixppy_config"):
   """Reads configuration file that has the description of the different detectors, the default data paths etc."""
   if not os.path.isfile(fina):
     path = os.path.abspath(__file__)
-    #print path
     fina = os.path.dirname(path) + '/' + fina    
   filecontent = dict()
-  file = open(fina)
+  fhandle = open(fina)
+  lines = fhandle.readlines()
+  fhandle.close()
   foundlabel = False
-  while 1:
-    line = file.readline()
-    if not line:
-      try:
-        filecontent[tlabel] = tdat
-      except:
-        pass
-      break
+  for i in range(len(lines)):
+    line = lines[i].strip()
 
-    if foundlabel:
+    if foundlabel and (len(line)!=0):
       if line[0] is not '#':
         if line.split():
           tdat.append(line.split())
       else:
         # case when dataset should be finished
         filecontent[tlabel] = tdat
-        foundlabel = False
 
     #label line, keyword to characterize dataset starting next line
     if line[:2]=='#*':
@@ -1151,17 +1307,15 @@ def _rdConfigurationRaw(fina="ixppy_config"):
       tlabel = line.split()[0]
       foundlabel = True
       tdat = []
-  file.close()
   return filecontent
 
-rdConfigurationRaw = _rdConfigurationRaw
 
 def rdConfiguration(fina="ixppy_config",beamline=None):
   dat = _rdConfigurationRaw(fina)
   home = expanduser("~")
   if os.path.exists(home+'/.ixppyrc'):
     datuser = _rdConfigurationRaw(home+'/.ixppyrc')
-    dat = tools.dict_merge(dat,datuser)
+    dat = tools.dictMerge(dat,datuser)
   cnf = dict()
   # structurize file output to enable later restructuring of configuration file
   # dataset aliases
@@ -1181,25 +1335,38 @@ def rdConfiguration(fina="ixppy_config",beamline=None):
   cnf["areaDet"] = dict(areaDetcommon.items() + areaDetbeamline.items())
 
   #cnf["areaDet"] = _interpreteDetectorConfig(dat,'areaDet',cnf['beamline'])
-  cnf["defaultPath"] = _interpreteDefaultPath(dat,cnf['beamline'])
-  cnf["scan_step"] = dat['scan_step'][0]
+  cnf["dataPath"] = _interpreteCnfPath(dat,cnf['beamline'],what="data_path")
+  cnf["cachePath"] = _interpreteCnfPath(dat,cnf['beamline'],what="cache_path")
+  cnf["scan_step"] = dat['scan_step']
   cnf["cache_directory"] = dat['cache_directory'][0]
-  cnf["epics_dset"] = dat['epics_dset'][0][0]
+  cnf["epics_dset"] = dat['epics_dset'][0]
   cnf["epics_cc_dset"] = dat['epics_dset'][0][1]
 
   return cnf
 
 ############ FILE/PATH TOOLS  #############
-def _interpreteDefaultPath(confraw,beamline):
+def _interpreteCnfPath(confraw,beamline,what="data_path"):
   cnf = dict()
-  for line in confraw["default_datapath_hosts"]:
-    if line[0]==beamline:
+  if (what == "cache_path"):
+    for line in confraw["cache_directory"]:
       cnf[line[1]] = line[2]
-  for line in confraw["default_datapath"]:
-    if line[0]==beamline:
-      cnf['default'] = line[1]
-      break
+  else:
+    for line in confraw["default_datapath_hosts"]:
+      if line[0]==beamline:
+        cnf[line[1]] = line[2]
+    for line in confraw["default_datapath"]:
+      if line[0]==beamline:
+        cnf['default'] = line[1]
+        break
   return cnf
+
+def _getInputDirectory(cnfFile):
+    knownhosts = cnfFile['dataPath'].keys()
+    if gethostname() in knownhosts:
+      inputDirectory = cnfFile['dataPath'][gethostname()]
+    else:
+      inputDirectory = os.path.join(cnfFile['dataPath']['default'],cnfFile['beamline'])
+    return inputDirectory
 
 def _interpreteDetectorConfig(confraw,detkind,beamline):
   """interprets detector configuration"""
@@ -1217,9 +1384,9 @@ def _interpreteDetectorConfig(confraw,detkind,beamline):
         noofbak[alias] += 1 
         alias = alias + '_bak' + str(noofbak[alias])
       cnf[alias] = dict()
-      cnf[alias]['dataset_data'] = dat[detname][n][1]
-      cnf[alias]['dataset_time'] = dat[detname][n][2]
-      cnf[alias]['dataset_conf'] = dat[detname][n][3]
+      cnf[alias]['data'] = dat[detname][n][1]
+      cnf[alias]['timestamp'] = dat[detname][n][2]
+      cnf[alias]['conf'] = dat[detname][n][3]
       n+=1
     return cnf
   except:
@@ -1632,7 +1799,10 @@ def TTextractFilterPositions(Areadet,filtsettings=None,polysettings=None):
 
 
 
-def TTextractProfiles(Areadet, refmon=None, refthreshold=.1, lmon=None,lmonthreshold=0.05,Nxoff=3, profileLimits=None, profileLimitsRef=None,transpose=False, Nmax=None, steps=None,calibcycles=None,append_to_det=True,saveoffs=False,dataset_name_traces='TTtraces'):
+def TTextractProfiles(Areadet, refmon=None, refthreshold=.1, lmon=None,
+    lmonthreshold=0.05,Nxoff=3, profileLimits=None, profileLimitsRef=None,
+    transpose=False, Nmax=None, steps=None,calibcycles=None,append_to_det=True,
+    saveoffs=False,dataset_name_traces='TTtraces'):
   """
     Areadet is the dataset with the camera images
     'refmon' is the incoming intensity monitor (to check for x-ray off)
@@ -1862,9 +2032,6 @@ def rdHDFsubset(fina,dataset,idx):
   dataspace.close()
   f.close()
 
-class dropObject:
-  pass
-
 class dropData:
   def add_saved_datafield(self,name,data):
     """adds to a list of datasets to be saved. For faster data recovery and for saving custom analysis progresses (e.g. reduced data from pixel detectors)."""
@@ -1874,36 +2041,13 @@ class dropData:
     self.__dict__[name] = data
   pass
 
-def iterfy(iterable):
-    if isinstance(iterable, basestring):
-        iterable = [iterable]
-    try:
-        iter(iterable)
-    except TypeError:
-        iterable = [iterable]
-    return iterable
+def _timeInMs(time_struc):
+  """Makes millisecond array from the read second and nanosecond arrays"""
+  ms = np.uint64(time_struc['seconds'])
+  ms = ms*1000 + np.round_(time_struc['nanoseconds'],-6)/1000000
+  return ms
 
-def isiter(iterable):
-    if isinstance(iterable, basestring):
-        isv = False
-    try:
-        iter(iterable)
-        isv = True
-    except TypeError:
-        isv = False
-    return isv
 
-def iterdepth(iterable):
-  """only for lists/arrays, only along first element"""
-  if isiter(iterable):
-    N = 0
-    iter = True
-    while iter:
-      N+=1
-      iter = eval('isiter(iterable'+(N)*'[0]'+')')
-  else: 
-    N=0
-  return N
 
 ########## POINT DETECTOR CALCULATIONS ################
 def calc_weightedRatio(scanvec,detector,monitor,bins=None,isBinCenter=True):
@@ -2293,6 +2437,49 @@ def plotScan(data, monitorIPM='ipm3', detector='diodeU', detectorfieldname='chan
 
 ###### Filtering events ############
 
+def filter(dat,lims=None,graphicalInput=True,figName=None):
+
+  if not figName:
+    figName = 'Select filter limits'
+
+  if graphicalInput and lims==None:
+    tools.nfigure(figName)
+    pl.clf()
+    N,edg = tools.histogramSmart(dat)
+    pl.step(edg[:-1]+np.diff(edg),N,'k')
+    lims = tools.getSpanCoordinates()
+  if type(lims) is bool:
+    filt = (dat==lims)
+  else:
+    filt = (dat>lims[0])&(dat<lims[1])
+
+  return lims,filt
+
+def digitize(dat,bins=None,graphicalInput=True,figName=None):
+
+  if not figName:
+    figName = 'Select filter limits'
+
+  if graphicalInput and bins==None:
+    tools.nfigure(figName)
+    pl.clf()
+    N,edg = tools.histogramSmart(dat)
+    pl.step(edg[:-1]+np.diff(edg),N,'k')
+    lims = tools.getSpanCoordinates()
+    ip = 0
+    bins = None
+    hs = []
+    while not ip=='q':
+      ip = raw_input('Enter number of bins (q to finish)')
+      if ip=='q': continue
+      bins = np.linspace(np.min(lims),np.max(lims),int(ip))
+      for th in hs: 
+	th.remove()
+	hs = []
+      hs = [pl.axvline(te) for te in bins]
+  
+  return np.digitize(dat,bins),bins
+
 def parameterFilt(par,dataset=None,name=None,lims=None,graphicalInput=True,scanstep=None,figName=None):
   par = iterfy(par)
   if dataset:
@@ -2561,10 +2748,10 @@ def _getInputDirectory(cnfFile):
     return inputDirectory
 
 def applyOperator(optr,a,b,isreverse=False):
-  a = iterfy(a)
-  b = iterfy(b)
+  a = tools.iterfy(a)
+  b = tools.iterfy(b)
 
-  res = ixppyList()
+  res = []
   if not isreverse:
     if len(a)==len(b):
       for ta,tb in zip(a,b):
@@ -2581,6 +2768,68 @@ def applyOperator(optr,a,b,isreverse=False):
         res.append(optr(b,ta))
   return res
 
+def expandMemdata(a,b):
+  aex = a._expand
+  bex = b._expand
+  if aex and bex:
+    raise Exception("Can not expand both ixppy.memdata instances in one operation!")
+  elif not aex and not bex:
+    return a,b
+  else:
+    if aex:
+      pass
+      
+
+
+def applyMemdataOperator(optr,a,b,isreverse=False):
+  amem = isinstance(a,memdata) 
+  bmem = isinstance(b,memdata) 
+
+  if amem and bmem:
+    a,b = expandMemdata(a,b)
+    #a,b = interpMemdata(a,b)
+    #a,b = interpStepMemdata(a,b)
+
+    ai,bi = filterTimestamps(a.time,b.time)
+    # TODO: check if ressource expensive
+    ar = np.hstack(a.data)
+    br = np.hstack(b.data)
+    ri,rstepsizes = ravelScanSteps(ai)
+    resdat = optr(ar[ri],br[np.hstack(bi)])
+    restim = np.hstack(a.time)[ri]
+    resdat = unravelScanSteps(resdat,rstepsizes)
+    restim = unravelScanSteps(restim,rstepsizes)
+  elif amem or bmem:
+    if amem:
+      adat = a.data
+      restim = a.time
+      bdat = b
+    elif bmem:
+      bdat = b.data
+      restim = b.time
+      adat = a
+    adat = tools.iterfy(adat)
+    bdat = tools.iterfy(bdat)
+    resdat = []
+    if not isreverse:
+      if len(adat)==len(bdat):
+	for ta,tb in zip(adat,bdat):
+	    resdat.append(optr(ta,tb))
+      else:
+	for ta in adat:
+	  resdat.append(optr(ta,bdat))
+    else:
+      if len(adat)==len(bdat):
+	for ta,tb in zip(adat,bdat):
+	    resdat.append(optr(tb,ta))
+      else:
+	for ta in adat:
+	  resdat.append(optr(bdat,ta))
+  
+  return memdata(input=[resdat,restim])
+      
+    
+
 def _applyFun(func,a):
   res = ixppyList()
   for ta in a:
@@ -2588,76 +2837,279 @@ def _applyFun(func,a):
   return res
 
 
-class ixppyList(list):
-  #self.config = config
-  #def __new__(self,dset=None):
-    #self.dset = dset
-    #return self
-  def ravel(self):
-    return np.hstack(self)
-  R = property(ravel)
-  #def setDsetFilt(self,**kwargs):
-    #parameterFilt(self,
+def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,NmemdataOut=0, picky=False, isPerEvt=False, stride=None, outputtypes=None):
+  """ rules: 
+  - if data output, no other output possible, as output is not calculated. 
+  - all event dependent arguments have to be passed as memdata or data instances
+  - first arg has timestamp sort priority, kwargs after args, kwargs are inter-
+    preted in "sort- order". This priority order also holds for scanvec data.
+  - When InputDependentOutput is true (default) the output expects:
+    a) one data instance if any data insctance in input
+    b) one memdata instance if memdata instance in input and no data instance
+    otherwise NmemdataOut and NdataOut need to be specified. All other output 
+    comes after ixppy instances if avaiable.
+  """
+  if outputtypes==None:
+    outputtypes = NdataOut*['data'] + NmemdataOut*['memdata']
+  ##### Filter timestampsin order, args first, kwargs after sorted keys
+  allobjects = [(arg,0,argno) for argno,arg in enumerate(args) if (isinstance(arg,data) or isinstance(arg,memdata))]
+  kwkeys = kwargs.keys()
+  kwkeys.sort()
+  for keyno,key in enumerate(kwkeys):
+    if (isinstance(kwargs[key],data) or isinstance(kwargs[key],memdata)):
+      allobjects.append((kwargs[key],1,keyno))
+  rtimes = get_common_timestamps([ao[0] for ao in allobjects])
+  # get also other arguments in seperate list for later use in length analysis if needed
+  if not picky and not rtimes==None:
+    # get other input
+    otherargs = [(arg,0,argno) for argno,arg in enumerate(args) if ( not isinstance(arg,data) and not isinstance(arg,memdata))]
+    for keyno,key in enumerate(kwkeys):
+      if ( not isinstance(arg,data) and not isinstance(arg,memdata)):
+	otherargs.append((kwargs[key],1,keyno))
+    otherlens = [(len(toa),iskey,argno) for toa,iskey,argno in otherargs if (type(toa) is not str and np.iterable(toa))]
+    if not otherlens==[]:
+      lens,lensiskey,lensargno = zip(*otherlens)
+      tequallengths = np.array(lens)==len(rtimes) and not np.array(lens)==1
+      otherip = [otherargs[otherlens[eqi]] for eqi in tequallengths.nonzero()[0]]
+    else:
+      otherip = []
+  else:
+    otherip = []
 
-  #self.__dict__['__'+fieldname] = partial(self._compress_name,fieldname)
-  #setattr(self.__class__,fieldname,property(self.__dict__['__'+fieldname]))
-  def __add__(self,other):
-    return applyOperator(operator.add,self,other)
-  def __radd__(self,other):
-    return applyOperator(operator.add,self,other)
-  def __mul__(self,other):
-    return applyOperator(operator.mul,self,other)
-  def __rmul__(self,other):
-    return applyOperator(operator.mul,self,other)
-  def __div__(self,other):
-    return applyOperator(operator.div,self,other)
-  def __rdiv__(self,other):
-    return applyOperator(operator.div,self,other,isreverse=True)
-  def __truediv__(self,other):
-    return applyOperator(operator.truediv,self,other)
-  def __rtruediv__(self,other):
-    return applyOperator(operator.truediv,self,other,isreverse=True)
-  def __floordiv__(self,other):
-    return applyOperator(operator.floordiv,self,other)
-  def __rfloordiv__(self,other):
-    return applyOperator(operator.floordiv,self,other,isreverse=True)
-  def __mod__(self,other):
-    return applyOperator(operator.mod,self,other)
-  def __rmod__(self,other):
-    return applyOperator(operator.mod,self,other,isreverse=True)
-  def __sub__(self,other):
-    return applyOperator(operator.sub,self,other)
-  def __rsub__(self,other):
-    return applyOperator(operator.sub,self,other,isreverse=True)
-  def __pow__(self,other):
-    return applyOperator(operator.pow,self,other)
-  def __rpow__(self,other):
-    return applyOperator(operator.pow,self,other,isreverse=True)
+  ############ generate output ############
+  # case of data instance in input, at the moment seems like data might come out, but this has to be thought about more.
+  if np.array([isinstance(to[0],data) for to in allobjects]).any():
+    if 'data' in outputtypes and stride==None:
+      # this is the normal case to make an object that will act upon call
+      output = []
+      for nargSelf in (np.array(outputtypes)=='data').nonzero()[0]:
+        procObj = dict(func=func,args=args,kwargs=kwargs,nargSelf=nargSelf)
+        output.append(data(time=rtimes,input=procObj))
+      if len(output)>1:
+	output = tuple(output)
+      else:
+	output = output[0]
+    # case mainly when executes as data procObj
+    elif 'data' in outputtypes and not stride==None:
+      ixppyip = []
+      for o,iskey,argind in allobjects: #assuming here that data instances are out!
+	ir,io      = filterTimestamps(rtimes,o.time)
+	
+	if isinstance(o,data):
+	  io = getStepShotsFromIndsTime(io,o.time,stride=stride[1])
+	ixppyip.append(([o,io,iskey,argind]))
 
-  def __and__(self,other):
-    return applyOperator(operator.and_,self,other)
-  def __rand__(self,other):
-    return applyOperator(operator.and_,self,other)
-  def __or__(self,other):
-    return applyOperator(operator.or_,self,other)
-  def __ror__(self,other):
-    return applyOperator(operator.or_,self,other)
-  def __xor__(self,other):
-    return applyOperator(operator.xor,self,other)
-  def __rxor__(self,other):
-    return applyOperator(operator.xor,self,other)
-  def __le__(self,other):
-    return applyOperator(operator.le,self,other)
-  def __lt__(self,other):
-    return applyOperator(operator.lt,self,other)
-  def __eq__(self,other):
-    return applyOperator(operator.eq,self,other)
-  def __ne__(self,other):
-    return applyOperator(operator.ne,self,other)
-  def __ge__(self,other):
-    return applyOperator(operator.ge,self,other)
-  def __gt__(self,other):
-    return applyOperator(operator.gt,self,other)
+      # generate input structures
+      output_list = []
+      for step in tools.iterfy(stride[0]):
+	targs   = list(pycopy.copy(args))
+	tkwargs = pycopy.copy(kwargs)
+	for o,io,k,i in ixppyip:
+	  if not k:
+	    if isinstance(o,memdata):
+	      odat,stpsz = ravelScanSteps(o.data)
+	      targs[i] = odat[io[step]][stride[1]]
+	    else:
+              tmp = o._getStepsShots(io[step][0],io[step][1])[0]
+	      trnspsorder = range(np.rank(tmp))
+              trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
+	      #raise NotImplementedError('Use the source, luke!')
+              targs[i] = tmp.transpose(trnspsorder)
+
+	  else:
+	    tkwargs[kwkeys[i]]  = o[step][stride[1]]
+	    if isinstance(o,memdata):
+	      odat,stpsz = ravelScanSteps(o.data)
+	      tkwargs[kwkeys[i]] = odat[io[step]][stride[1]]
+	    else:
+              tmp = o._getStepsShots(io[step][0],io[step][1])[0]
+	      trnspsorder = range(np.rank(tmp))
+              trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
+              tkwargs[kwkeys[i]] = tmp.transpose(trnspsorder)
+	for o,k,i in otherip:
+	  if not k:
+	    targs[i] = o[step]
+	  else:
+	    tkwargs[kwkeys[i]]  = o[step]
+	if isPerEvt:
+	  # TODO: in case func works only for single shot
+	  pass
+	else:
+
+	  tret = func(*targs,**tkwargs)
+	if type(tret) is not tuple: 
+	  tret = (tret,)
+	tret = list(tret)
+	for ono,ttret in enumerate(tret):
+	  rnk = np.rank(ttret)
+	  if rnk>1:
+	    trnspsorder = range(rnk)
+            trnspsorder = [trnspsorder[-1]]+trnspsorder[:-1]
+            tret[ono]   = ttret.transpose(trnspsorder)
+	tret = tuple(tret)
+	output_list.append(tret)
+    ############ interprete output automatically find memdata candidates ###########
+      output_list = zip(*output_list)
+      output = output_list
+      
+
+  # "Easy" case where everything fits in memory, no data instance in input.
+  elif np.array([isinstance(to[0],memdata) for to in allobjects]).any():
+    ixppyip = []
+    for o,iskey,argind in allobjects: #assuming here that data instances are out!
+      ir,io      = filterTimestamps(rtimes,o.time)
+      odat,stpsz = ravelScanSteps(o.data)
+      ixppyip.append(([odat[tio] for tio in io],iskey,argind))
+    # generate input structures
+    output_list = []
+    for step in range(len(rtimes)):
+      targs   = list(pycopy.copy(args))
+      tkwargs = pycopy.copy(kwargs)
+      for o,k,i in ixppyip + otherip:
+	if not k:
+	  targs[i] = o[step]
+	else:
+	  tkwargs[kwkeys[i]]  = o[step]
+      if isPerEvt:
+	# TODO: in case func works only for single shot
+	pass
+      else:
+	tret = func(*targs,**tkwargs)
+      if type(tret) is not tuple: 
+	tret = (tret,)
+      output_list.append(tret)
+  ############ interprete output automatically find memdata candidates ###########
+    output_list = zip(*output_list)
+    # check for equal output and find candidates for data/memdata instances
+    output_ismemdata = [opNo  for opNo,ao in enumerate(output_list) \
+	if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
+    for n,top in enumerate(output_list):
+      if n in output_ismemdata:
+	output_list[n] = memdata(input=[top,rtimes])
+      elif top.count(top[0])==len(top):
+	output_list[n] = top[0]
+      elif len(top)>1:
+	output_list[n] = list(top)
+    if len(output_list)>1:
+      output = tuple(output_list)
+    else:
+      output = output_list[0]
+  else:
+    #pass
+    output = func(*args,**kwargs)
+  return output
+
+
+def wrapFunc(func,InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, stride=None):
+  """ rules: 
+  - if data output, no other output possible, as output is not calculated. 
+  - all event dependent arguments have to be passed as memdata or data instances
+  - first arg has timestamp sort priority, kwargs after args, kwargs are inter-
+    preted in "sort- order". This priority order also holds for scanvec data.
+  - When InputDependentOutput is true (default) the output expects:
+    a) one data instance if any data insctance in input
+    b) one memdata instance if memdata instance in input and no data instance
+    otherwise NmemdataOut and NdataOut need to be specified. All other output 
+    comes after ixppy instances if avaiable.
+  """
+
+  @wraps(func)
+  def wrapper(*args,**kwargs):
+    return applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=NdataOut,NmemdataOut=NmemdataOut, picky=picky, isPerEvt=isPerEvt, stride=None)
+  return wrapper
+    
+
+
+def get_common_timestamps(allobjects):
+  times = None
+  for o in allobjects:
+    if times==None:
+      times = o.time
+    else:
+      ia,io = filterTimestamps(times,o.time)
+      iar,stpsz = ravelScanSteps(ia)
+      times = np.hstack(times)[iar]
+      times = unravelScanSteps(times,stpsz)
+  return times
+
+#def get_ts_ind_for_data(timestamps,obj):
+  #ia,io = filterTimestamps(timestamps,obj.time)
+  #ior,stpsz = ravelScanSteps(io)
+  #times = unravelScanSteps(time,stpsz)
+  #return times
+  #o.time
+
+
+#class ixppyList(list):
+  ##self.config = config
+  ###def __new__(self,dset=None):
+    ###self.dset = dset
+    ###return self
+  ##def ravel(self):
+    ##return np.hstack(self)
+  ##R = property(ravel)
+  ###def setDsetFilt(self,**kwargs):
+    ###parameterFilt(self,
+
+  ###self.__dict__['__'+fieldname] = partial(self._compress_name,fieldname)
+  ###setattr(self.__class__,fieldname,property(self.__dict__['__'+fieldname]))
+  ##def __add__(self,other):
+    ##return applyOperator(operator.add,self,other)
+  ##def __radd__(self,other):
+    ##return applyOperator(operator.add,self,other)
+  ##def __mul__(self,other):
+    ##return applyOperator(operator.mul,self,other)
+  ##def __rmul__(self,other):
+    ##return applyOperator(operator.mul,self,other)
+  ##def __div__(self,other):
+    ##return applyOperator(operator.div,self,other)
+  ##def __rdiv__(self,other):
+    ##return applyOperator(operator.div,self,other,isreverse=True)
+  ##def __truediv__(self,other):
+    ##return applyOperator(operator.truediv,self,other)
+  ##def __rtruediv__(self,other):
+    ##return applyOperator(operator.truediv,self,other,isreverse=True)
+  ##def __floordiv__(self,other):
+    ##return applyOperator(operator.floordiv,self,other)
+  ##def __rfloordiv__(self,other):
+    ##return applyOperator(operator.floordiv,self,other,isreverse=True)
+  ##def __mod__(self,other):
+    ##return applyOperator(operator.mod,self,other)
+  ##def __rmod__(self,other):
+    ##return applyOperator(operator.mod,self,other,isreverse=True)
+  ##def __sub__(self,other):
+    ##return applyOperator(operator.sub,self,other)
+  ##def __rsub__(self,other):
+    ##return applyOperator(operator.sub,self,other,isreverse=True)
+  ##def __pow__(self,other):
+    ##return applyOperator(operator.pow,self,other)
+  ##def __rpow__(self,other):
+    ##return applyOperator(operator.pow,self,other,isreverse=True)
+
+  ##def __and__(self,other):
+    ##return applyOperator(operator.and_,self,other)
+  ##def __rand__(self,other):
+    ##return applyOperator(operator.and_,self,other)
+  ##def __or__(self,other):
+    ##return applyOperator(operator.or_,self,other)
+  ##def __ror__(self,other):
+    ##return applyOperator(operator.or_,self,other)
+  ##def __xor__(self,other):
+    ##return applyOperator(operator.xor,self,other)
+  ##def __rxor__(self,other):
+    ##return applyOperator(operator.xor,self,other)
+  ##def __le__(self,other):
+    ##return applyOperator(operator.le,self,other)
+  ##def __lt__(self,other):
+    ##return applyOperator(operator.lt,self,other)
+  ##def __eq__(self,other):
+    ##return applyOperator(operator.eq,self,other)
+  ##def __ne__(self,other):
+    ##return applyOperator(operator.ne,self,other)
+  ##def __ge__(self,other):
+    ##return applyOperator(operator.ge,self,other)
+  ##def __gt__(self,other):
+    ##return applyOperator(operator.gt,self,other)
 
 
 class _Lcls_beamline(object):
@@ -2854,14 +3306,14 @@ def parseToCnf(fileHandle):
     ds = fileHandle[dset['dset_data']]
     if len(np.shape(ds[0]))>0:
       cnf['areaDet'][detname] = dict()
-      cnf['areaDet'][detname]['dataset_conf'] = 'dummy'
-      cnf['areaDet'][detname]['dataset_time'] = dset['dset_time'].split(ccn)[1]
-      cnf['areaDet'][detname]['dataset_data'] = dset['dset_data'].split(ccn)[1]
+      cnf['areaDet'][detname]['conf'] = 'dummy'
+      cnf['areaDet'][detname]['timestamp'] = dset['dset_time'].split(ccn)[1]
+      cnf['areaDet'][detname]['data'] = dset['dset_data'].split(ccn)[1]
     else:
       cnf['pointDet'][detname] = dict()
-      cnf['pointDet'][detname]['dataset_conf'] = 'dummy'
-      cnf['pointDet'][detname]['dataset_time'] = dset['dset_time'].split(ccn)[1]
-      cnf['pointDet'][detname]['dataset_data'] = dset['dset_data'].split(ccn)[1]
+      cnf['pointDet'][detname]['conf'] = 'dummy'
+      cnf['pointDet'][detname]['timestap'] = dset['dset_time'].split(ccn)[1]
+      cnf['pointDet'][detname]['data'] = dset['dset_data'].split(ccn)[1]
   return cnf
   
 def crawlforDatasets(group,skipEpics = True, skipEvr = True):
@@ -2912,8 +3364,8 @@ for bl in beamlines:
 cnfFile = rdConfiguration()
 beamline = cnfFile['beamline']
 # initialize pointdet readers
-for det in cnfFile['pointDet'].keys():
-  exec('rd'+det[0].upper()+det[1:]+'AllData = partial(_rdDetAllData,det=det)')
+#for det in cnfFile['pointDet'].keys():
+#  exec('rd'+det[0].upper()+det[1:]+'AllData = partial(_rdDetAllData,det=det)')
 
 # initialize areadet readers
 for det in cnfFile['areaDet'].keys():

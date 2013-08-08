@@ -62,7 +62,12 @@ class lclsH5(object):
     # Getting all Detector path strings in CCs and config
     try:
       # try to use only CalibCycle0
-      base = "Configure:0000/Run:0000/CalibCycle:0000/"
+      # bad for MEC as some calib cycles don't contain amything... look for longest dataset for now, later look in all
+
+      base = "Configure:0000/Run:0000/"
+      bases = h[base].keys()
+      lens = np.array([len(h[base][key].keys()) for key in bases])
+      base = base + bases[lens.argmax()] +'/'
       h5names = tH5.getDataset_hack(h[base])
       #h5names = [base+x for x in h5names]
       # find all confs
@@ -79,7 +84,6 @@ class lclsH5(object):
     except KeyError:
       h5names = tH5.getDataset(h)
 
-    #raise NotImplementedError('Use the source, luke!')
     
 
     ret = {}
@@ -128,8 +132,8 @@ class lclsH5(object):
         ret[mnemonic] = {}
 	#ret[mnemonic]["data"] = data[0].replace('CalibCycle:0000','CalibCycle:%04d')
 	#ret[mnemonic]["time"] = time[0].replace('CalibCycle:0000','CalibCycle:%04d')
-        ret[mnemonic]["data"] = [tdat.replace('CalibCycle:0000','CalibCycle:%04d') for tdat in data]
-        ret[mnemonic]["time"] = [ttim.replace('CalibCycle:0000','CalibCycle:%04d') for ttim in time]
+        ret[mnemonic]["data"] = [replaceCalibCycleString(tdat) for tdat in data]
+        ret[mnemonic]["time"] = [replaceCalibCycleString(ttim) for ttim in time]
         if len(detConf)>0:
           ret[mnemonic]["conf"] = detConf[0]
     self._pointDetPaths = ret
@@ -154,8 +158,8 @@ class lclsH5(object):
       time = [x for x in detDataset if x[-5:]=="/time"]
       if ( (len(data) != 0) and (len(time) !=0) ):
         ret[mnemonic] = {}
-        ret[mnemonic]["data"] = [tdat.replace('CalibCycle:0000','CalibCycle:%04d') for tdat in data]
-        ret[mnemonic]["time"] = [ttim.replace('CalibCycle:0000','CalibCycle:%04d') for ttim in time]
+        ret[mnemonic]["data"] = [replaceCalibCycleString(tdat) for tdat in data]
+        ret[mnemonic]["time"] = [replaceCalibCycleString(ttim) for ttim in time]
         ret[mnemonic]["conf"] = conf
     self._areaDetPaths = ret
     self.areaDetNames = ret.keys()
@@ -168,7 +172,7 @@ class lclsH5(object):
         mne,reg = scan_var
         reg  = reg.replace("*","\S+")
         data = [x for x in h5names if (re.search(reg,x) is not None)]
-        path = data[0].replace('CalibCycle:0000','CalibCycle:%04d')
+        path = replaceCalibCycleString(data[0])
 	#try:
         obj = scanVar(self.fileHandles,mne,path)
         
@@ -300,6 +304,7 @@ class detector(object):
 	timepath = self._paths['time'][0]
 	dat,fields = self._readPointDataGeneral(datapath)
 	times = self._readTime(timepath)
+
 	if not fields==[]:
 	  self.fields = dict()
 	  for field,tdat in zip(fields,dat):
@@ -333,26 +338,36 @@ class detector(object):
       fileNum,FstepNum = self._getFileStep(stepNum)
       cpath = path % FstepNum # really beautiful, same for python 3 ?
       data = h5r(self._h5s[fileNum],cpath)
-      if (shotSlice is None):
-	data = data[...]
-      else:
-	data = data[shotSlice]
+      try:
+	if (shotSlice is None):
+	  data = data[...]
+	else:
+	  data = data[shotSlice]
+      except:
+	data = np.array([])
+
       outS.append(data)
-      
-    if outS[0].dtype.names:
+
+    # find structure with something in
+    outSind = 0
+    for toutS in outS:
+      if len(toutS)>0:
+	break
+      outSind+=1
+
+    if outS[outSind].dtype.names:
       if not field==None:
 	index = ''
-	while not field in outS[0].dtype.names:
+	while not field in outS[outSind].dtype.names:
 	  index = field[-1] + index
 	  field = field[:-1]
 	index = int(index)
         fields = [field]
       else:
-        fields = outS[0].dtype.names
+        fields = outS[outSind].dtype.names
 	index = None
       
-
-      pret = [[dd[tfield] for dd in outS] for tfield in fields]
+      pret = [[dd[tfield] if len(dd)>0 else np.array([]) for dd in outS ] for tfield in fields]
       ret = []
       retfields = []
       for tret,tfield in zip(pret,fields):
@@ -404,13 +419,28 @@ class detector(object):
     return tools.addToObj(self,what,value,overWrite=overWrite)
 
   def _checkNcalib(self):
-    self._numOfScanStepsFile = []
+    numOfScanStepsFile = []
     path = tools.commonPathPrefix(self._paths["data"])
     for h in self._h5s:
       n=0
       while( tH5.datasetExists(h,path % n) ):
         n+=1
-      self._numOfScanStepsFile.append(n)
+      numOfScanStepsFile.append(n)
+    nccs = []
+    for h in self._h5s:
+      n=0
+      while( tH5.datasetExists(h,'/Configure:0000/Run:0000/CalibCycle:%04d/' % n) ):
+        n+=1
+      nccs.append(n)
+    self._numOfScanStepsFile = []
+    for n in range(len(self._h5s)):
+      if nccs[n] > numOfScanStepsFile[n]:
+	print "More calibcycle structures than detectors, will lead to empty detector steps..."
+        self._numOfScanStepsFile.append(nccs[n])
+      else:
+        self._numOfScanStepsFile.append(numOfScanStepsFile)
+
+    
     return self._numOfScanStepsFile
 
   def __getitem__(self,x):
@@ -449,18 +479,24 @@ class detector(object):
     stepSlice = tools.iterfy(stepSlice)
     times = []
     for stepNum in stepSlice:
-
       fileNum,FstepNum = self._getFileStep(stepNum)
       tpath = path % FstepNum
-      time = h5r(self._h5s[fileNum],tpath)[...]
-      # add timestamps to ".time"
-      #self._addToSelf(addr,time)
-      times.append(time)
+      time = h5r(self._h5s[fileNum],tpath)
+      try:  
+	if (shotSlice is None):
+          time = time[...]
+        else:
+          time = time[shotSlice]
+      except:
+        time = np.array([])
 
-    if (shotSlice is None):
-      return times
-    else:
-      return time[shotSlice]
+      times.append(time)
+    return times
+
+    #if (shotSlice is None):
+      #return times
+    #else:
+      #return time[shotSlice]
 
   def _setupEventCodes(self):
     h=self._h5s[0]
@@ -617,7 +653,12 @@ def parseToCnf(fileHandle):
 
   for dset in dsets:
     detname = tools.varName(os.path.split(os.path.split(dset['dset_data'])[0])[1])
-    ccn = '/Configure:0000/Run:0000/CalibCycle:0000/'
+    base = "/Configure:0000/Run:0000/"
+    bases = h[base].keys()
+    lens = np.array([len(h[base][key].keys()) for key in bases])
+    base = base + bases[lens.argmax()] +'/'
+    #ccn = '/Configure:0000/Run:0000/CalibCycle:0000/'
+    ccn = base
 
     ds = fileHandle[dset['dset_data']]
     if len(np.shape(ds[0]))>0:
@@ -650,6 +691,42 @@ def getDetNamefromPath(path,lowerit=False):
 def address(fileNum,stepNum,what):
   return "_file%d.step%d.%s" % (fileNum,stepNum,what)
 
+def findDatasetsInHdf5(filehandle):
+  rundset = filehandle['Configure:0000']['Run:0000']
+  ccname = rundset.keys()[0]
+  dsets = crawlforDatasets(rundset[ccname])
+  return dsets
+
+def crawlforDatasets(group,skipEpics = True, skipEvr = True):
+  found = []
+  if 'Epics::EpicsPv' in group.name:
+    return found
+  if 'Evr' in group.name:
+    return found
+  itemnames  = group.keys()
+  if u'time' in itemnames:
+    if isinstance(group['time'],h5py.Dataset):
+      if u'image' in itemnames:
+        if isinstance(group['image'],h5py.Dataset):
+          if group['time'].shape[0] == group['image'].shape[0]:
+            dset = dict()
+            dset['dset_data'] =  group['image'].name
+            dset['dset_time'] =  group['time'].name
+            #dset['dset_type'] =  'areadet'
+            found.extend([dset])
+      elif u'data' in itemnames:
+        if isinstance(group['data'],h5py.Dataset):
+          if group['time'].shape[0] == group['data'].shape[0]:
+            dset = dict()
+            dset['dset_data'] =  group['data'].name
+            dset['dset_time'] =  group['time'].name
+            #dset['dset_type'] =  'pointdet'
+            found.extend([dset])
+  else:
+    for itemname in itemnames:
+      if isinstance(group[itemname],h5py.Group):
+        found.extend(crawlforDatasets(group[itemname]))
+  return found
 ### Henrik: This part I think could go to some plugin directory. I put it here anyway, mainly as I failed to get it to work. The problem I ran into is cross imports, import detector class from plugin module and importing detector wrapper from here didn't work.
 pluginNames = ['epics','eventCode']
 #pluginNames = []
@@ -700,3 +777,12 @@ class detector_eventCode(detector):
       name = 'code_'+str(code)
       cd = [np.array([True if code in evt else False for evt in step]) for step in dat]
       self.fields[name] = [cd,tim] 
+
+def replaceCalibCycleString(input,digits=4):
+  fstr = 'CalibCycle:'
+  starti = input.find(fstr)
+  replstr = input[starti:starti+len(fstr)+digits]
+  input = input.replace(replstr,'CalibCycle:%04d')
+  return input
+
+

@@ -141,6 +141,46 @@ def getSpanCoordinates(direction='horizontal',axh=None,fig=None):
   del selector
   return roi.lims
 
+def getBins(lims,direction='horizontal',axh=None,fig=None):
+  # TODO
+  """Tool for selecting a span, functionality similar to ginput. Finish with right mouse button."""
+  if not axh:
+    axh = pl.gca()
+  if not fig: fig = pl.gcf()
+  class BINNING:
+    def __init__(self,fig,axh,direction):
+      self.fig = fig
+      self.axh = axh
+      self.lims = []
+      self.boxh = []
+      self.finished = False
+      self.direction = direction
+
+    def coo(self,tmin,tmax):
+      self.lims = [tmin,tmax]
+      if self.boxh:
+        self.boxh.remove()
+      if self.direction is 'horizontal':
+        self.boxh = pl.axvspan(tmin,tmax,facecolor='r',alpha=0.5)
+      if self.direction is 'vertical':
+        self.boxh = pl.axhspan(tmin,tmax,facecolor='r',alpha=0.5)
+      fig.canvas.draw()
+    
+    def button_press_callback(self,event):
+      if event.inaxes:
+        if event.button == 3:
+          self.finished = True
+  roi = ROI(fig,axh,direction)
+  selector = pl.matplotlib.widgets.SpanSelector(axh,roi.coo,direction)
+  fig.canvas.mpl_connect('button_press_event', roi.button_press_callback)
+  print "Select Span region of interest, finish with right click."
+  while not roi.finished:
+    pl.waitforbuttonpress()
+  
+  roi.boxh.remove()
+  fig.canvas.draw()
+  del selector
+  return roi.lims
 def getCoordinate(direction='both',axh=None,fig=None):
   """Tool for selecting a coordinate, functionality similar to ginput for a single point. Finish with right mouse button."""
   if not axh:
@@ -294,6 +334,73 @@ def imagesc(*args,**kwargs):
 
   return h
 
+def imagesc2(*args,**kwargs):
+  slider = kwargs.get('slider',False)
+  handle = kwargs.get('handle',[])
+  if slider and handle==[]:
+    pl.clf()
+  interpolation = 'nearest'
+  if len(args)==1:
+    h = pl.imshow(args[0],interpolation=interpolation)
+    I = args[0]
+  elif len(args)==3:
+    x = args[0]
+    y = args[1]
+    I = args[2]
+    ny,nx = np.shape(I)
+    if len(x)==nx+1:
+      print "imagesc: x-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges."
+      x = x[:-1]+np.mean(np.diff(x))
+    elif len(x)==nx-1:
+      print "imagesc: x-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides."
+      x = x-np.mean(np.diff(x))
+    elif not len(x)==nx:
+      print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
+    if len(y)==ny+1:
+      print "imagesc: y-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges."
+      y = y[:-1]+np.mean(np.diff(y))
+    elif len(y)==ny-1:
+      print "imagesc: y-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides."
+      y = y-np.mean(np.diff(y))
+    elif not len(y)==ny:
+      print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
+      print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
+    dx = float(max(x)-min(x))
+    dy = float(max(y)-min(y))
+    xmn = min(x)-dx/(nx-1)/2
+    xmx = max(x)+dx/(nx-1)/2
+    ymn = min(y)-dy/(ny-1)/2
+    ymx = max(y)+dy/(ny-1)/2
+    h = pl.imshow(I,interpolation=interpolation,origin='bottom',*kwargs)
+    (loc,lab) = pl.xticks()
+    idx = (loc>=0) & (loc<nx)
+    loc = loc[idx]
+    pl.xticks(loc,[x[p] for p in loc])
+    pl.axis('tight')
+
+  if slider:
+    from matplotlib.widgets import Slider, Button, RadioButtons
+    fig = pl.gcf()
+    fig.subplots_adjust(left=0.25, bottom=0.25)
+    fig.colorbar(h)
+    axcolor = 'lightgoldenrodyellow'
+    prc = np.percentile(I,range(0,101,10))
+    axmin = fig.add_axes([0.25, 0.1, 0.65, 0.03], axisbg=axcolor)
+    axmax   = fig.add_axes([0.25, 0.15, 0.65, 0.03], axisbg=axcolor)
+    for n in range(1,11):
+      axmin.axvline(prc[n],color='k')
+      axmax.axvline(prc[n],color='k')
+    smin = Slider(axmin, 'Min', prc[0], prc[-1], valinit=prc[3])
+    smax = Slider(axmax, 'Max', prc[0], prc[-1], valinit=prc[-4])
+    def update(val):
+      h.set_clim([smin.val,smax.val])
+      fig.canvas.draw()
+    smin.on_changed(update)
+    smax.on_changed(update)
+
+  return h
+
+
 def addPngMetadata(fname,dictionary):
 	""" This function is meant to store information about the analysis on a 
 	png image created with matplotlib;
@@ -368,3 +475,119 @@ def cmap_smooth(I=None,axh=None,Nlevels=256,cmap_lin=None):
   levels = np.percentile(I.ravel(),list(np.linspace(0,100,Nlevels)))
   cmap_nonlin = nlcmap(cmap_lin,levels)
   pl.set_cmap(cmap_nonlin)
+
+
+greyscale = [
+            " ",
+            " ",
+            ".,-",
+            "_ivc=!/|\\~",
+            "gjez2]/(YL)t[+T7Vf",
+            "mdK4ZGbNDXY5P*Q",
+            "W8KMA",
+            "#%$"
+            ]
+from bisect import bisect
+from random import randint
+
+def hist_asciicontrast(x,bins=50,range=None,disprange=True):
+  h,edges = np.histogram(x,bins=bins,range=range)
+  if np.sum(h)==0:
+    bounds = np.linspace(min(h),1,len(greyscale)-1)
+  else:
+    bounds = np.linspace(min(h),max(h),len(greyscale)-1)
+  hstr = ''
+  
+  for bin in h:
+    syms = greyscale[bisect(bounds,bin)]
+    hstr+=syms[randint(0,len(syms)-1)]
+
+  if disprange:
+    hstr = '{:>10}'.format('%0.5g' %(edges[0])) + hstr + '{:>10}'.format('%0.5g' %(edges[-1]))
+
+  return hstr  
+  
+class hist_ascii(object):
+    """
+    Ascii histogram
+    """
+    def __init__(self, data, bins=50,percRange=None,range=None):
+        """
+        Class constructor
+        
+        :Parameters:
+            - `data`: array like object
+        """
+	if not percRange==None:
+	  range = np.percentile(data,percRange)
+
+        self.data = data
+        self.bins = bins
+        self.h = np.histogram(self.data, bins=self.bins, range=range)
+    def horizontal(self, height=4, character ='|'):
+        """Returns a multiline string containing a
+        a horizontal histogram representation of self.data
+        :Parameters:
+            - `height`: Height of the histogram in characters
+            - `character`: Character to use
+        >>> d = normal(size=1000)
+        >>> h = Histogram(d,bins=25)
+        >>> print h.horizontal(5,'|')
+        106            |||
+                      |||||
+                      |||||||
+                    ||||||||||
+                   |||||||||||||
+        -3.42                         3.09
+        """
+        his = """"""
+        bars = 1.*self.h[0]/np.max(self.h[0])*height
+        formnum = lambda(num): '{:<9}'.format('%0.4g' %(num))
+        for l in reversed(range(1,height+1)):      
+            line = ""
+            if l == height:
+                line = formnum(np.max(self.h[0])) + ' ' #histogram top count
+            else:
+                line = ' '*(9+1) #add leading spaces
+            for c in bars:
+                if c >= np.ceil(l):
+                    line += character
+                else:
+                    line += ' '
+            line +='\n'
+            his += line
+        his += formnum(self.h[1][0]) + ' '*(self.bins) + formnum(self.h[1][-1]) + '\n'
+        return his
+    def vertical(self,height=20, character ='|'):
+        """
+        Returns a Multi-line string containing a
+        a vertical histogram representation of self.data
+        :Parameters:
+            - `height`: Height of the histogram in characters
+            - `character`: Character to use
+        >>> d = normal(size=1000)
+        >>> Histogram(d,bins=10)
+        >>> print h.vertical(15,'*')
+                              236
+        -3.42:
+        -2.78:
+        -2.14: ***
+        -1.51: *********
+        -0.87: *************
+        -0.23: ***************
+        0.41 : ***********
+        1.04 : ********
+        1.68 : *
+        2.32 :
+        """
+        his = """"""
+        xl = ['%.2f'%n for n in self.h[1]]
+        lxl = [len(l) for l in xl]
+        bars = self.h[0]/max(self.h[0])*height
+        his += ' '*(np.max(bars)+2+np.max(lxl))+'%s\n'%np.max(self.h[0])
+        for i,c in enumerate(bars):
+            line = xl[i] +' '*(np.max(lxl)-lxl[i])+': '+ character*c+'\n'
+            his += line
+        return his
+            
+ 

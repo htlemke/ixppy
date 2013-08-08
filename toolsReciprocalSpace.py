@@ -1,9 +1,10 @@
 import numpy as np
-import tools
+import toolsVarious
+import toolsVecAndMat
 
 def gamdel2Qfibold(gamma,delta,alpha,lam):
-  gamma = np.array(tools.iterfy(gamma))
-  delta = np.array(tools.iterfy(delta))
+  gamma = np.array(toolsVarious.iterfy(gamma))
+  delta = np.array(toolsVarious.iterfy(delta))
 
   shpgam = np.shape(gamma)
   shpdel = np.shape(delta)
@@ -12,7 +13,7 @@ def gamdel2Qfibold(gamma,delta,alpha,lam):
     return
   gamma = gamma.ravel()
   delta = delta.ravel()
-  Qs =  2*np.pi/lam * -np.array(tools.rotmat3D([0,1,0],alpha)*np.mat([
+  Qs =  2*np.pi/lam * -np.array(toolsVecAndMat.rotmat3D([0,1,0],alpha)*np.mat([
     np.cos(delta)*np.cos(gamma)-1,
     -np.cos(delta)*np.sin(gamma),
     -np.sin(delta)]))
@@ -23,8 +24,8 @@ def gamdel2Qfibold(gamma,delta,alpha,lam):
   return Qip,Qop
 
 def gamdel2Qfib(gamma,delta,alpha,lam):
-  gamma = np.array(tools.iterfy(gamma))
-  delta = np.array(tools.iterfy(delta))
+  gamma = np.array(toolsVarious.iterfy(gamma))
+  delta = np.array(toolsVarious.iterfy(delta))
 
   shpgam = np.shape(gamma)
   shpdel = np.shape(delta)
@@ -33,7 +34,7 @@ def gamdel2Qfib(gamma,delta,alpha,lam):
     return
   gamma = gamma.ravel()
   delta = delta.ravel()
-  Qs =  2*np.pi/lam * np.array((-tools.rotmat3D([0,1,0],-alpha))*np.mat([
+  Qs =  2*np.pi/lam * np.array((-toolsVecAndMat.rotmat3D([0,1,0],-alpha))*np.mat([
     np.cos(delta)*np.cos(gamma)-1,
     -np.cos(delta)*np.sin(gamma),
     -np.sin(delta)]))
