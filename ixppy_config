@@ -18,53 +18,75 @@ xpp userlaptop /media/super_disk/data
 xpp usercomp  /mnt/server_x/beamtimes/lcls/data
 #xpp lemke-E4300 /reg/d/psdm
 xpp lap /run/media/marcoc/Iomega_HDD/L525
+xpp lap /home/marcoc/slac/experiments/TRABS_Oct10/data
 #xpp lap /run/media/L525
 
 # data paths for data cache. This holds preanalyzed data that can be copied between computers and are read additionally/instead the real datafile.
 #* cache_directory
-/home/lemke/ixppy_cache
+xpp lap /home/marcoc/ixppy_cache
 
-# Scan step definition, parent dataset, initialdataset name, digits
+# Scan step (mnemonic,data)
 #* scan_step
-/Configure:0000/Run:0000  CalibCycle:  4
+scan      ControlData*pvControls
+scanMon     ControlData*pvMonit
 
-# Epics data dataset paths
+# Epics data dataset paths (mnemonic,data)
 #* epics_dset
-/Configure:0000/Epics::EpicsPv/EpicsArch.0:NoDevice.0     Epics::EpicsPv/EpicsArch.0:NoDevice.0
+#
+epics   EpicsArch.0:NoDevice.0
 
-# XPP point detector configuration, label first, then line of different fields: detector alias, dataset link to data, dataset link to time, dataset for configuration.
+# XPP point detector configuration, label first, then line of different fields:
+#* detector alias, dataset link to data, dataset link to time, dataset for configuration.
 #* pointDet_xpp
-ipm1  Lusi::IpmFexV1/NH2-SB1-IPM-01/data  Lusi::IpmFexV1/NH2-SB1-IPM-01/time  dummy
-ipm2  Lusi::IpmFexV1/XppSb2_Ipm/data  Lusi::IpmFexV1/XppSb2_Ipm/time  dummy
-ipm3  Lusi::IpmFexV1/XppSb3_Ipm/data  Lusi::IpmFexV1/XppSb3_Ipm/time  dummy
-diode2  Lusi::IpmFexV1/XppSb3_Pim/data  Lusi::IpmFexV1/XppSb3_Pim/time  dummy
-diode3  Lusi::IpmFexV1/XppSb4_Pim/data  Lusi::IpmFexV1/XppSb4_Pim/time  dummy
-diodeU  Lusi::IpmFexV1/XppEnds_Ipm0/data  Lusi::IpmFexV1/XppEnds_Ipm0/time  dummy
-lom_bpm  Lusi::IpmFexV1/XppMon_Pim0/data  Lusi::IpmFexV1/XppMon_Pim0/time  dummy
-lom_diode  Lusi::IpmFexV1/XppMon_Pim1/data  Lusi::IpmFexV1/XppMon_Pim1/time  dummy
-ipm2  Lusi::IpmFexV1/XppSb2Ipm.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb2Ipm.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb2Ipm.1:Ipimb.0/config
-ipm2  Ipimb::DataV1/XppSb2Ipm.1:Ipimb.0/data  Ipimb::DataV1/XppSb2Ipm.1:Ipimb.0//time  /Configure:0000/Ipimb::ConfigV2/XppSb2Ipm.1:Ipimb.0/config
-ipm3  Lusi::IpmFexV1/XppSb3Ipm.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb3Ipm.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb3Ipm.1:Ipimb.0/config
-diode2  Lusi::IpmFexV1/XppSb3Pim.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb3Pim.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb3Pim.1:Ipimb.0/config
-diode2  Lusi::DiodeFexV1/XppSb3Pim.1:Ipimb.0/data  Lusi::DiodeFexV1/XppSb3Pim.1:Ipimb.0/time  dummy 
-diode3  Lusi::IpmFexV1/XppSb4Pim.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb4Pim.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb4Pim.1:Ipimb.0/config
-diode3  Lusi::DiodeFexV1/XppSb4Pim.1:Ipimb.0/data  Lusi::DiodeFexV1/XppSb4Pim.1:Ipimb.0/time  dummy 
-diodeU  Lusi::IpmFexV1/XppEndstation.1:Ipimb.0/data  Lusi::IpmFexV1/XppEndstation.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppEndstation.1:Ipimb.0/config
-lom_bpm Lusi::IpmFexV1/XppMonPim.1:Ipimb.0/data  Lusi::IpmFexV1/XppMonPim.1:Ipimb.0/time  Lusi::IpmFexV1/XppMonPim.1:Ipimb.0/data
-lom_diode Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/data  Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/time  Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/data
-ttPosRaw Epics::EpicsPv/XppEndstation.0:Opal1000.0/TIMETOOL:FLTPOS/data Epics::EpicsPv/XppEndstation.0:Opal1000.0/TIMETOOL:FLTPOS/time dummy
-encoder  Encoder::DataV2/XppGon.0:Encoder.0/data   Encoder::DataV2/XppGon.0:Encoder.0/time   dummy 
+epics     EpicsArch.0:NoDevice.0 notused   notused
+eventCode EvrData                notused   EvrData*eventcodes
+ipm1      IpmFex*/NH2-SB1-IPM-01 notused   notused 
+ipm2      IpmFex*/XppSb2_Ipm     notused   notused 
+ipm3      IpmFex*/XppSb3Ipm      notused   notused 
+ipm3      IpmFex*/XppSb3_Ipm      notused   notused 
+diode2    IpmFex*/XppSb3_Pim     notused   notused 
+diode3    IpmFex*/XppSb4_Pim     notused   notused 
+diodeU    IpmFex*/XppEnds_Ipm0   notused   notused 
+lom_bpm   IpmFex*/XppMon_Pim0    notused   notused 
+lom_diode IpmFex*/XppMon_Pim1    notused   notused 
+encoder   Data*/XppGon.0:Encoder.0 notused notused
+timeTool   TTSPEC  notused notused
+#ipm1  Lusi::IpmFexV1/NH2-SB1-IPM-01/data  Lusi::IpmFexV1/NH2-SB1-IPM-01/time  dummy
+#ipm2  Lusi::IpmFexV1/XppSb2_Ipm/data  Lusi::IpmFexV1/XppSb2_Ipm/time  dummy
+#ipm3  Lusi::IpmFexV1/XppSb3_Ipm/data  Lusi::IpmFexV1/XppSb3_Ipm/time  dummy
+#diode2  Lusi::IpmFexV1/XppSb3_Pim/data  Lusi::IpmFexV1/XppSb3_Pim/time  dummy
+#diode3  Lusi::IpmFexV1/XppSb4_Pim/data  Lusi::IpmFexV1/XppSb4_Pim/time  dummy
+#diodeU  Lusi::IpmFexV1/XppEnds_Ipm0/data  Lusi::IpmFexV1/XppEnds_Ipm0/time  dummy
+#lom_bpm  Lusi::IpmFexV1/XppMon_Pim0/data  Lusi::IpmFexV1/XppMon_Pim0/time  dummy
+#lom_diode  Lusi::IpmFexV1/XppMon_Pim1/data  Lusi::IpmFexV1/XppMon_Pim1/time  dummy
+#ipm2  Lusi::IpmFexV1/XppSb2Ipm.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb2Ipm.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb2Ipm.1:Ipimb.0/config
+#ipm2  Ipimb::DataV1/XppSb2Ipm.1:Ipimb.0/data  Ipimb::DataV1/XppSb2Ipm.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb2Ipm.1:Ipimb.0/config
+#ipm3  Lusi::IpmFexV1/XppSb3Ipm.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb3Ipm.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb3Ipm.1:Ipimb.0/config
+#diode2  Lusi::IpmFexV1/XppSb3Pim.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb3Pim.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb3Pim.1:Ipimb.0/config
+#diode2  Lusi::DiodeFexV1/XppSb3Pim.1:Ipimb.0/data  Lusi::DiodeFexV1/XppSb3Pim.1:Ipimb.0/time  dummy 
+#diode3  Lusi::IpmFexV1/XppSb4Pim.1:Ipimb.0/data  Lusi::IpmFexV1/XppSb4Pim.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppSb4Pim.1:Ipimb.0/config
+#diode3  Lusi::DiodeFexV1/XppSb4Pim.1:Ipimb.0/data  Lusi::DiodeFexV1/XppSb4Pim.1:Ipimb.0/time  dummy 
+#diodeU  Lusi::IpmFexV1/XppEndstation.1:Ipimb.0/data  Lusi::IpmFexV1/XppEndstation.1:Ipimb.0/time  /Configure:0000/Ipimb::ConfigV2/XppEndstation.1:Ipimb.0/config
+#lom_bpm Lusi::IpmFexV1/XppMonPim.1:Ipimb.0/data  Lusi::IpmFexV1/XppMonPim.1:Ipimb.0/time  Lusi::IpmFexV1/XppMonPim.1:Ipimb.0/data
+#lom_diode Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/data  Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/time  Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/data
+#ttPosRaw Epics::EpicsPv/XppEndstation.0:Opal1000.0/TIMETOOL:FLTPOS/data Epics::EpicsPv/XppEndstation.0:Opal1000.0/TIMETOOL:FLTPOS/time dummy
+#encoder  Encoder::DataV2/XppGon.0:Encoder.0/data   Encoder::DataV2/XppGon.0:Encoder.0/time   dummy 
 
 # Special point detector configuration. Time stamp dataset is normal, data reading is replaced by functions defined in ixppy_specialdet
 #* pointDet_special
-timeTool  special  Epics::EpicsPv/XppEndstation.0:Opal1000.2/TTSPEC:AMPL/time  dummy
-timeTool  special  Epics::EpicsPv/XppEndstation.0:Opal1000.1/TTSPEC:AMPL/time  dummy
-timeTool  special  Epics::EpicsPv/EpicsArch.0:NoDevice.0/TTSPEC:FLTPOS/time  dummy
-timeTool  special  Epics::EpicsPv/XppEndstation.0:Opal1000.0/TTSPEC:AMPL/time  dummy
-eventCode special  EvrData::DataV3/NoDetector.0:Evr.0/time  dummy
+#timeTool.ampl  TTSPEC:AMPL notused notused
+#timeTool.pos   TTSPEC:FLTPOS notused notused
+#timeTool.fwhm  TTSPEC:FLTPOSFWHM notused notused
+#timeTool  special  Epics::EpicsPv/XppEndstation.0:Opal1000.2/TTSPEC:AMPL/time  dummy
+#timeTool  special  Epics::EpicsPv/XppEndstation.0:Opal1000.1/TTSPEC:AMPL/time  dummy
+#timeTool  special  Epics::EpicsPv/EpicsArch.0:NoDevice.0/TTSPEC:FLTPOS/time  dummy
+#timeTool  special  Epics::EpicsPv/XppEndstation.0:Opal1000.0/TTSPEC:AMPL/time  dummy
 
 # XPP area detectors, label as #*line, then line of alias, and data, time, and config datasets
+# internally every * is substituted with "\S+"
+# for areaDet you need to specify /data or /image, etc.
 #* areaDet_xpp
+opal2 Camera::Frame*/XppEndstation.0:Opal1000.2/image notused notused
 cspad  CsPad::ElementV2/XppGon.0:Cspad.0/data  CsPad::ElementV2/XppGon.0:Cspad.0/time  /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
 cspad2x2  CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/data CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/time /Configure:0000/CsPad::ConfigV1/XppGon.0:Cspad.0/config
 cspad2x2 CsPad::ElementV2/XppGon.0:Cspad.0/data CsPad::ElementV2/XppGon.0:Cspad.0/time /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
@@ -92,8 +114,32 @@ dg4  Camera::FrameV1/CxiDg4.0:Tm6740.0/image  Camera::FrameV1/CxiDg2.0:Tm6740.0/
 opal0  Camera::FrameV1/AmoBPS.0:Opal1000.0/image  Camera::FrameV1/AmoBPS.0:Opal1000.0/time
 opal1  Camera::FrameV1/AmoVMI.0:Opal1000.0/image  Camera::FrameV1/AmoVMI.0:Opal1000.0/time
 
+# MEC area detectors, label as #*line, then line of alias, and data, time, and config datasets
+#* pointDet_mec
+ipm1        Lusi::IpmFexV*/MEC-HXM-IPM-01  notused notused
+laserdiode  Lusi::IpmFexV*/MEC-LAS-EM-01   notused notused
+ipm2        Lusi::IpmFexV*/MEC-XT2-IPM-02  notused notused
+ipm3        Lusi::IpmFexV*/MEC-XT2-IPM-03  notused notused
+
+
+# MEC area detectors, label as #*line, then line of alias, and data, time, and config datasets
+#* areaDet_mec
+princeton1   Princeton::Frame*/MecTargetChamber.0:Princeton.1/data  notused notused
+princeton2   Princeton::Frame*/MecTargetChamber.0:Princeton.2/data  notused notused
+princeton3   Princeton::Frame*/MecTargetChamber.0:Princeton.3/data  notused notused
+princeton4   Princeton::Frame*/MecTargetChamber.0:Princeton.4/data  notused notused
+princeton5   Princeton::Frame*/MecTargetChamber.0:Princeton.5/data  notused notused
+princeton6   Princeton::Frame*/MecTargetChamber.0:Princeton.6/data  notused notused
+princeton7   Princeton::Frame*/MecTargetChamber.0:Princeton.7/data  notused notused
+princeton8   Princeton::Frame*/MecTargetChamber.0:Princeton.8/data  notused notused
+princeton9   Princeton::Frame*/MecTargetChamber.0:Princeton.9/data  notused notused
+princetonxx  Princeton::FrameV2/MecTargetChamber.0:Princeton.5/data notused notused
+
 # Common point detectors
 #* pointDet_common
+phasec  BldDataPhaseCavity/PhaseCavity notused notused
+ebeam   BldDataEBeam*/EBeam notused notused
+gasdet  GasDetEnergy/FEEGasDetEnergy  notused notused
 xrtipm1 Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/data  Lusi::IpmFexV1/XppMonPim.1:Ipimb.1/time  dummy
 gasdet  Bld::BldDataFEEGasDetEnergy/NoDetector.0:NoDevice.2/data  Bld::BldDataFEEGasDetEnergy/NoDetector.0:NoDevice.2/time  dummy
 gasdet  Bld::BldDataFEEGasDetEnergy/FEEGasDetEnergy/data  Bld::BldDataFEEGasDetEnergy/FEEGasDetEnergy/time  dummy
@@ -101,10 +147,10 @@ ebeam  Bld::BldDataEBeamV3/EBeam/data  Bld::BldDataEBeamV3/EBeam/time  dummy
 ebeam  Bld::BldDataEBeamV1/EBeam/data  Bld::BldDataEBeamV1/EBeam/time  dummy
 ebeam  Bld::BldDataEBeamV1/NoDetector.0:NoDevice.0/data  Bld::BldDataEBeamV1/NoDetector.0:NoDevice.0/time  dummy
 ebeam  Bld::BldDataEBeamV1/Ebeam/data  Bld::BldDataEBeamV1/Ebeam/time  dummy
-phasec  Bld::BldDataPhaseCavity/PhaseCavity/data  Bld::BldDataPhaseCavity/PhaseCavity/time dummy
+#phasec  Bld::BldDataPhaseCavity/PhaseCavity/data  Bld::BldDataPhaseCavity/PhaseCavity/time dummy
 #phasec  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/data  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/time dummy
 #evr  EvrData::DataV3/NoDetector.0:Evr.0/evrData  EvrData::DataV3/NoDetector.0:Evr.0/time  dummy
-phasec  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/data  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/time dummy
+#phasec  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/data  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/time dummy
 
 
 
