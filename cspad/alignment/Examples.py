@@ -40,6 +40,10 @@ import CSPadImageProducer as cip
 import GlobalGraphics     as gg # For test purpose in main only
 import HDF5Methods        as hm # For test purpose in main only
 
+parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print parentdir
+
+alignmentdir = parentdir+'/alignment'
 #----------------------------------------------
 
 def main_example_cxi() :
@@ -96,12 +100,13 @@ def main_example_xpp() :
     #path_calib = '/reg/d/psdm/XPP/xpp36211/calib/CsPad::CalibV1/XppGon.0:Cspad.0'
     #path_calib = '/reg/neh/home/dubrovin/LCLS/CSPadAlignment-v01/calib-xpp36211-r0544'
     #path_calib = '/reg/d/psdm/xpp/xpp47712/calib/CsPad::CalibV1/XppGon.0:Cspad.0'
-    path_calib = '/reg/d/psdm/XPP/xppcom10/calib/CsPad::CalibV1/XppGon.0:Cspad.0'
-
+    #path_calib = '/reg/d/psdm/XPP/xppcom10/calib/CsPad::CalibV1/XppGon.0:Cspad.0'
+    path_calib = '/reg/neh/home1/dubrovin/LCLS/CSPadAlignment-v01/calib-xpp-2013-01-29'
+    
 
     #fname, runnum = '/reg/d/psdm/xpp/xpp36211/hdf5/xpp36211-r0073.h5', 73
     #fname, runnum = '/reg/d/psdm/xpp/xpp47712/hdf5/xpp47712-r0043.h5', 43
-    fname, runnum = '/reg/d/psdm/XPP/xppcom10/hdf5/xppcom10-r1437.h5', 1437
+    fname, runnum = '/reg/d/psdm/XPP/xppi0613/hdf5/xppi0613-r0080.h5', 80
 
     dsname = '/Configure:0000/Run:0000/CalibCycle:0000/CsPad::ElementV2/XppGon.0:Cspad.0/data'
 
@@ -195,20 +200,40 @@ def example_of_image_built_from_pix_coordinate_array_for_entire_cspad() :
     """All CSPAD segments are assumed to be presented in this dataset 
     """
 
-    fname, runnum = '/reg/d/psdm/XPP/xppcom10/hdf5/xppcom10-r1437.h5', 1437
+
+    fname, runnum = '/reg/d/psdm/XPP/xppi0613/hdf5/xppi0613-r0080.h5', 80
     dsname        = '/Configure:0000/Run:0000/CalibCycle:0000/CsPad::ElementV2/XppGon.0:Cspad.0/data'
-    path_calib    = '/reg/d/psdm/XPP/xppcom10/calib/CsPad::CalibV1/XppGon.0:Cspad.0'
-    Range         = (1700,2000)
+    path_calib = '/reg/neh/home1/dubrovin/LCLS/CSPadAlignment-v01/calib-xpp-2013-01-29'
+    path_calib = '/reg/neh/home1/lemke/mypy/ixppy/cspad/alignment/calib-xpp-2013-01-29'
+    #path_calib = None
+    #if not path_calib:
+      #allfiles = os.listdir(alignmentdir)
+      #files = []
+      #for tf in allfiles:
+	#if 'calib-' in tf:
+	  #files.append(tf)
+      #print "Please select calibration file:"
+      #for i,tf in enumerate(files):
+	#print "%d  :  %s" %(i+1,tf)
+      #path_calib = files[int(raw_input())-1]
+      #path_calib = os.path.join(alignmentdir,path_calib)
     
+    print path_calib
+    Range         = (0,300)
+    
+    runnum = 0
     calp.calibpars.setCalibParsForPath (run=runnum, path=path_calib)
     #cpe.cpeval.printCalibParsEvaluated ('center_global')
     cpe.cpeval.evaluateCSPadPixCoordinates (rotation=0)
+    #cpe.cpeval.evaluateCSPadPixCoordinatesShapedAsData(fname=fname,dsname=dsname)
+    cpe.cpeval.evaluateCSPadPixCoordinatesShapedAsData()
     ds1ev = hm.getOneCSPadEventForTest (fname, dsname, event=0) # returns array with shape=(32, 185, 388)
 
     arr = cpe.cpeval.getTestImageForEntireArray(ds1ev)
-    gg.plotImage(arr,range=Range,figsize=(11.6,10))
-    gg.move(200,100)
-    gg.show()
+    #gg.plotImage(arr,range=Range,figsize=(11.6,10))
+    #gg.move(200,100)
+    #gg.show()
+    return arr,cpe
 
 #----------------------------------------------
 

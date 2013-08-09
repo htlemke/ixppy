@@ -27,36 +27,47 @@ def getCsPadPixCoordinates(path_calib=alignmentdir+'/calib-xpp-2013-01-29',
     for i,tf in enumerate(files):
       print "%d  :  %s" %(i+1,tf)
     path_calib = files[int(raw_input())-1]
+  path_calib = os.path.join(alignmentdir,path_calib)
 
-  calp.calibpars.setCalibParsForPath (path=path_calib)
-  cpe.cpeval.evaluateCSPadPixCoordinates (rotation, mirror)
+
+  calp.calibpars.setCalibParsForPath (run=0, path=path_calib)
+  cpe.cpeval.evaluateCSPadPixCoordinates (rotation)
+  cpe.cpeval.evaluateCSPadPixCoordinatesShapedAsData()
+  x,y = cpe.cpeval.getCSPadPixCoordinatesShapedAsData_um()
+
+  #calp.calibpars.setCalibParsForPath (run=0,path=path_calib)
+  #cpe.cpeval.evaluateCSPadPixCoordinates (rotation, mirror)
 
   #ccp.cspadconfig.setCSPadConfiguration(fname, dsname, event=0)
-  quadNumsInEvent  = np.arange(4)
-  indPairsInQuads  = np.arange(32).reshape(4,-1)
-  nquads           = 4
-  nsects           = 8
-
-  nsects_in_data = max(indPairsInQuads.flatten()) + 1
-  x = np.zeros((nsects_in_data,185,388), dtype=np.float32)
-  y = np.zeros((nsects_in_data,185,388), dtype=np.float32)
-  
-  for iq in range(len(quadNumsInEvent)) :
-      quad = int(quadNumsInEvent[iq]) # uint8 -> int
-      for segm in range(8): # loop over ind = 0,1,2,...,7
-          ind_segm_in_arr = indPairsInQuads[quad][segm]
-          if ind_segm_in_arr == -1 : continue
-
-          x[ind_segm_in_arr][:] = cpe.cpeval.pix_global_x[quad][segm][:]
-          y[ind_segm_in_arr][:] = cpe.cpeval.pix_global_y[quad][segm][:]
+  #quadNumsInEvent  = np.arange(4)
+  #indPairsInQuads  = np.arange(32).reshape(4,-1)
+  #nquads           = 4
+  #nsects           = 8
+#
+  #nsects_in_data = max(indPairsInQuads.flatten()) + 1
+  #x = np.zeros((nsects_in_data,185,388), dtype=np.float32)
+  #y = np.zeros((nsects_in_data,185,388), dtype=np.float32)
+ # 
+  #for iq in range(len(quadNumsInEvent)) :
+      #quad = int(quadNumsInEvent[iq]) # uint8 -> int
+      #for segm in range(8): # loop over ind = 0,1,2,...,7
+	  #ind_segm_in_arr = indPairsInQuads[quad][segm]
+	  #if ind_segm_in_arr == -1 : continue
+#
+	  #x[ind_segm_in_arr][:] = cpe.cpeval.pix_global_x[quad][segm][:]
+	  #y[ind_segm_in_arr][:] = cpe.cpeval.pix_global_y[quad][segm][:]
   return x,y
 
+class loadingtest(object):
+  def loadcoo(self):
+    return getCsPadPixCoordinates(path_calib='')
 
 class CspadPattern(object):
   def __init__(self,Nx=1000,Ny=1000):
     self._path = os.path.abspath(__file__)
     self._xpx = [] 
     self._ypx = []
+    self.load_coordinates()
     xmn = np.min(self.xpx)
     xmx = np.max(self.xpx)
     self.xVec = np.linspace(xmn,xmx,Nx)
@@ -93,7 +104,10 @@ class CspadPattern(object):
     return indout
 
   def load_coordinates(self,rotation=0,mirror=0):
-      self._xpx,self._ypx = getCsPadPixCoordinates(rotation=rotation,mirror=mirror,path_calib='')
+    self._xpx,self._ypx = getCsPadPixCoordinates(rotation=rotation,mirror=mirror,path_calib='')
+
+  def load_coordinates_test(self,rotation=0,mirror=0):
+      return getCsPadPixCoordinatesTT(rotation=rotation,mirror=mirror,path_calib='')
 
   def _get_xpx(self):
     if len(self._xpx)==0:
@@ -324,6 +338,17 @@ pattern = CspadPattern()
 
 def noiseMap(Istack):
   return np.std(np.asfarray(Istack)/sum(Istack),axis=0)
+
+def getNoiseMap(Istack,lims=None):
+  noise = noiseMap(Istack)
+  #np.shape(noise)
+  if lims==None:
+    tools.nfigure('Find noise limits')
+    pl.clf()
+    tools.histSmart(noise.ravel()[~np.isnan(noise.ravel())])
+    print "Select noise limits"
+    lims = tools.getSpanCoordinates()
+  return tools.filtvec(noise,lims)
 
 
 def corrLongPix(I,fillvalues=True,BGcorrect=None):

@@ -77,13 +77,25 @@ class dataset(object):
       self.config.lclsH5obj.checkFiles()
       self.config.lclsH5obj.findDetectors(detectors)
       self.config.lclsH5obj.initDetectors()
+      if hasattr(self.config.lclsH5obj,'scanVars'):
+	for name in self.config.lclsH5obj.scanVars.keys():
+	  tVar = self.config.lclsH5obj.scanVars[name]
+	  if not hasattr(tVar,'names'): continue
+	  self.__dict__[name] = tools.dropObject()
+	  for vname,vdat in zip(tVar.names,np.array(tVar.data).T):
+            self.__dict__[name].__dict__[vname] = vdat
+      if hasattr(self,'scan'):
+	scan=self.scan
+      else:
+	scan=None
+
       for detName in self.config.lclsH5obj.detectorsNames:
         det = self.config.lclsH5obj.detectors[detName]
         if det._isPointDet:
 	  self.__dict__[detName] = tools.dropObject()
 	  if hasattr(det,'fields'):
 	    for fieldName in det.fields.keys():
-              self.__dict__[detName].__dict__[fieldName] = memdata(name=fieldName,input = det.fields[fieldName])
+              self.__dict__[detName].__dict__[fieldName] = memdata(name=fieldName,input = det.fields[fieldName],scan=scan)
 	else:
 	  self.__dict__[detName] = tools.dropObject()
           self.__dict__[detName].data = data(name=detName,time=det.time,input = det.readData)
@@ -333,8 +345,9 @@ def address(fileNum,stepNum,what):
   return "_file%d.step%d.%s" % (fileNum,stepNum,what)
 
 class memdata(object):
-  def __init__(self,name=None,input=None):
+  def __init__(self,name=None,input=None,scan=None):
     self._name = name
+    self.scan = scan
     if input==None:
       raise Exception("memdata can not be initialized as no datasources were defined.")
     if hasattr(input,'isevtObj') and input.isevtObj:
@@ -447,8 +460,14 @@ class memdata(object):
     odat = [np.ones(len(dat)) for dat in self._data]
     return memdata(input=[odat,self.time])
 
-
-
+  def _mean(self):
+    return [np.mean(d) for d in self._data]
+  def _std(self):
+    return [np.std(d) for d in self._data]
+  def _median(self):
+    return [np.median(d) for d in self._data]
+  def _mad(self):
+    return [tools.mad(d) for d in self._data]
 
 
 
@@ -666,6 +685,7 @@ class data(object):
 	                 self._procObj['args'],
 			 self._procObj['kwargs'],
 			 stride = [step,evtInd],
+			 isPerEvt = self._procObj['isPerEvt'],
 			 InputDependentOutput=True,
 			 NdataOut=1,NmemdataOut=0, picky=False)
     return [tret[self._procObj['nargSelf']] for tret in ret]
@@ -2799,15 +2819,18 @@ def applyMemdataOperator(optr,a,b,isreverse=False):
     restim = np.hstack(a.time)[ri]
     resdat = unravelScanSteps(resdat,rstepsizes)
     restim = unravelScanSteps(restim,rstepsizes)
+    scan   = a.scan 
   elif amem or bmem:
     if amem:
       adat = a.data
       restim = a.time
       bdat = b
+      scan   = a.scan 
     elif bmem:
       bdat = b.data
       restim = b.time
       adat = a
+      scan   = a.scan 
     adat = tools.iterfy(adat)
     bdat = tools.iterfy(bdat)
     resdat = []
@@ -2826,7 +2849,7 @@ def applyMemdataOperator(optr,a,b,isreverse=False):
 	for ta in adat:
 	  resdat.append(optr(bdat,ta))
   
-  return memdata(input=[resdat,restim])
+  return memdata(input=[resdat,restim],scan=scan)
       
     
 
@@ -2883,7 +2906,7 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
       # this is the normal case to make an object that will act upon call
       output = []
       for nargSelf in (np.array(outputtypes)=='data').nonzero()[0]:
-        procObj = dict(func=func,args=args,kwargs=kwargs,nargSelf=nargSelf)
+        procObj = dict(func=func,args=args,kwargs=kwargs,nargSelf=nargSelf,isPerEvt=isPerEvt)
         output.append(data(time=rtimes,input=procObj))
       if len(output)>1:
 	output = tuple(output)
@@ -2910,11 +2933,14 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
 	      odat,stpsz = ravelScanSteps(o.data)
 	      targs[i] = odat[io[step]][stride[1]]
 	    else:
+	      
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      trnspsorder = range(np.rank(tmp))
-              trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
+	      if not isPerEvt:
+	        trnspsorder = range(np.rank(tmp))
+                trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
+                tmp         = tmp.transpose(trnspsorder)
+              targs[i] = tmp
 	      #raise NotImplementedError('Use the source, luke!')
-              targs[i] = tmp.transpose(trnspsorder)
 
 	  else:
 	    tkwargs[kwkeys[i]]  = o[step][stride[1]]
@@ -2923,9 +2949,11 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
 	      tkwargs[kwkeys[i]] = odat[io[step]][stride[1]]
 	    else:
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      trnspsorder = range(np.rank(tmp))
-              trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
-              tkwargs[kwkeys[i]] = tmp.transpose(trnspsorder)
+	      if not isPerEvt:
+                trnspsorder = range(np.rank(tmp))
+                trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
+                tmp = tmp.transpose(trnspsorder)
+              tkwargs[kwkeys[i]] = tmp
 	for o,k,i in otherip:
 	  if not k:
 	    targs[i] = o[step]
@@ -2933,22 +2961,40 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
 	    tkwargs[kwkeys[i]]  = o[step]
 	if isPerEvt:
 	  # TODO: in case func works only for single shot
-	  pass
+	  tret = []
+	  for nevt in range(len(stride[1])):
+            stargs = pycopy.copy(targs)
+            stkwargs = pycopy.copy(tkwargs)
+	    for o,io,k,i in ixppyip:
+	      if not k:
+                stargs[i] = targs[i][nevt]
+	      else:
+                stkwargs[kwkeys[i]] = tkwargs[kwkeys[i]][nevt]
+            stret = func(*stargs,**stkwargs)
+	    if type(stret) is not tuple: 
+              stret = (stret,)
+            tret.append(stret)
+	  tret = tuple(zip(*tret))
+
+
+
 	else:
 
 	  tret = func(*targs,**tkwargs)
 	if type(tret) is not tuple: 
 	  tret = (tret,)
-	tret = list(tret)
-	for ono,ttret in enumerate(tret):
-	  rnk = np.rank(ttret)
-	  if rnk>1:
-	    trnspsorder = range(rnk)
-            trnspsorder = [trnspsorder[-1]]+trnspsorder[:-1]
-            tret[ono]   = ttret.transpose(trnspsorder)
-	tret = tuple(tret)
+	if not isPerEvt:
+	  tret = list(tret)
+	  for ono,ttret in enumerate(tret):
+	    rnk = np.rank(ttret)
+	    if rnk>1:
+	      trnspsorder = range(rnk)
+	      trnspsorder = [trnspsorder[-1]]+trnspsorder[:-1]
+	      tret[ono]   = ttret.transpose(trnspsorder)
+	  tret = tuple(tret)
 	output_list.append(tret)
     ############ interprete output automatically find memdata candidates ###########
+      
       output_list = zip(*output_list)
       output = output_list
       

@@ -388,19 +388,31 @@ class CalibParsEvaluated (object) :
 
 #---------------------
 
-    def evaluateCSPadPixCoordinatesShapedAsData(self, fname, dsname, rotation=0, mirror=False) :
+    def evaluateCSPadPixCoordinatesShapedAsData(self, fname=None, dsname=None, rotation=0, mirror=False) :
 
         print 'Evaluate pix coordinates for fname:', fname
 
         self.evaluateCSPadPixCoordinates (rotation, mirror)
-
-        ccp.cspadconfig.setCSPadConfiguration(fname, dsname, event=0)
-        quadNumsInEvent  = ccp.cspadconfig.quadNumsInEvent
-        indPairsInQuads  = ccp.cspadconfig.indPairsInQuads
-        nquads           = ccp.cspadconfig.nquads
-        nsects           = ccp.cspadconfig.nsects
+        if not fname==None:
+	  ccp.cspadconfig.setCSPadConfiguration(fname, dsname, event=0)
+	  quadNumsInEvent  = ccp.cspadconfig.quadNumsInEvent
+	  indPairsInQuads  = ccp.cspadconfig.indPairsInQuads
+	  nquads           = ccp.cspadconfig.nquads
+	  nsects           = ccp.cspadconfig.nsects
+          indPairsInQuads = indPairsInQuads[0]
+	else:
+	  quadNumsInEvent  = np.arange(4)
+	  indPairsInQuads  = np.arange(32).reshape(4,-1)
+	  nquads           = 4
+	  nsects           = 8
+	
+	print '#################################################'
+	print quadNumsInEvent
+	print indPairsInQuads
+	print  nquads
+	print nsects
+	print '#################################################'
         #ccp.cspadconfig.printCSPadConfigPars()
-
         nsects_in_data = max(indPairsInQuads.flatten()) + 1
         self.pix_global_shaped_as_data_x = np.zeros((nsects_in_data,185,388), dtype=np.float32)
         self.pix_global_shaped_as_data_y = np.zeros((nsects_in_data,185,388), dtype=np.float32)

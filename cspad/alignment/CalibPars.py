@@ -194,6 +194,7 @@ class CalibPars (object) :
         """
 
         path = self.path_to_calib_types + type
+	print path
 
         self.run_max = 9999
         self.calibfname = None
@@ -203,11 +204,13 @@ class CalibPars (object) :
             return self.calibfname
 
         flist = os.listdir(path)
+	flist.remove('.svn')
         if len(flist) > 1 : flist.sort()
 
         for fname in flist :
             basename = fname.split('.') # Assume: basename[0]='0-end', basename[1]='data' 
             basename_beg, basename_end = basename[0].split('-')
+	    print basename
 
             self.run_beg = int(basename_beg)
             if basename_end == 'end' :
