@@ -336,6 +336,7 @@ def histVec(v,oversample=1):
 
 
 def histVecCenter(v):
-  return v[:-1]+np.diff(v)
+  v = np.array(v)*1.
+  return v[:-1]+np.diff(v)/2.
 
 

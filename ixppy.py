@@ -56,19 +56,33 @@ class dataset(object):
     cacheFile = None,
     ignore_daqHdf5file = False
               ):
+    self._name = 'dataset'
     # dropObject is a 'container'
     self.config = tools.dropObject()
     # read configuration file
     self._rdConfiguration(beamline)
     # boolean if cache data is taken into account 
-    self.config.readCachedData = readCachedData
     # HDF5/XTC/IXP file(s) to read, it is a tuple of lists for files in the three formats, empty if files not available.
     allfilenames   = self._getFilename(inputFilesOrExpRunTuple)
     self.config.fileNamesH5 = allfilenames[0]
     self.config.fileNamesXtc = allfilenames[1]
     self.config.fileNamesIxp = allfilenames[2]
     # check available formats, decide on strategy to use, user input possible, sets self.config.filestrategy variable.
+    self.config.readCachedData = readCachedData
     self._getFileStrategy()
+    if len(self.config.fileNamesIxp)==0:
+      tfname =  self.config.fileNamesH5[0]
+      ixpname = os.path.join(self.config.cachePath,os.path.basename(tfname))
+      ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
+      self.config.ixp = Ixp(ixpname)
+    else:
+      self.config.ixp = Ixp(self.config.fileNamesIxp[0])
+
+    self._ixpHandle = self.config.ixp.fileHandle
+    self._ixpsaved = []
+
+      
+
 
     
     if 'h5' in self.config.filestrategy:
@@ -81,9 +95,9 @@ class dataset(object):
 	for name in self.config.lclsH5obj.scanVars.keys():
 	  tVar = self.config.lclsH5obj.scanVars[name]
 	  if not hasattr(tVar,'names'): continue
-	  self.__dict__[name] = tools.dropObject()
+	  self.__dict__[name] = tools.dropObject(name = name)
 	  for vname,vdat in zip(tVar.names,np.array(tVar.data).T):
-            self.__dict__[name].__dict__[vname] = vdat
+            self[name][vname] = vdat
       if hasattr(self,'scan'):
 	scan=self.scan
       else:
@@ -92,25 +106,35 @@ class dataset(object):
       for detName in self.config.lclsH5obj.detectorsNames:
         det = self.config.lclsH5obj.detectors[detName]
         if det._isPointDet:
-	  self.__dict__[detName] = tools.dropObject()
+	  self[detName] = tools.dropObject(name=detName)
 	  if hasattr(det,'fields'):
 	    for fieldName in det.fields.keys():
-              self.__dict__[detName].__dict__[fieldName] = memdata(name=fieldName,input = det.fields[fieldName],scan=scan)
+              self[detName][fieldName] = memdata(name=fieldName,input = det.fields[fieldName],scan=scan)
 	else:
-	  self.__dict__[detName] = tools.dropObject()
-          self.__dict__[detName].data = data(name=detName,time=det.time,input = det.readData)
+	  self[detName] = tools.dropObject(parent=self)
+          self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
 
-      if hasattr(self.config.lclsH5obj,'scanVars'):
-	for name in self.config.lclsH5obj.scanVars.keys():
-	  tVar = self.config.lclsH5obj.scanVars[name]
-	  if not hasattr(tVar,'names'): continue
-	  self.__dict__[name] = tools.dropObject()
-	  for vname,vdat in zip(tVar.names,np.array(tVar.data).T):
-            self.__dict__[name].__dict__[vname] = vdat
+      #if hasattr(self.config.lclsH5obj,'scanVars'):
+	#for name in self.config.lclsH5obj.scanVars.keys():
+	  #tVar = self.config.lclsH5obj.scanVars[name]
+	  #if not hasattr(tVar,'names'): continue
+	  #self.__dict__[name] = tools.dropObject(name=name)
+	  #for vname,vdat in zip(tVar.names,np.array(tVar.data).T):
+	    #self.__dict__[name].__dict__[vname] = vdat
 	  
 
+  def _add(self,name,data,ixpsaved='auto'):
+    self.__dict__[name]=data
+    self._ixpsaved.append((name,ixpsaved))
+  #def __repr__(self):
+    #return "dropObject with fields: "+str(self.__dict__.keys())
+  def __getitem__(self,x):
+    return self.__dict__[x]
+  def __setitem__(self,name,var):
+    self._add(name,var)
 	  
-
+  def save(self,name=None):
+    self.config.ixp.save(self,self._ixpHandle,name='dataset')
     #self._checkCalibConsistency()
   # END OF DATASET.__init__
 
@@ -270,7 +294,7 @@ class dataset(object):
     if self.config.hostname in knownhosts:
        self.config.cachePath = self.config.cnfFile['cachePath'][self.config.hostname]
     else:
-       self.config.cachePath = os.path.join(self.config.cnfFile['cachePath'].keys()[0])
+       self.config.cachePath = os.path.join(self.config.cnfFile['cachePath']['default'])
 
   def _getFilename(self,inputFilesOrExpRunTuple):
     # use a shorter local name
@@ -307,6 +331,7 @@ class dataset(object):
     filenamesIxp = []
     for f in filenamesH5:
       cached_filename = os.path.join(self.config.cachePath,os.path.basename(f))
+      cached_filename = os.path.splitext(cached_filename)[0] + '.ixp.h5'
       if tools.fileExists(cached_filename):
 	filenamesIxp.append(cached_filename)
       
@@ -329,7 +354,7 @@ class dataset(object):
     if self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
       self.config.filestrategy = ['ixp']
     if not self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
-      if self.readCachedData:
+      if self.config.readCachedData:
 	print "found ixp file in cache, will try to use it (override with readCachedData keyword)"
 	self.config.filestrategy = ['h5','ixp']
       else:
@@ -446,7 +471,7 @@ class memdata(object):
   def digitize(self,bins=None,inplace = False):
     dat,stsz = ravelScanSteps(self.data)
     inds,bins = digitize(dat,bins)
-    binrange = range(len(bins))
+    binrange = range(1,len(bins))
 
     filt = [(inds==tbin).nonzero()[0] for tbin in binrange]
     if inplace:
@@ -454,19 +479,23 @@ class memdata(object):
       return self
     else:
       tim,dum = ravelScanSteps(self.time)
+      scan = tools.dropObject(name='scan')
+      scan['binedges'] = bins
+      scan['bincenters'] = tools.histVecCenter(bins)
+
       return memdata(input=[[dat[tf] for tf in filt],
-                            [tim[tf] for tf in filt]])
+                            [tim[tf] for tf in filt]],scan=scan)
   def ones(self):
     odat = [np.ones(len(dat)) for dat in self._data]
-    return memdata(input=[odat,self.time])
+    return memdata(input=[odat,self.time],scan=self.scan)
 
-  def _mean(self):
+  def mean(self):
     return [np.mean(d) for d in self._data]
-  def _std(self):
+  def std(self):
     return [np.std(d) for d in self._data]
-  def _median(self):
+  def median(self):
     return [np.median(d) for d in self._data]
-  def _mad(self):
+  def mad(self):
     return [tools.mad(d) for d in self._data]
 
 
@@ -479,63 +508,121 @@ class memdata(object):
     return self.data[x]
   
   # functions to make it feel like a datatype
+  #def __add__(self,other):
+    #return applyMemdataOperator(operator.add,self,other)
+  #def __radd__(self,other):
+    #return applyMemdataOperator(operator.add,self,other)
+  #def __mul__(self,other):
+    #return applyMemdataOperator(operator.mul,self,other)
+  #def __rmul__(self,other):
+    #return applyMemdataOperator(operator.mul,self,other)
+  #def __div__(self,other):
+    #return applyMemdataOperator(operator.div,self,other)
+  #def __rdiv__(self,other):
+    #return applyMemdataOperator(operator.div,self,other,isreverse=True)
+  #def __truediv__(self,other):
+    #return applyMemdataOperator(operator.truediv,self,other)
+  #def __rtruediv__(self,other):
+    #return applyMemdataOperator(operator.truediv,self,other,isreverse=True)
+  #def __floordiv__(self,other):
+    #return applyMemdataOperator(operator.floordiv,self,other)
+  #def __rfloordiv__(self,other):
+    #return applyMemdataOperator(operator.floordiv,self,other,isreverse=True)
+  #def __mod__(self,other):
+    #return applyMemdataOperator(operator.mod,self,other)
+  #def __rmod__(self,other):
+    #return applyMemdataOperator(operator.mod,self,other,isreverse=True)
+  #def __sub__(self,other):
+    #return applyMemdataOperator(operator.sub,self,other)
+  #def __rsub__(self,other):
+    #return applyMemdataOperator(operator.sub,self,other,isreverse=True)
+  #def __pow__(self,other):
+    #return applyMemdataOperator(operator.pow,self,other)
+  #def __rpow__(self,other):
+    #return applyMemdataOperator(operator.pow,self,other,isreverse=True)
+
+  #def __and__(self,other):
+    #return applyMemdataOperator(operator.and_,self,other)
+  #def __rand__(self,other):
+    #return applyMemdataOperator(operator.and_,self,other)
+  #def __or__(self,other):
+    #return applyMemdataOperator(operator.or_,self,other)
+  #def __ror__(self,other):
+    #return applyMemdataOperator(operator.or_,self,other)
+  #def __xor__(self,other):
+    #return applyMemdataOperator(operator.xor,self,other)
+  #def __rxor__(self,other):
+    #return applyMemdataOperator(operator.xor,self,other)
+  #def __le__(self,other):
+    #return applyMemdataOperator(operator.le,self,other)
+  #def __lt__(self,other):
+    #return applyMemdataOperator(operator.lt,self,other)
+  #def __eq__(self,other):
+    #return applyMemdataOperator(operator.eq,self,other)
+  #def __ne__(self,other):
+    #return applyMemdataOperator(operator.ne,self,other)
+  #def __ge__(self,other):
+    #return applyMemdataOperator(operator.ge,self,other)
+  #def __gt__(self,other):
+    #return applyMemdataOperator(operator.gt,self,other)
+  # try if works
   def __add__(self,other):
-    return applyMemdataOperator(operator.add,self,other)
+    return applyDataOperator(operator.add,self,other)
   def __radd__(self,other):
-    return applyMemdataOperator(operator.add,self,other)
+    return applyDataOperator(operator.add,self,other)
   def __mul__(self,other):
-    return applyMemdataOperator(operator.mul,self,other)
+    return applyDataOperator(operator.mul,self,other)
   def __rmul__(self,other):
-    return applyMemdataOperator(operator.mul,self,other)
+    return applyDataOperator(operator.mul,self,other)
   def __div__(self,other):
-    return applyMemdataOperator(operator.div,self,other)
+    return applyDataOperator(operator.div,self,other)
   def __rdiv__(self,other):
-    return applyMemdataOperator(operator.div,self,other,isreverse=True)
+    return applyDataOperator(operator.div,self,other,isreverse=True)
   def __truediv__(self,other):
-    return applyMemdataOperator(operator.truediv,self,other)
+    return applyDataOperator(operator.truediv,self,other)
   def __rtruediv__(self,other):
-    return applyMemdataOperator(operator.truediv,self,other,isreverse=True)
+    return applyDataOperator(operator.truediv,self,other,isreverse=True)
   def __floordiv__(self,other):
-    return applyMemdataOperator(operator.floordiv,self,other)
+    return applyDataOperator(operator.floordiv,self,other)
   def __rfloordiv__(self,other):
-    return applyMemdataOperator(operator.floordiv,self,other,isreverse=True)
+    return applyDataOperator(operator.floordiv,self,other,isreverse=True)
   def __mod__(self,other):
-    return applyMemdataOperator(operator.mod,self,other)
+    return applyDataOperator(operator.mod,self,other)
   def __rmod__(self,other):
-    return applyMemdataOperator(operator.mod,self,other,isreverse=True)
+    return applyDataOperator(operator.mod,self,other,isreverse=True)
   def __sub__(self,other):
-    return applyMemdataOperator(operator.sub,self,other)
+    return applyDataOperator(operator.sub,self,other)
   def __rsub__(self,other):
-    return applyMemdataOperator(operator.sub,self,other,isreverse=True)
+    return applyDataOperator(operator.sub,self,other,isreverse=True)
   def __pow__(self,other):
-    return applyMemdataOperator(operator.pow,self,other)
+    return applyDataOperator(operator.pow,self,other)
   def __rpow__(self,other):
-    return applyMemdataOperator(operator.pow,self,other,isreverse=True)
+    return applyDataOperator(operator.pow,self,other,isreverse=True)
 
   def __and__(self,other):
-    return applyMemdataOperator(operator.and_,self,other)
+    return applyDataOperator(operator.and_,self,other)
   def __rand__(self,other):
-    return applyMemdataOperator(operator.and_,self,other)
+    return applyDataOperator(operator.and_,self,other)
   def __or__(self,other):
-    return applyMemdataOperator(operator.or_,self,other)
+    return applyDataOperator(operator.or_,self,other)
   def __ror__(self,other):
-    return applyMemdataOperator(operator.or_,self,other)
+    return applyDataOperator(operator.or_,self,other)
   def __xor__(self,other):
-    return applyMemdataOperator(operator.xor,self,other)
+    return applyDataOperator(operator.xor,self,other)
   def __rxor__(self,other):
-    return applyMemdataOperator(operator.xor,self,other)
+    return applyDataOperator(operator.xor,self,other)
   def __le__(self,other):
-    return applyMemdataOperator(operator.le,self,other)
+    return applyDataOperator(operator.le,self,other)
   def __lt__(self,other):
-    return applyMemdataOperator(operator.lt,self,other)
+    return applyDataOperator(operator.lt,self,other)
   def __eq__(self,other):
-    return applyMemdataOperator(operator.eq,self,other)
+    return applyDataOperator(operator.eq,self,other)
   def __ne__(self,other):
-    return applyMemdataOperator(operator.ne,self,other)
+    return applyDataOperator(operator.ne,self,other)
   def __ge__(self,other):
-    return applyMemdataOperator(operator.ge,self,other)
+    return applyDataOperator(operator.ge,self,other)
   def __gt__(self,other):
-    return applyMemdataOperator(operator.gt,self,other)
+    return applyDataOperator(operator.gt,self,other)
 
 def initmemdataraw(data):
   if data==None:
@@ -584,9 +671,11 @@ class interp(object):
   
 
 class data(object):
-  def __init__(self,name=None,time=None,input=None,ixpAddress=None):
+  def __init__(self,name=None,time=None,input=None,scan=None,ixpAddress=None,parent=None):
     self.name = name
+    self.scan = scan
     self._ixpAddress = ixpAddress
+    self._parent = parent
     if input==None:
       raise Exception("data can not be initialized as no datasources were defined.")
     if hasattr(input,'isevtObj') and input.isevtObj:
@@ -644,6 +733,19 @@ class data(object):
     #return tools.existsInObj(self,what)
   #def _addToSelf(self,what,value,overWrite=True):
     #return tools.addToObj(self,what,value,overWrite=overWrite)
+  def _iterateAll(self):
+    sizeEvt = None
+    nextStep = 0
+    nextEvt  = 0
+    for step in len(self._filter):
+      if sizeEvt is None:
+	tdat = self[nextStep,nextEvt]
+	sizeEvt = tdat[0].nbytes
+      else:
+	pass
+
+
+
 
   def __getitem__(self,x):
     n = self._Nsteps
@@ -690,6 +792,63 @@ class data(object):
 			 NdataOut=1,NmemdataOut=0, picky=False)
     return [tret[self._procObj['nargSelf']] for tret in ret]
 
+  def __add__(self,other):
+    return applyDataOperator(operator.add,self,other)
+  def __radd__(self,other):
+    return applyDataOperator(operator.add,self,other)
+  def __mul__(self,other):
+    return applyDataOperator(operator.mul,self,other)
+  def __rmul__(self,other):
+    return applyDataOperator(operator.mul,self,other)
+  def __div__(self,other):
+    return applyDataOperator(operator.div,self,other)
+  def __rdiv__(self,other):
+    return applyDataOperator(operator.div,self,other,isreverse=True)
+  def __truediv__(self,other):
+    return applyDataOperator(operator.truediv,self,other)
+  def __rtruediv__(self,other):
+    return applyDataOperator(operator.truediv,self,other,isreverse=True)
+  def __floordiv__(self,other):
+    return applyDataOperator(operator.floordiv,self,other)
+  def __rfloordiv__(self,other):
+    return applyDataOperator(operator.floordiv,self,other,isreverse=True)
+  def __mod__(self,other):
+    return applyDataOperator(operator.mod,self,other)
+  def __rmod__(self,other):
+    return applyDataOperator(operator.mod,self,other,isreverse=True)
+  def __sub__(self,other):
+    return applyDataOperator(operator.sub,self,other)
+  def __rsub__(self,other):
+    return applyDataOperator(operator.sub,self,other,isreverse=True)
+  def __pow__(self,other):
+    return applyDataOperator(operator.pow,self,other)
+  def __rpow__(self,other):
+    return applyDataOperator(operator.pow,self,other,isreverse=True)
+
+  def __and__(self,other):
+    return applyDataOperator(operator.and_,self,other)
+  def __rand__(self,other):
+    return applyDataOperator(operator.and_,self,other)
+  def __or__(self,other):
+    return applyDataOperator(operator.or_,self,other)
+  def __ror__(self,other):
+    return applyDataOperator(operator.or_,self,other)
+  def __xor__(self,other):
+    return applyDataOperator(operator.xor,self,other)
+  def __rxor__(self,other):
+    return applyDataOperator(operator.xor,self,other)
+  def __le__(self,other):
+    return applyDataOperator(operator.le,self,other)
+  def __lt__(self,other):
+    return applyDataOperator(operator.lt,self,other)
+  def __eq__(self,other):
+    return applyDataOperator(operator.eq,self,other)
+  def __ne__(self,other):
+    return applyDataOperator(operator.ne,self,other)
+  def __ge__(self,other):
+    return applyDataOperator(operator.ge,self,other)
+  def __gt__(self,other):
+    return applyDataOperator(operator.gt,self,other)
 
 
 class scanVar(object):
@@ -1130,70 +1289,108 @@ class chunk(object):
 
 ############ CACHE #############
 
-class cache(object):
-  def __init__(self,config):
-    self.config = config
-    if os.path.isfile(self.config.cache_filename):
-      print 'Found cached data in %s' %(self.config.cache_filename)
+class Ixp(object):
+  def __init__(self,filename):
+    self.fileName = filename
+    if os.path.isfile(self.fileName):
+      print 'Found cached data in %s' %(self.fileName)
+    self._fileHandle = None
 
   def get_cacheFileHandle(self):
-    if not self.config.cache_fileHandle:
-      cfh = h5py.File(self.config.cache_filename)
-      self.config.cache_fileHandle = cfh
+    if self._fileHandle is None:
+      cfh = h5py.File(self.fileName)
+      self._fileHandle = cfh
     else:
-      cfh = self.config.cache_fileHandle
+      cfh = self._fileHandle
     return cfh
 
   def set_cacheFileHandle(self,cfh):
-    self.config.cache_fileHandle = cfh
+    self._fileHandle = cfh
 
-  cacheFileHandle = property(get_cacheFileHandle,set_cacheFileHandle)
+  fileHandle = property(get_cacheFileHandle,set_cacheFileHandle)
  
   def delete(self):
-    ristr ='Do you intend to permanently delete file \n  %s\n  (y/n) ' %(self.config.cache_filename)
+    ristr ='Do you intend to permanently delete file \n  %s\n  (y/n) ' %(self.fileName)
     if 'y'==raw_input(ristr):
-      os.remove(self.config.cache_filename)
+      os.remove(self.fileName)
 
-  def save(self, cacheFile='default', force=False):
-    if cacheFile=='default':
-      if not self.config.cache_filename:
-        tfina = os.path.split(self.config.filename[0])[-1]
-        tfina = os.path.join(self.config.outputDirectory,tfina) 
-        self.config.cache_filename = tfina
-    else:
-      self.config.cache_filename = cacheFile
+  #def save(self, obj, filename='default', force=False):
+    #if not filename=='default':
+      #self.fileName = filename
     
-    cfh = self.cacheFileHandle
-    # datasets in "root"-dataset instance
-    fGroup = cfh.require_group('base_dataset_instance')
-    for sfield in self.config.base._savelist:
-      if sfield in fGroup.keys() and not force:
-        rawstr = 'Overwrite %s in base dataset ? (y/n/a) ' %(sfield)
+    #cfh = self.fileHandle
+    ## datasets in "root"-dataset instance
+    #fGroup = cfh.require_group('base_instance')
+    #for sfield in obj._ixpsaved:
+      #if sfield in fGroup.keys() and not force:
+        #rawstr = 'Overwrite %s in base dataset ? (y/n/a) ' %(sfield)
+        #ret = raw_input(rawstr)
+        #if ret=='a': del fGroup[sfield]; force = True
+        #if ret=='y': del fGroup[sfield]
+        #if ret=='n': continue
+      #elif sfield in fGroup.keys() and force:
+        #print "about to delete %s" %(sfield)
+        #del fGroup[sfield]
+      #self.mkDset(fGroup,sfield,self.config.base.__dict__[sfield])
+
+    ## detectors and data datasets
+    #for field in obj._ixpsaved:
+      #fGroup = cfh.require_group(field)
+      #for sfield in self.config.base.__dict__[field]._savelist:
+        #if sfield in fGroup.keys() and not force:
+          #rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(sfield, field)
+          #ret = raw_input(rawstr)
+          #if ret=='a': del fGroup[sfield]; force = True
+          #if ret=='y': del fGroup[sfield]
+          #if ret=='n': continue
+        #elif sfield in fGroup.keys() and force:
+          #print "about to delete %s" %(sfield)
+          #del fGroup[sfield]
+        #self.mkDset(fGroup,sfield,self.config.base.__dict__[field].__dict__[sfield])
+    #cfh.close()
+  
+  def save(self, obj, parenth5handle, name=None, force=False):
+    pH = parenth5handle
+    isgr = hasattr(obj,'_ixpsaved')
+    print isgr
+    if name is None:
+      name = obj._name
+    if isgr:
+      fGroup = pH.require_group(name)
+      for sfield in obj._ixpsaved:
+	if not hasattr(obj,sfield[0]):
+	  print "Error: field %s in group %s is not existing!" %(sfield,name)
+	  continue
+        if not sfield[1]=='no':
+          self._save_obj(obj.__dict__[sfield[0]],fGroup,name=sfield[0], force=force)
+    else:
+      if name in pH.keys() and not force:
+        rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(name,pH.name)
         ret = raw_input(rawstr)
-        if ret=='a': del fGroup[sfield]; force = True
-        if ret=='y': del fGroup[sfield]
-        if ret=='n': continue
-      elif sfield in fGroup.keys() and force:
-        print "about to delete %s" %(sfield)
-        del fGroup[sfield]
-      self.mkDset(fGroup,sfield,self.config.base.__dict__[sfield])
+        if ret=='a': del pH[name]; force = True
+        if ret=='y': del pH[name]
+        if ret=='n': pass
+      elif name in pH.keys() and force:
+        print "about to delete %s" %(name)
+        del pH[name]
+      self.mkDset(pH,name,obj)
 
     # detectors and data datasets
-    for field in self.config.base._saved_objects:
-      fGroup = cfh.require_group(field)
-      for sfield in self.config.base.__dict__[field]._savelist:
-        if sfield in fGroup.keys() and not force:
-          rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(sfield, field)
-          ret = raw_input(rawstr)
-          if ret=='a': del fGroup[sfield]; force = True
-          if ret=='y': del fGroup[sfield]
-          if ret=='n': continue
-        elif sfield in fGroup.keys() and force:
-          print "about to delete %s" %(sfield)
-          del fGroup[sfield]
-        self.mkDset(fGroup,sfield,self.config.base.__dict__[field].__dict__[sfield])
-    cfh.close()
-  
+    #for field in obj._ixpsaved:
+      #fGroup = cfh.require_group(field)
+      #for sfield in self.config.base.__dict__[field]._savelist:
+        #if sfield in fGroup.keys() and not force:
+          #rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(sfield, field)
+          #ret = raw_input(rawstr)
+          #if ret=='a': del fGroup[sfield]; force = True
+          #if ret=='y': del fGroup[sfield]
+          #if ret=='n': continue
+        #elif sfield in fGroup.keys() and force:
+          #print "about to delete %s" %(sfield)
+          #del fGroup[sfield]
+        #self.mkDset(fGroup,sfield,self.config.base.__dict__[field].__dict__[sfield])
+    #cfh.close()
+
   def load(self):
     savobjs = self.cacheFileHandle.keys()
     for savobj in savobjs:
@@ -1232,8 +1429,18 @@ class cache(object):
   def mkDset(self,rootgroup,name,data):
     #if name=='scanMot':
       #de=bug
+    if isinstance(data,memdata):
+      if hasattr(data,'_data'):
+	newgroup = rootgroup.require_group(name)
+	try:
+	  newgroup.create_dataset('_dtype',data='memdata')
+	  self.mkDset(newgroup,'data',data.data)
+	  self.mkDset(newgroup,'time',data.time)
+	except:
+	  print "could not save memdata instance %s" %name
+	  del newgroup
 
-    if type(data) is list or ixppyList:
+    if type(data) is list:
       newgroup = rootgroup.require_group(name)
       newgroup.create_dataset('_dtype',data='list')
       el=0
@@ -1462,18 +1669,30 @@ def getExperimentList(printit=True,sortDates=True):
   return l
 
 def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False):
-  I = Areadet.rdStepData(step,shots)
+  I = Areadet.data[step,np.ix_(shots)][0]
   tools.nfigure('Select limits')
-  pl.imshow(np.squeeze(np.mean(I,axis=0)),interpolation='nearest')
+  pl.imshow(np.mean(I,axis=0),interpolation='nearest')
   print 'Select region of interest'
   direction = 'vertical'
   if transpose: direction = 'horizontal'
   lims = np.round(tools.getSpanCoordinates(direction))
   limsdict = dict(projection='vertical range',limits=lims)
   if not hasattr(Areadet,'profileLimits'):
-    Areadet._add_saved_datafield('profileLimits',[])
+    Areadet._add('profileLimits',[])
   Areadet.profileLimits.append(limsdict)
+  tfun = ixppy.wrapFunc(extractProfilesFromData)
+  Areadet._add('profile',tfun(Areadet.data,limsdict))
   return limsdict
+
+#class Profile(object):
+  #def __init__(self,type='horizontal',limits=[]):
+    #self.type = 'horizontal'
+  
+  #def extractProfilesFromData(data,profileLimits):
+    #cameraoffset = 32.
+    #if profileLimits["projection"]=="vertical range":
+      #profiles = np.mean(data[:,profileLimits['limits'][0]:profileLimits['limits'][1],:],axis=1)-float(cameraoffset)
+    #return profiles
 
 ############ TIMING TOOL #############
 
@@ -2852,6 +3071,12 @@ def applyMemdataOperator(optr,a,b,isreverse=False):
   return memdata(input=[resdat,restim],scan=scan)
       
     
+def applyDataOperator(optr,a,b,isreverse=False):
+  if not isreverse:
+    args = [a,b]
+  else:
+    args = [b,a]
+  return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None)
 
 def _applyFun(func,a):
   res = ixppyList()
@@ -2881,6 +3106,7 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
   for keyno,key in enumerate(kwkeys):
     if (isinstance(kwargs[key],data) or isinstance(kwargs[key],memdata)):
       allobjects.append((kwargs[key],1,keyno))
+  scan = allobjects[0][0].scan
   rtimes = get_common_timestamps([ao[0] for ao in allobjects])
   # get also other arguments in seperate list for later use in length analysis if needed
   if not picky and not rtimes==None:
@@ -2892,8 +3118,8 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
     otherlens = [(len(toa),iskey,argno) for toa,iskey,argno in otherargs if (type(toa) is not str and np.iterable(toa))]
     if not otherlens==[]:
       lens,lensiskey,lensargno = zip(*otherlens)
-      tequallengths = np.array(lens)==len(rtimes) and not np.array(lens)==1
-      otherip = [otherargs[otherlens[eqi]] for eqi in tequallengths.nonzero()[0]]
+      tequallengths = np.logical_and(np.array(lens)==len(rtimes),np.logical_not(np.array(lens)==1))
+      otherip = [otherargs[eqi] for eqi in tequallengths.nonzero()[0]]
     else:
       otherip = []
   else:
@@ -2907,7 +3133,7 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
       output = []
       for nargSelf in (np.array(outputtypes)=='data').nonzero()[0]:
         procObj = dict(func=func,args=args,kwargs=kwargs,nargSelf=nargSelf,isPerEvt=isPerEvt)
-        output.append(data(time=rtimes,input=procObj))
+        output.append(data(time=rtimes,input=procObj,scan=scan))
       if len(output)>1:
 	output = tuple(output)
       else:
@@ -2915,11 +3141,15 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
     # case mainly when executes as data procObj
     elif 'data' in outputtypes and not stride==None:
       ixppyip = []
+      ixppytype = []
       for o,iskey,argind in allobjects: #assuming here that data instances are out!
 	ir,io      = filterTimestamps(rtimes,o.time)
 	
 	if isinstance(o,data):
+	  ixppytype.append('data')
 	  io = getStepShotsFromIndsTime(io,o.time,stride=stride[1])
+	if isinstance(o,memdata):
+	  ixppytype.append('memdata')
 	ixppyip.append(([o,io,iskey,argind]))
 
       # generate input structures
@@ -2935,7 +3165,7 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
 	    else:
 	      
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      if not isPerEvt:
+	      if not isPerEvt and ('memdata' in ixppytype):
 	        trnspsorder = range(np.rank(tmp))
                 trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
                 tmp         = tmp.transpose(trnspsorder)
@@ -2949,7 +3179,7 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
 	      tkwargs[kwkeys[i]] = odat[io[step]][stride[1]]
 	    else:
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      if not isPerEvt:
+	      if not isPerEvt and ('memdata' in ixppytype):
                 trnspsorder = range(np.rank(tmp))
                 trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
                 tmp = tmp.transpose(trnspsorder)
@@ -2983,7 +3213,7 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
 	  tret = func(*targs,**tkwargs)
 	if type(tret) is not tuple: 
 	  tret = (tret,)
-	if not isPerEvt:
+	if not isPerEvt and ('memdata' in ixppytype):
 	  tret = list(tret)
 	  for ono,ttret in enumerate(tret):
 	    rnk = np.rank(ttret)
@@ -3031,7 +3261,7 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
 	if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
     for n,top in enumerate(output_list):
       if n in output_ismemdata:
-	output_list[n] = memdata(input=[top,rtimes])
+	output_list[n] = memdata(input=[top,rtimes],scan=scan)
       elif top.count(top[0])==len(top):
 	output_list[n] = top[0]
       elif len(top)>1:

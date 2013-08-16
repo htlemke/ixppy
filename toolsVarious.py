@@ -13,14 +13,20 @@ def commonPathPrefix(paths, sep='/'):
   return sep.join(x[0] for x in takewhile(allnamesequal, bydirectorylevels))
 
 class dropObject(object):
-  def __init__(self):
-    pass
-  def _add(self,name,data):
+  def __init__(self,name='noname',parent=None):
+    self._name = name
+    self._parent = parent
+    self._ixpsaved = []
+
+  def _add(self,name,data,ixpsaved='auto'):
     self.__dict__[name]=data
+    self._ixpsaved.append((name,ixpsaved))
   def __repr__(self):
     return "dropObject with fields: "+str(self.__dict__.keys())
   def __getitem__(self,x):
     return self.__dict__[x]
+  def __setitem__(self,name,var):
+    self._add(name,var)
 
 def itemgetToIndices(x,size,boolean=False):
   if type(x) is int:
