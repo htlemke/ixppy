@@ -8,6 +8,7 @@ import sys
 import numpy as np
 #import ixppy_specialdet
 import tools
+from toolsVarious import addToObj
 import toolsHdf5 as tH5
 from toolsHdf5 import datasetRead as h5r
 from functools import partial,wraps
@@ -78,8 +79,15 @@ class dataset(object):
     else:
       self.config.ixp = Ixp(self.config.fileNamesIxp[0])
 
-    self._ixpHandle = self.config.ixp.fileHandle
+    self._ixpHandle = self.config.ixp
     self._ixpsaved = []
+    if 'ixp' in self.config.filestrategy:
+      dat = self.config.ixp.load()
+      if 'dataset' in [ixps[0] for ixps in dat._ixpsaved]:
+	names = [tn[0] for tn in dat.dataset._ixpsaved]
+	for name in names:
+	  self.__setitem__(name,dat.dataset[name],setParent=True)
+
 
       
 
@@ -95,9 +103,8 @@ class dataset(object):
 	for name in self.config.lclsH5obj.scanVars.keys():
 	  tVar = self.config.lclsH5obj.scanVars[name]
 	  if not hasattr(tVar,'names'): continue
-	  self.__dict__[name] = tools.dropObject(name = name)
 	  for vname,vdat in zip(tVar.names,np.array(tVar.data).T):
-            self[name][vname] = vdat
+            addToObj(self,name+'.'+vname,vdat,ixpsaved=True)
       if hasattr(self,'scan'):
 	scan=self.scan
       else:
@@ -106,21 +113,14 @@ class dataset(object):
       for detName in self.config.lclsH5obj.detectorsNames:
         det = self.config.lclsH5obj.detectors[detName]
         if det._isPointDet:
-	  self[detName] = tools.dropObject(name=detName)
 	  if hasattr(det,'fields'):
 	    for fieldName in det.fields.keys():
-              self[detName][fieldName] = memdata(name=fieldName,input = det.fields[fieldName],scan=scan)
+              addToObj(self,detName+'.'+fieldName,memdata(name=fieldName,input = det.fields[fieldName],scan=scan),ixpsaved=True)
 	else:
-	  self[detName] = tools.dropObject(parent=self)
-          self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
+	  #self[detName] = tools.dropObject(parent=self)
+	  #self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
+          addToObj(self,detName+'.data',data(name=detName,time=det.time,input = det.readData,scan=scan),ixpsaved=True,setParent=True)
 
-      #if hasattr(self.config.lclsH5obj,'scanVars'):
-	#for name in self.config.lclsH5obj.scanVars.keys():
-	  #tVar = self.config.lclsH5obj.scanVars[name]
-	  #if not hasattr(tVar,'names'): continue
-	  #self.__dict__[name] = tools.dropObject(name=name)
-	  #for vname,vdat in zip(tVar.names,np.array(tVar.data).T):
-	    #self.__dict__[name].__dict__[vname] = vdat
 	  
 
   def _add(self,name,data,ixpsaved='auto'):
@@ -130,11 +130,17 @@ class dataset(object):
     #return "dropObject with fields: "+str(self.__dict__.keys())
   def __getitem__(self,x):
     return self.__dict__[x]
-  def __setitem__(self,name,var):
+  def __setitem__(self,name,var,setParent=False):
     self._add(name,var)
+    if setParent:
+      try:
+        self[name]._parent = self
+      except:
+	pass
 	  
   def save(self,name=None):
-    self.config.ixp.save(self,self._ixpHandle,name='dataset')
+    #self.config.ixp.save(self,self._ixpHandle,name='dataset')
+    self._ixpHandle.save(self,self._ixpHandle.fileHandle,name='dataset')
     #self._checkCalibConsistency()
   # END OF DATASET.__init__
 
@@ -671,13 +677,13 @@ class interp(object):
   
 
 class data(object):
-  def __init__(self,name=None,time=None,input=None,scan=None,ixpAddress=None,parent=None):
+  def __init__(self,name=None,time=None,input=None,scan=None,ixpAddressData=None,parent=None):
     self.name = name
     self.scan = scan
-    self._ixpAddress = ixpAddress
+    self._ixpAddressData = ixpAddressData
     self._parent = parent
-    if input==None:
-      raise Exception("data can not be initialized as no datasources were defined.")
+    #if input==None:
+      #raise Exception("data can not be initialized as no datasources were defined.")
     if hasattr(input,'isevtObj') and input.isevtObj:
       self._procObj = None
       self._evtObj = input
@@ -690,10 +696,16 @@ class data(object):
       self._procObj = input
       self._evtObj = None
       self._rdStride = self._rdFromObj
+    elif type(input) is h5py.highlevel.Group:
+      self._procObj = None
+      self._evtObj = None
+      self._rdStride = self._rdFromIxp
     else:
       self._procObj = None
       self._evtObj = None
       self._rdStride = None
+    if not self._ixpAddressData is None:
+      self._rdStride = self._rdFromIxp
 
     if time==None:
       print Exception("Warning: Missing timestamps for data instance!")
@@ -733,18 +745,129 @@ class data(object):
     #return tools.existsInObj(self,what)
   #def _addToSelf(self,what,value,overWrite=True):
     #return tools.addToObj(self,what,value,overWrite=overWrite)
-  def _iterateAll(self):
+
+  def _memIterate(self,steps=slice(None),evts=slice(None),memFrac=0.1):
+    steps = tools.itemgetToIndices(steps,len(self._filter))
+    evts = [tools.itemgetToIndices(evts,len(self._filter[step])) for step in steps]
     sizeEvt = None
-    nextStep = 0
-    nextEvt  = 0
-    for step in len(self._filter):
-      if sizeEvt is None:
-	tdat = self[nextStep,nextEvt]
-	sizeEvt = tdat[0].nbytes
+    if not hasattr(self,'_mem'):
+      self._mem = mem()
+    indchunks = []
+    for step in steps:
+      tevts = evts[step]
+      tlen  = len(tevts)
+      nextEvtNo = 0
+      stepChunks = []
+      if not hasattr(self,'_sizeEvt') or (self._sizeEvt is None):
+        tdat = self[step,tevts[0]]
+        self._sizeEvt = dict(bytes=tdat[0].nbytes , shape=np.shape(tdat[0][0]))
+      Nread = np.floor(self._mem.updatefree()/8/self._sizeEvt['bytes']*memFrac)
+      while nextEvtNo<tlen:
+        stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)])
+        nextEvtNo+=Nread
+      indchunks.append(stepChunks)
+    return indchunks
+  
+  def chunks(self,steps=slice(None),evts=slice(None),memFrac=0.1):
+    indchunks = self._memIterate(steps,evts,memFrac)
+    out = []
+    stepslen = len(indchunks)
+    for sNo,step in enumerate(indchunks):
+      stepd = []
+      for chunk in step:
+        td = pycopy.copy(self)
+        td._filter = pycopy.deepcopy(td._filter)
+        #td._filter = [[],] * stepslen
+        #td._filter[sNo] = np.sum(td._lens[:sNo])+chunk
+        td._filter = [np.sum(td._lens[:sNo])+chunk]
+        stepd.append(td)
+      out.append(stepd)
+    return out
+
+  def _getIxpHandle(self):
+    ixpSeed = None
+    path = ''
+    present = self
+    while ixpSeed is None:
+      tp = present._parent
+      name = [name for name,tid in tp.__dict__.iteritems() if id(tid)==id(present)][0]
+      if hasattr(tp,'_ixpHandle'):
+	ixpSeed = tp._ixpHandle
+	path = '/dataset/'+name+'/'+path 
       else:
-	pass
+	present = tp
+	path = name+'/'+path
+    return ixpSeed,path
+  
+  def evaluate(self):
+    """Process all data of data instance which will be saved to a ixp hdf5 file. This function could be candidate for parallelization or background processing
+    """
+    ixp,path = self._getIxpHandle()
+    grp = ixp.fileHandle.require_group(path)
+    grp['_dtype'] = 'data'
+    ixp.save(self.time,grp,name='time')
+    dh = grp.require_group('data')
+    allchunks = self._memIterate()
+    eventShape = self._sizeEvt['shape']
+    for stepNo,step in enumerate(allchunks):
+      totlen = np.sum([len(x) for x in step])
+      totshape = tuple([totlen] + list(eventShape))
+      for chunk in step:
+	tdat = self[stepNo,np.ix_(chunk)][0]
+        ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
+	ds[chunk,...] = tdat
+    self._rdStride = self._rdFromIxp
 
 
+    
+
+
+
+  #def _copy(self):
+  ##data(time=self.time,
+  ##def __init__(self,name=None,time=None,input=None,scan=None,ixpAddress=None,parent=None):
+  ##self.name = name
+  ##self.scan = scan
+  ##self._ixpAddress = ixpAddress
+  ##self._parent = parent
+    #if self._proc
+    #if input==None:
+      #raise Exception("data can not be initialized as no datasources were defined.")
+    #if hasattr(input,'isevtObj') and input.isevtObj:
+      #self._procObj = None
+      #self._evtObj = input
+      #self._rdStride = None
+    #elif hasattr(input,'__call__'):
+      #self._procObj = None
+      #self._rdStride = input
+      #self._evtObj = None
+    #elif type(input) is dict:
+      #self._procObj = input
+      #self._evtObj = None
+      #self._rdStride = self._rdFromObj
+    #else:
+      #self._procObj = None
+      #self._evtObj = None
+      #self._rdStride = None
+
+    #if time==None:
+      #print Exception("Warning: Missing timestamps for data instance!")
+    #if hasattr(time,'isevtObj') and input.isevtObj:
+      #self._evtObjtime = input
+      #self._rdTime = None
+    #elif hasattr(time,'__call__'):
+      #self._rdTime = input
+      #self._evtObj = None
+    #else:
+      #self._time = time
+      #self._evtObj = None
+      #self._rdTime = None
+    #lens = [len(td) for td in self._time]
+    #self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+    #self._Nsteps = len(lens)
+    #self._lens = lens
+ 
+    
 
 
   def __getitem__(self,x):
@@ -771,6 +894,7 @@ class data(object):
     indsdat_read = unravelIndexScanSteps(indsdat_sorted,self._lens)
     stepInd_read = [n for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
     evtInd_read  = [indsdat_read[n] - int(np.sum(self._lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+
     dat = np.concatenate(
 	[self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)])
     ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
@@ -791,6 +915,9 @@ class data(object):
 			 InputDependentOutput=True,
 			 NdataOut=1,NmemdataOut=0, picky=False)
     return [tret[self._procObj['nargSelf']] for tret in ret]
+
+  def _rdFromIxp(self,step,evtInd):
+    return [self._ixpAddressData['#%06d'%step][np.array(evtInd),...]]
 
   def __add__(self,other):
     return applyDataOperator(operator.add,self,other)
@@ -850,7 +977,7 @@ class data(object):
   def __gt__(self,other):
     return applyDataOperator(operator.gt,self,other)
 
-
+Data = data
 class scanVar(object):
   def __init__(self,fhandle,name,paths):
     self._h5s = fhandle
@@ -1295,6 +1422,7 @@ class Ixp(object):
     if os.path.isfile(self.fileName):
       print 'Found cached data in %s' %(self.fileName)
     self._fileHandle = None
+    self._forceOverwrite = False
 
   def get_cacheFileHandle(self):
     if self._fileHandle is None:
@@ -1349,10 +1477,11 @@ class Ixp(object):
         #self.mkDset(fGroup,sfield,self.config.base.__dict__[field].__dict__[sfield])
     #cfh.close()
   
-  def save(self, obj, parenth5handle, name=None, force=False):
+  def save(self, obj, parenth5handle, name=None, force=None):
+    if force is None:
+      force = self._forceOverwrite
     pH = parenth5handle
     isgr = hasattr(obj,'_ixpsaved')
-    print isgr
     if name is None:
       name = obj._name
     if isgr:
@@ -1362,12 +1491,12 @@ class Ixp(object):
 	  print "Error: field %s in group %s is not existing!" %(sfield,name)
 	  continue
         if not sfield[1]=='no':
-          self._save_obj(obj.__dict__[sfield[0]],fGroup,name=sfield[0], force=force)
+          self.save(obj.__dict__[sfield[0]],fGroup,name=sfield[0])
     else:
       if name in pH.keys() and not force:
         rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(name,pH.name)
         ret = raw_input(rawstr)
-        if ret=='a': del pH[name]; force = True
+        if ret=='a': del pH[name]; force = True; self._forceOverwrite = True
         if ret=='y': del pH[name]
         if ret=='n': pass
       elif name in pH.keys() and force:
@@ -1375,48 +1504,23 @@ class Ixp(object):
         del pH[name]
       self.mkDset(pH,name,obj)
 
-    # detectors and data datasets
-    #for field in obj._ixpsaved:
-      #fGroup = cfh.require_group(field)
-      #for sfield in self.config.base.__dict__[field]._savelist:
-        #if sfield in fGroup.keys() and not force:
-          #rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(sfield, field)
-          #ret = raw_input(rawstr)
-          #if ret=='a': del fGroup[sfield]; force = True
-          #if ret=='y': del fGroup[sfield]
-          #if ret=='n': continue
-        #elif sfield in fGroup.keys() and force:
-          #print "about to delete %s" %(sfield)
-          #del fGroup[sfield]
-        #self.mkDset(fGroup,sfield,self.config.base.__dict__[field].__dict__[sfield])
-    #cfh.close()
 
-  def load(self):
-    savobjs = self.cacheFileHandle.keys()
-    for savobj in savobjs:
-      saveobjH = self.cacheFileHandle[savobj]
-      if savobj=='base_dataset_instance':
-        savelist = self.rdDset(saveobjH['_savelist'])
-        for saveobjname in savelist:
-          self.config.base.__dict__[saveobjname] = self.rdDset(saveobjH[saveobjname])
-        if '_h5list' in saveobjH.keys():
-          h5list = self.rdDset(saveobjH['_h5list'])
-          for h5objname in h5list:
-            self.config.base.__dict__[h5objname] = self.mkH5list(saveobjH[h5objname])
-      else:
-        if not hasattr(self.config.base,savobj):
-          if savobj in detectors:
-            self.config.base.detectors.append(savobj)
-            self.config.base._initdet(savobj)
-          else:
-            self.config.base.__dict__[savobj] = dropData()
-        savelist = self.rdDset(saveobjH['_savelist'])
-        for saveobjname in savelist:
-          self.config.base.__dict__[savobj].__dict__[saveobjname] = self.rdDset(saveobjH[saveobjname])
-        if '_h5list' in saveobjH.keys():
-          h5list = self.rdDset(saveobjH['_h5list'])
-          for h5objname in h5list:
-            self.config.base.__dict__[savobj].__dict__[h5objname]  = self.mkH5list(saveobjH[h5objname])
+  def load(self,parenth5handle=None):
+    #savobjs = self.cacheFileHandle.keys()
+    pH = parenth5handle
+    if pH is None:
+      pH = self.fileHandle
+    isgr = isinstance(pH,h5py.Group) and (not '_dtype' in pH.keys())
+    name = os.path.split(pH.name)[-1]
+    if isgr:
+      op = tools.dropObject(name=name)
+      for field in pH.keys():
+	ob = self.load(pH[field])
+	op.__setitem__(field,ob,setParent=True)
+    else:
+      op = self.rdDset(pH)
+    return op
+
 
   def mkH5list(self,listh):
     H5list = []
@@ -1430,13 +1534,15 @@ class Ixp(object):
     #if name=='scanMot':
       #de=bug
     if isinstance(data,memdata):
-      if hasattr(data,'_data'):
+      if hasattr(data,'_data') and hasattr(data,'data') and hasattr(data,'time'):
 	newgroup = rootgroup.require_group(name)
 	try:
 	  newgroup.create_dataset('_dtype',data='memdata')
 	  self.mkDset(newgroup,'data',data.data)
 	  self.mkDset(newgroup,'time',data.time)
-	except:
+	  self.save(data.scan,newgroup,name='scan')
+	except Exception,e:
+	  print e
 	  print "could not save memdata instance %s" %name
 	  del newgroup
 
@@ -1486,6 +1592,30 @@ class Ixp(object):
       allkeys = []
     if '_dtype' in allkeys:
       tdtype = rootgroup['_dtype'].value
+      if tdtype == 'memdata':
+	name = os.path.split(rootgroup.name)[-1]
+	try:
+	  data = self.rdDset(rootgroup['data'])
+	  time = self.rdDset(rootgroup['time'])
+	  try:
+	    scan = self.load(parenth5handle=rootgroup['scan'])
+	  except Exception,e:
+	    print e
+	    scan = None
+	  return memdata(input = [data,time], name=name, scan=scan)
+	except:
+	  print "reading error with memdata instance %s" %name
+	  return name+"_empty_corrupt"
+      if tdtype == 'data':
+	name = os.path.split(rootgroup.name)[-1]
+	try:
+	  ixpAddressData = rootgroup['data']
+	  time = self.rdDset(rootgroup['time'])
+	  return Data(time=time,ixpAddressData=ixpAddressData,name=name)
+	except Exception,e:
+	  print e
+	  print "reading error with memdata instance %s" %name
+	  return name+"_empty_corrupt"
       if tdtype == 'list':
         listkeys = [key for key in allkeys if '#' in key]
         listkeys.sort()

@@ -25,11 +25,16 @@ class dropObject(object):
     return "dropObject with fields: "+str(self.__dict__.keys())
   def __getitem__(self,x):
     return self.__dict__[x]
-  def __setitem__(self,name,var):
+  def __setitem__(self,name,var,setParent=False):
     self._add(name,var)
+    if setParent:
+      try:
+        self[name]._parent = self
+      except:
+	pass
 
 def itemgetToIndices(x,size,boolean=False):
-  if type(x) is int:
+  if (type(x) is int) or (type(x) is np.int64):
     xo = np.array([x])
   elif (type(x) is tuple) and isinstance(x[0],np.ndarray):
     xo = x[0]
@@ -66,7 +71,7 @@ def existsInObj(obj,name):
   return (temp in where.__dict__)
 
 
-def addToObj(obj,name,value,overWrite=True):
+def addToObj(obj,name,value,overWrite=True,ixpsaved=False, setParent=True):
   """ Functions to add things to an object create intermediate dropObject if 
   necessary
   usage:
@@ -79,11 +84,24 @@ def addToObj(obj,name,value,overWrite=True):
   while (temp.find(".")>0):
     parent = temp[0:temp.find(".")]
     if parent not in where.__dict__:
-      where.__dict__[parent] = dropObject()
+      where.__dict__[parent] = dropObject(name=parent,parent=where)
+    if ixpsaved:
+      if not hasattr(where,'_ixpsaved'):
+	where._ixpsaved = []
+      if not (parent in [ix[0] for ix in where._ixpsaved]):
+        where._ixpsaved.append((parent,'auto'))
     where =  where.__dict__[parent]
     temp = temp[temp.find(".")+1:]
   if ( (temp not in where.__dict__) or overWrite ):
-    where.__dict__[temp] = value
+    if hasattr(where,'_ixpsaved'):
+      where[temp] = value
+    else:
+      where.__dict__[temp] = value
+    if setParent:
+      try:
+        where.__dict__[temp]._parent = where
+      except:
+	pass
   return obj
 
 def fileExists(fname):
