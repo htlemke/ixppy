@@ -9,6 +9,7 @@ from toolsTiming          import *
 from toolsDetectors       import *
 from toolsReciprocalSpace import *
 from toolsImgs            import *
+from toolsBeamline        import *
 import toolsVarious       
 import toolsConstsAndConv   
 import toolsDistrAndHist    
@@ -20,3 +21,4 @@ import toolsTiming
 import toolsDetectors       
 import toolsReciprocalSpace 
 import toolsImgs            
+import toolsBeamline

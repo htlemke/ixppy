@@ -503,6 +503,8 @@ class memdata(object):
     return [np.median(d) for d in self._data]
   def mad(self):
     return [tools.mad(d) for d in self._data]
+  def sum(self):
+    return np.array([np.sum(d) for d in self._data])
 
 
 

@@ -379,7 +379,7 @@ def getCommonModeFromHist(im,searchoffset=200,COMrad=3):
   aboveoffset = (hist>searchoffset)
   iao = list(aboveoffset).index(True)
   imx = iao + list(np.diff(hist[aboveoffset])<0).index(True)
-  CM = (np.sum(hist[imx-COMrad:imx+COMrad+1]*bins[imx-COMrad:imx+COMrad+1])/ np.sum(hist[imx-COMrad:imx+COMrad+1])) 
+  CM = (1.*np.sum(hist[imx-COMrad:imx+COMrad+1]*bins[imx-COMrad:imx+COMrad+1])/ np.sum(hist[imx-COMrad:imx+COMrad+1])) 
   return CM
 
 #class cspad(object):

@@ -104,6 +104,27 @@ opal2 Camera::FrameV1/XppEndstation.0:Opal1000.2/image Camera::FrameV1/XppEndsta
 yaglom Camera::FrameV1/XppEndstation.1:Tm6740.1/image Camera::FrameV1/XppEndstation.1:Tm6740.1/time dummy
 yag3m  Camera::FrameV1/XCS-YAG-3m/image Camera::FrameV1/XCS-YAG-3m/time  dummy
 orca Camera::FrameV1/XppEndstation.0:OrcaFl40.0/image Camera::FrameV1/XppEndstation.0:OrcaFl40.0/time dummy
+
+# XCS area detectors, label as #*line, then line of alias, and data, time, and config datasets
+#* pointDet_xcs
+epics     EpicsArch.0:NoDevice.0 notused   notused
+eventCode EvrData                notused   EvrData*eventcodes
+ipm1      IpmFex*/XcsBeamline.1:Ipimb.1  notused   notused 
+ipm2      IpmFex*/XcsBeamline.1:Ipimb.2  notused   notused 
+ipm3      IpmFex*/XcsBeamline.1:Ipimb.3  notused   notused 
+ipm4      IpmFex*/XcsBeamline.1:Ipimb.4  notused   notused 
+ipm5      IpmFex*/XcsBeamline.1:Ipimb.5  notused   notused 
+diode1      IpmFex*/XcsBeamline.2:Ipimb.1  notused   notused 
+diode2      IpmFex*/XcsBeamline.2:Ipimb.2  notused   notused 
+diode3      IpmFex*/XcsBeamline.2:Ipimb.3  notused   notused 
+diode4      IpmFex*/XcsBeamline.2:Ipimb.4  notused   notused 
+diode5      IpmFex*/XcsBeamline.2:Ipimb.5  notused   notused 
+
+
+# XCS area detectors, label as #*line, then line of alias, and data, time, and config datasets
+#* areaDet_xcs
+cspad  CsPad::ElementV*/XcsEndstation.0:Cspad.0/data notused notused
+
 # CXI area detectors, label as #*line, then line of alias, and data, time, and config datasets
 #* areaDet_cxi
 dg1  Camera::FrameV1/CxiDg1.0:Tm6740.0/image  Camera::FrameV1/CxiDg1.0:Tm6740.0/time dummy

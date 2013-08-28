@@ -4,6 +4,7 @@ import numpy as np
 from copy import deepcopy
 import re
 from itertools import takewhile
+#from ixppy import wrapFunc
 
 def allnamesequal(name):
   return all(n==name[0] for n in name[1:])
@@ -219,9 +220,9 @@ acos = np.arccos
 atan = np.arctan
 atan2 = np.arctan2
 
-def sind(x): return np.sin(np.rad2deg(x))
-def cosd(x): return np.cos(np.rad2deg(x))
-def tand(x): return np.tan(np.rad2deg(x))
+def sind(x): return np.sin(np.deg2rad(x))
+def cosd(x): return np.cos(np.deg2rad(x))
+def tand(x): return np.tan(np.deg2rad(x))
 def arcsind(x): return np.rad2deg(np.arcsin(x))
 def arccosd(x): return np.rad2deg(np.arccos(x))
 def arctand(x): return np.rad2deg(np.arctan(x))
@@ -317,3 +318,5 @@ def dictMerge(a, b):
 
 def varName(varStr): 
   return re.sub('\W|^(?=\d)','_', varStr)
+
+#polyval = wrapFunc(np.polyval)

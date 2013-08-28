@@ -438,13 +438,12 @@ class detector(object):
 	print "More calibcycle structures than detectors, will lead to empty detector steps..."
         self._numOfScanStepsFile.append(nccs[n])
       else:
-        self._numOfScanStepsFile.append(numOfScanStepsFile)
+        self._numOfScanStepsFile.append(numOfScanStepsFile[n])
 
     
     return self._numOfScanStepsFile
 
   def __getitem__(self,x):
-    print x
     n = self._numOfScanSteps[0]
     if isinstance(x,slice):
       return [self[ii] for ii in xrange(*x.indices(n))]
