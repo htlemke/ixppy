@@ -126,7 +126,7 @@ class lclsH5(object):
       detDataset = [x for x in h5names if (re.search(nameData,x) is not None)]
       nameConf = name["conf"].replace("*","\S+")
       detConf    = [x for x in h5confs if (re.search(nameConf,x) is not None)]
-      data = [x for x in detDataset if x[-5:]=="/data"]
+      data = [x for x in detDataset if x[-5:]=="/data" or x[-8:]=="/evrData"]
       time = [x for x in detDataset if x[-5:]=="/time"]
       if ( (len(data) != 0) and (len(time) != 0) ):
         ret[mnemonic] = {}
@@ -172,14 +172,16 @@ class lclsH5(object):
         mne,reg = scan_var
         reg  = reg.replace("*","\S+")
         data = [x for x in h5names if (re.search(reg,x) is not None)]
-        path = replaceCalibCycleString(data[0])
-	#try:
-        obj = scanVar(self.fileHandles,mne,path)
-        
-	#tools.addToObj(self,mne,obj)
-        temp[mne] = obj
-	#except:
-	  #pass
+
+	if not data==[]:
+	  path = replaceCalibCycleString(data[0])
+	  #try:
+	  obj = scanVar(self.fileHandles,mne,path)
+	  
+	  #tools.addToObj(self,mne,obj)
+	  temp[mne] = obj
+	  #except:
+	    #pass
     self.scanVars = temp
     # *** stop scan variables *** #
     return
@@ -674,7 +676,7 @@ def parseToCnf(fileHandle):
 
 def getDetNamefromPath(path,lowerit=False):
   name = 'data'
-  while name in ['data','time','image','array']:
+  while name in ['evrData','data','time','image','array']:
     path,name = os.path.split(path)
   name = name.lower()
   name = name.replace(':','_')

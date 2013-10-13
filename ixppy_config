@@ -41,12 +41,16 @@ epics   EpicsArch.0:NoDevice.0
 #* pointDet_xpp
 epics     EpicsArch.0:NoDevice.0 notused   notused
 eventCode EvrData                notused   EvrData*eventcodes
+eventCode EvrData*DataV3         notused   EvrData*eventcodes
 ipm1      IpmFex*/NH2-SB1-IPM-01 notused   notused 
 ipm2      IpmFex*/XppSb2_Ipm     notused   notused 
+ipm2      IpmFex*/XppSb2Ipm      notused   notused 
 ipm3      IpmFex*/XppSb3Ipm      notused   notused 
 ipm3      IpmFex*/XppSb3_Ipm      notused   notused 
 diode2    IpmFex*/XppSb3_Pim     notused   notused 
+diode2    IpmFex*/XppSb3Pim   notused   notused 
 diode3    IpmFex*/XppSb4_Pim     notused   notused 
+diode3    IpmFex*/XppSb4Pim   notused   notused 
 diodeU    IpmFex*/XppEnds_Ipm0   notused   notused 
 lom_bpm   IpmFex*/XppMon_Pim0    notused   notused 
 lom_diode IpmFex*/XppMon_Pim1    notused   notused 

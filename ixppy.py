@@ -334,12 +334,17 @@ class dataset(object):
     filenamesXtc = []
     
     # check if cached files are present
-    filenamesIxp = []
-    for f in filenamesH5:
-      cached_filename = os.path.join(self.config.cachePath,os.path.basename(f))
-      cached_filename = os.path.splitext(cached_filename)[0] + '.ixp.h5'
-      if tools.fileExists(cached_filename):
-	filenamesIxp.append(cached_filename)
+    if len(filenamesH5)==1 and filenamesH5[0][-7:]=='.ixp.h5':
+      filenamesIxp = filenamesH5
+      filenamesH5 = []
+    else:
+
+      filenamesIxp = []
+      for f in filenamesH5:
+	cached_filename = os.path.join(self.config.cachePath,os.path.basename(f))
+	cached_filename = os.path.splitext(cached_filename)[0] + '.ixp.h5'
+	if tools.fileExists(cached_filename):
+	  filenamesIxp.append(cached_filename)
       
     return (filenamesH5,filenamesXtc,filenamesIxp)
 
@@ -505,6 +510,8 @@ class memdata(object):
     return [tools.mad(d) for d in self._data]
   def sum(self):
     return np.array([np.sum(d) for d in self._data])
+  def sqrt(self):
+    return np.array([np.sqrt(d) for d in self._data])
 
 
 
@@ -726,8 +733,12 @@ class data(object):
     self._Nsteps = len(lens)
     self._lens = lens
 
+
+  def __len__(self):
+    return len(self._lens)
+
   def __repr__(self):
-      return "`data` object: %s " % self.name
+      return "`data` object %s, %d steps, %d events per step" % (self.name, self.__len__(),np.median(self._lens))
 
   def _getFilteredTime(self):
     if not hasattr(self,'_time'):
@@ -885,6 +896,7 @@ class data(object):
     elif len(x)==2:
       stepInd = tools.itemgetToIndices(x[0],n)
       evtInd = [tools.itemgetToIndices(x[1],lens[tind]) for tind in stepInd]
+    print stepInd,evtInd
     return self._getStepsShots(stepInd,evtInd)
     
 
@@ -909,13 +921,22 @@ class data(object):
     #TODO: 
     pass
   def _rdFromObj(self,step, evtInd):
-    ret = applyFunction(self._procObj['func'],
-	                 self._procObj['args'],
-			 self._procObj['kwargs'],
-			 stride = [step,evtInd],
-			 isPerEvt = self._procObj['isPerEvt'],
-			 InputDependentOutput=True,
-			 NdataOut=1,NmemdataOut=0, picky=False)
+    if self._procObj.has_key('isCrossEvent') and self._procObj['isCrossEvent']:
+      ret = applyCrossFunction(self._procObj['func'],
+	                       ixppyInput=self._procObj['ixppyInput'],
+                               time=self.time
+			       args=self._procObj['args']
+			       kwargs=self._procObj['kwargs']
+			       stride = [step,evtInd])
+
+    else:
+      ret = applyFunction(self._procObj['func'],
+			   self._procObj['args'],
+			   self._procObj['kwargs'],
+			   stride = [step,evtInd],
+			   isPerEvt = self._procObj['isPerEvt'],
+			   InputDependentOutput=True,
+			   NdataOut=1,NmemdataOut=0, picky=False)
     return [tret[self._procObj['nargSelf']] for tret in ret]
 
   def _rdFromIxp(self,step,evtInd):
@@ -980,6 +1001,10 @@ class data(object):
     return applyDataOperator(operator.gt,self,other)
 
 Data = data
+
+#def dataInterpolate(source,steplengths,sourceInd,stride):
+  #for 
+
 class scanVar(object):
   def __init__(self,fhandle,name,paths):
     self._h5s = fhandle
@@ -1086,7 +1111,8 @@ def getStepShotsFromIndsTime(inds,times,stride=None):
     if len(ind)>0:
       ts = np.vstack(added[np.ix_(ind)])
       if not stride==None:
-	ts = ts[stride]
+	if np.max(stride)<len(ts):
+	  ts = ts[stride]
       tsteps = np.unique(ts[:,0])
       tshots = [ts[(ts[:,0]==n).nonzero()[0],1] for n in tsteps]
       stepShots.append([tsteps,tshots])
@@ -1113,11 +1139,27 @@ def filterTimestamps(ts0,ts1):
   op1 = unravelScanSteps(sel1ri,ss1a)
   return op0,op1
 
+def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
+  """finds N closes events in ts0 to ts1. Returns those events (after 
+  ravelling) plus the unravel information (lengths per step in ts0 events).
+  """
+  ts0r,ss0 = ravelScanSteps(ts0)
+  ts1r,ss1 = ravelScanSteps(ts1)
+  ts0r = getTime(ts0r)
+  ts1r = getTime(ts1r)
+  ts0r = ts0r.astype(np.int32)
+  ts1r = ts1r.astype(np.int32)
+  indout = [np.abs(ts0r-tts1r).argsort()[:N] for tts1r in ts1r]
+  return indout,ss0
+
+
 def getTime(tsi):
+  """Takes structured second/nanosecond array and returns integer-clipped ms array.
+  """
   if tsi.dtype.names:
     nam = tsi.dtype.names
     if ('nanoseconds' in nam) and ('seconds' in nam):
-      tso = tsi['seconds']*1000 + tsi['nanoseconds']/1000000
+      tso = np.int64(tsi['seconds'])*1000 + tsi['nanoseconds']/1000000
   else:
     tso = tsi
   return tso
@@ -1808,7 +1850,7 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False):
   direction = 'vertical'
   if transpose: direction = 'horizontal'
   lims = np.round(tools.getSpanCoordinates(direction))
-  limsdict = dict(projection='vertical range',limits=lims)
+  limsdict = dict(projection = direction+' range',limits=lims)
   if not hasattr(Areadet,'profileLimits'):
     Areadet._add('profileLimits',[])
   Areadet.profileLimits.append(limsdict)
@@ -2338,6 +2380,8 @@ def extractProfilesFromData(data,profileLimits):
   cameraoffset = 32.
   if profileLimits["projection"]=="vertical range":
     profiles = np.mean(data[:,profileLimits['limits'][0]:profileLimits['limits'][1],:],axis=1)-float(cameraoffset)
+  elif profileLimits["projection"]=="horizontal range":
+    profiles = np.mean(data[:,:,profileLimits['limits'][0]:profileLimits['limits'][1]],axis=2)-float(cameraoffset)
   return profiles
 
 def rdHdf5dataFromDataSet(h5datasethandle,shots='all'):
@@ -3217,7 +3261,7 @@ def _applyFun(func,a):
   return res
 
 
-def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,NmemdataOut=0, picky=False, isPerEvt=False, stride=None, outputtypes=None):
+def applyFunction(func,args,kwargs,InputDependentOutput=True, KWignore=None, NdataOut=0,NmemdataOut=0, picky=False, isPerEvt=False, stride=None, outputtypes=None):
   """ rules: 
   - if data output, no other output possible, as output is not calculated. 
   - all event dependent arguments have to be passed as memdata or data instances
@@ -3235,10 +3279,16 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=0,Nmemdat
   allobjects = [(arg,0,argno) for argno,arg in enumerate(args) if (isinstance(arg,data) or isinstance(arg,memdata))]
   kwkeys = kwargs.keys()
   kwkeys.sort()
+  if KWignore==None:
+    KWignore = []
+  else:
+    KWignore = iterfy(KWignore)
   for keyno,key in enumerate(kwkeys):
-    if (isinstance(kwargs[key],data) or isinstance(kwargs[key],memdata)):
-      allobjects.append((kwargs[key],1,keyno))
-  scan = allobjects[0][0].scan
+    if not key in KWignore:
+      if (isinstance(kwargs[key],data) or isinstance(kwargs[key],memdata)):
+	allobjects.append((kwargs[key],1,keyno))
+  if not allobjects==[]:
+    scan = allobjects[0][0].scan
   rtimes = get_common_timestamps([ao[0] for ao in allobjects])
   # get also other arguments in seperate list for later use in length analysis if needed
   if not picky and not rtimes==None:
@@ -3426,7 +3476,79 @@ def wrapFunc(func,InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=Fal
     return applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=NdataOut,NmemdataOut=NmemdataOut, picky=picky, isPerEvt=isPerEvt, stride=None)
   return wrapper
     
+def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, stride=None, outputtypes=None):
+  """ important keywords:
+   time: list of timestamps which characterize the event
+   ixppyInput: a list of (ixppytype,coordination) tuples 
+               (ixppytype is memdata or data instance)
+   other args andkwargs are possible. 
+   
+   func takes
+   crossInput: list of elements to calculate stuff 
 
+  """
+  lens = [len(ttime) for ttime in time]
+  inds = []
+  for sNO,tlen in enumerate(lens):
+    inds.append(np.int32(np.arange(tlen)+np.sum(lens[:sNO])))
+
+  if stride is None:
+    stride = [range(len(lens)),'all']
+
+  output = [] 
+  for step in stride[0]:
+    # get the indices from this ixppy type instance and step
+    tstride = stride[1]
+    if tstride=='all':
+      tstride = range(lens[step])
+    nind = [inds[step][tind] for tind in tstride]
+    # Read necessary data
+    package = []
+    for tixpIp in ixppyInput:
+      #unpacking...
+      tdata = tixpIp[0]
+      coo = tixpIp[1]
+      # groups of inds per evt in this step
+      xind = [coo[tnind] for tnind in nind]
+      #translating this into steps and indices in tdata
+      uxind,repack = np.unique(np.hstack(xind),return_inverse=True)
+      tstride = getStepShotsFromIndsTime([uxind],tdata.time)[0]
+      tdataDat = np.concatenate(tdata._getStepsShots(tstride[0],tstride[1]),axis=0)
+      repack = unravelScanSteps(repack, [len(txind) for txind in xind])
+      package.append((tdataDat,repack))
+
+    #unpack single event steps and calculate
+    td = []
+    for iNo,tnind in enumerate(nind):
+      ipdat = []
+      for pack in package:
+	tdataDat,repack = pack
+	ipdat.append(tdataDat[np.ix_(repack[iNo])])
+      
+      #raise NotImplementedError('Use the source, luke!')
+      td.append(func(ipdat))
+
+    output.append(np.array(td))
+  return output
+
+
+    
+
+
+
+
+
+
+      
+
+
+
+
+
+   
+
+
+  pass
 
 def get_common_timestamps(allobjects):
   times = None
