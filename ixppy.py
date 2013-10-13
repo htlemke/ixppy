@@ -924,9 +924,9 @@ class data(object):
     if self._procObj.has_key('isCrossEvent') and self._procObj['isCrossEvent']:
       ret = applyCrossFunction(self._procObj['func'],
 	                       ixppyInput=self._procObj['ixppyInput'],
-                               time=self.time
-			       args=self._procObj['args']
-			       kwargs=self._procObj['kwargs']
+                               time=self.time,
+			       args=self._procObj['args'],
+			       kwargs=self._procObj['kwargs'],
 			       stride = [step,evtInd])
 
     else:
