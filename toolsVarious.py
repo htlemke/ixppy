@@ -26,7 +26,7 @@ class dropObject(object):
     return "dropObject with fields: "+str(self.__dict__.keys())
   def __getitem__(self,x):
     return self.__dict__[x]
-  def __setitem__(self,name,var,setParent=False):
+  def __setitem__(self,name,var,setParent=True):
     self._add(name,var)
     if setParent:
       try:

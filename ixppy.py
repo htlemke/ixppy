@@ -26,7 +26,12 @@ try:
 except:
   psana = None
   print "psana not available on present machine, hdf5 files required."
+#from progressbar import AnimatedMarker, Bar, BouncingBar, Counter, ETA, \
+    #FileTransferSpeed, FormatLabel, Percentage, \
+    #ProgressBar, ReverseBar, RotatingMarker, \
+    #SimpleProgress, Timer
 
+import progressbar as pb
 #import cspad
 
 # Config file format
@@ -621,23 +626,30 @@ class memdata(object):
   def __or__(self,other):
     return applyDataOperator(operator.or_,self,other)
   def __ror__(self,other):
-    return applyDataOperator(operator.or_,self,other)
+    return applyDataOperator(operator.or_,self,other,isreverse=True)
   def __xor__(self,other):
     return applyDataOperator(operator.xor,self,other)
   def __rxor__(self,other):
-    return applyDataOperator(operator.xor,self,other)
+    return applyDataOperator(operator.xor,self,other,isreverse=True)
   def __le__(self,other):
     return applyDataOperator(operator.le,self,other)
   def __lt__(self,other):
     return applyDataOperator(operator.lt,self,other)
   def __eq__(self,other):
+    if other==None:
+      return False
     return applyDataOperator(operator.eq,self,other)
   def __ne__(self,other):
+    if other==None:
+      return True
     return applyDataOperator(operator.ne,self,other)
   def __ge__(self,other):
     return applyDataOperator(operator.ge,self,other)
   def __gt__(self,other):
     return applyDataOperator(operator.gt,self,other)
+  
+  def __invert__(self):
+    return applyDataOperator(operator.invert,self)
 
 def initmemdataraw(data):
   if data==None:
@@ -733,7 +745,7 @@ class data(object):
     self._Nsteps = len(lens)
     self._lens = lens
 
-
+  
   def __len__(self):
     return len(self._lens)
 
@@ -812,7 +824,7 @@ class data(object):
 	path = name+'/'+path
     return ixpSeed,path
   
-  def evaluate(self):
+  def evaluate(self,progress=True):
     """Process all data of data instance which will be saved to a ixp hdf5 file. This function could be candidate for parallelization or background processing
     """
     ixp,path = self._getIxpHandle()
@@ -822,13 +834,18 @@ class data(object):
     dh = grp.require_group('data')
     allchunks = self._memIterate()
     eventShape = self._sizeEvt['shape']
+    # progress bar
+    widgets = ['Evaluating: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+    pbar = pb.ProgressBar(widgets=widgets, maxval=len(allchunks)).start()
     for stepNo,step in enumerate(allchunks):
       totlen = np.sum([len(x) for x in step])
       totshape = tuple([totlen] + list(eventShape))
       for chunk in step:
-	tdat = self[stepNo,np.ix_(chunk)][0]
+        tdat = self[stepNo,np.ix_(chunk)][0]
         ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
-	ds[chunk,...] = tdat
+        ds[chunk,...] = tdat
+      pbar.update(stepNo+1)
+    pbar.finish()
     self._rdStride = self._rdFromIxp
 
 
@@ -881,7 +898,22 @@ class data(object):
     #self._lens = lens
  
     
+  def interpolate(self,timenew,type='mean',Nclosest=5):
+    o = getClosestEvents(self.time,timenew,Nclosest)
+    if type=='mean':
+      def func(crossInput=[]):
+        return np.mean(crossInput[0],axis=0)
 
+    procObj = dict(
+	func=func,
+	ixppyInput=[(self,o[0])],
+	isPerEvt=False,
+	args=[],
+	kwargs=dict(),
+	isCrossEvent=True,
+	nargSelf=0)
+
+    return data(time=timenew,input=procObj,scan=self.scan)
 
   def __getitem__(self,x):
     n = self._Nsteps
@@ -896,7 +928,7 @@ class data(object):
     elif len(x)==2:
       stepInd = tools.itemgetToIndices(x[0],n)
       evtInd = [tools.itemgetToIndices(x[1],lens[tind]) for tind in stepInd]
-    print stepInd,evtInd
+    #print stepInd,evtInd
     return self._getStepsShots(stepInd,evtInd)
     
 
@@ -992,9 +1024,13 @@ class data(object):
   def __lt__(self,other):
     return applyDataOperator(operator.lt,self,other)
   def __eq__(self,other):
+    if other==None:
+      return False
     return applyDataOperator(operator.eq,self,other)
   def __ne__(self,other):
-    return applyDataOperator(operator.ne,self,other)
+    if other==None:
+      return True
+    return applyDataOperator(operator.eq,self,other)
   def __ge__(self,other):
     return applyDataOperator(operator.ge,self,other)
   def __gt__(self,other):
@@ -1111,8 +1147,12 @@ def getStepShotsFromIndsTime(inds,times,stride=None):
     if len(ind)>0:
       ts = np.vstack(added[np.ix_(ind)])
       if not stride==None:
-	if np.max(stride)<len(ts):
-	  ts = ts[stride]
+	if len(stride)>step and np.iterable(stride[step]):
+	  tstride = stride[step]
+	else:
+	  tstride = stride
+	if np.max(tstride)<len(ts):
+	  ts = ts[tstride]
       tsteps = np.unique(ts[:,0])
       tshots = [ts[(ts[:,0]==n).nonzero()[0],1] for n in tsteps]
       stepShots.append([tsteps,tshots])
@@ -1842,21 +1882,33 @@ def getExperimentList(printit=True,sortDates=True):
       print "%s    %s    %s"  %(l['startdate'][n],l['no'][n],l['pi'][n])
   return l
 
-def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False):
-  I = Areadet.data[step,np.ix_(shots)][0]
-  tools.nfigure('Select limits')
-  pl.imshow(np.mean(I,axis=0),interpolation='nearest')
-  print 'Select region of interest'
+def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None):
+  if isinstance(Areadet,data):
+    dat = Areadet
+    det = None
+  else:
+    dat = Areadet.data
+    det = Areadet
+
+
   direction = 'vertical'
   if transpose: direction = 'horizontal'
-  lims = np.round(tools.getSpanCoordinates(direction))
+  if lims==None:
+    I = dat[step,np.ix_(shots)][0]
+    tools.nfigure('Select limits')
+    pl.imshow(np.mean(I,axis=0),interpolation='nearest')
+    print 'Select region of interest'
+    lims = np.round(tools.getSpanCoordinates(direction))
   limsdict = dict(projection = direction+' range',limits=lims)
-  if not hasattr(Areadet,'profileLimits'):
-    Areadet._add('profileLimits',[])
-  Areadet.profileLimits.append(limsdict)
   tfun = ixppy.wrapFunc(extractProfilesFromData)
-  Areadet._add('profile',tfun(Areadet.data,limsdict))
-  return limsdict
+  profile = tfun(dat,limsdict)
+  if det==None:
+    return limsdict,profile
+  else:
+    if not hasattr(det,'profileLimits'):
+      det._add('profileLimits',[])
+    det.profileLimits.append(limsdict)
+    det._add('profile',profile)
 
 #class Profile(object):
   #def __init__(self,type='horizontal',limits=[]):
@@ -3247,11 +3299,14 @@ def applyMemdataOperator(optr,a,b,isreverse=False):
   return memdata(input=[resdat,restim],scan=scan)
       
     
-def applyDataOperator(optr,a,b,isreverse=False):
-  if not isreverse:
-    args = [a,b]
+def applyDataOperator(optr,a,b=None,isreverse=False):
+  if b==None:
+    args=[a]
   else:
-    args = [b,a]
+    if not isreverse:
+      args = [a,b]
+    else:
+      args = [b,a]
   return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None)
 
 def _applyFun(func,a):
@@ -3261,7 +3316,7 @@ def _applyFun(func,a):
   return res
 
 
-def applyFunction(func,args,kwargs,InputDependentOutput=True, KWignore=None, NdataOut=0,NmemdataOut=0, picky=False, isPerEvt=False, stride=None, outputtypes=None):
+def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None, NdataOut=0,NmemdataOut=0, picky=False, isPerEvt=False, stride=None, outputtypes=None, forceCalculation=False):
   """ rules: 
   - if data output, no other output possible, as output is not calculated. 
   - all event dependent arguments have to be passed as memdata or data instances
@@ -3276,8 +3331,8 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, KWignore=None, Nda
   if outputtypes==None:
     outputtypes = NdataOut*['data'] + NmemdataOut*['memdata']
   ##### Filter timestampsin order, args first, kwargs after sorted keys
-  allobjects = [(arg,0,argno) for argno,arg in enumerate(args) if (isinstance(arg,data) or isinstance(arg,memdata))]
-  kwkeys = kwargs.keys()
+  allobjects = [(arg,0,argno) for argno,arg in enumerate(ipargs) if (isinstance(arg,data) or isinstance(arg,memdata))]
+  kwkeys = ipkwargs.keys()
   kwkeys.sort()
   if KWignore==None:
     KWignore = []
@@ -3285,18 +3340,18 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, KWignore=None, Nda
     KWignore = iterfy(KWignore)
   for keyno,key in enumerate(kwkeys):
     if not key in KWignore:
-      if (isinstance(kwargs[key],data) or isinstance(kwargs[key],memdata)):
-	allobjects.append((kwargs[key],1,keyno))
+      if (isinstance(ipkwargs[key],data) or isinstance(ipkwargs[key],memdata)):
+	allobjects.append((ipkwargs[key],1,keyno))
   if not allobjects==[]:
     scan = allobjects[0][0].scan
   rtimes = get_common_timestamps([ao[0] for ao in allobjects])
   # get also other arguments in seperate list for later use in length analysis if needed
   if not picky and not rtimes==None:
     # get other input
-    otherargs = [(arg,0,argno) for argno,arg in enumerate(args) if ( not isinstance(arg,data) and not isinstance(arg,memdata))]
+    otherargs = [(arg,0,argno) for argno,arg in enumerate(ipargs) if ( not isinstance(arg,data) and not isinstance(arg,memdata))]
     for keyno,key in enumerate(kwkeys):
       if ( not isinstance(arg,data) and not isinstance(arg,memdata)):
-	otherargs.append((kwargs[key],1,keyno))
+	otherargs.append((ipkwargs[key],1,keyno))
     otherlens = [(len(toa),iskey,argno) for toa,iskey,argno in otherargs if (type(toa) is not str and np.iterable(toa))]
     if not otherlens==[]:
       lens,lensiskey,lensargno = zip(*otherlens)
@@ -3309,41 +3364,64 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, KWignore=None, Nda
 
   ############ generate output ############
   # case of data instance in input, at the moment seems like data might come out, but this has to be thought about more.
-  if np.array([isinstance(to[0],data) for to in allobjects]).any():
+  if np.array([isinstance(to[0],data) for to in allobjects]).any() or forceCalculation:
     if 'data' in outputtypes and stride==None:
       # this is the normal case to make an object that will act upon call
       output = []
       for nargSelf in (np.array(outputtypes)=='data').nonzero()[0]:
-        procObj = dict(func=func,args=args,kwargs=kwargs,nargSelf=nargSelf,isPerEvt=isPerEvt)
+        procObj = dict(func=func,args=ipargs,kwargs=ipkwargs,nargSelf=nargSelf,isPerEvt=isPerEvt)
         output.append(data(time=rtimes,input=procObj,scan=scan))
       if len(output)>1:
 	output = tuple(output)
       else:
 	output = output[0]
     # case mainly when executes as data procObj
-    elif 'data' in outputtypes and not stride==None:
+    elif ('data' in outputtypes and not stride==None) or forceCalculation:
+      # in force case and when stride is not given
+      if (stride == None) and forceCalculation:
+	# find smallest chunk size, will go for that...
+	dataIPchunkings = [o._memIterate() for o,dum,dum in allobjects if isinstance(o,data)]
+	chunksize = np.min([np.min([len(tchunk) for tchunk in tchunks]) for tchunks in dataIPchunkings])
+	# Get step stride and event strides
+	stepstride = range(len(rtimes))
+	eventstrides = []
+	for trtimes in rtimes:
+	  evlst = range(len(trtimes))
+	  eventstrides.append([ evlst[i:i+chunksize] for i in range(0, len(evlst), chunksize) ])
+      else:
+	stepstride = tools.iterfy(stride[0])
+	eventstrides = [stride[1]]*len(stepstride)
+
       ixppyip = []
       ixppytype = []
-      for o,iskey,argind in allobjects: #assuming here that data instances are out!
+      for o,iskey,argind in allobjects: 
 	ir,io      = filterTimestamps(rtimes,o.time)
 	
 	if isinstance(o,data):
 	  ixppytype.append('data')
-	  io = getStepShotsFromIndsTime(io,o.time,stride=stride[1])
+	  eventstrides_ravel = [np.ravel(tevs) for tevs in eventstrides]
+
+	  io = getStepShotsFromIndsTime(io,o.time,stride=eventstrides_ravel)
 	if isinstance(o,memdata):
 	  ixppytype.append('memdata')
 	ixppyip.append(([o,io,iskey,argind]))
 
       # generate input structures
       output_list = []
-      for step in tools.iterfy(stride[0]):
-	targs   = list(pycopy.copy(args))
-	tkwargs = pycopy.copy(kwargs)
+
+      for stepstrideNo,step in enumerate(stepstride):
+	eventstride = eventstrides[stepstrideNo]
+	if type(eventstride[0]) is list:
+	  print "this chunking doesn't work yet, taking first chunk only"
+	  eventstride = eventstride[0]
+
+	targs   = list(pycopy.copy(ipargs))
+	tkwargs = pycopy.copy(ipkwargs)
 	for o,io,k,i in ixppyip:
 	  if not k:
 	    if isinstance(o,memdata):
 	      odat,stpsz = ravelScanSteps(o.data)
-	      targs[i] = odat[io[step]][stride[1]]
+	      targs[i] = odat[io[step]][eventstride]
 	    else:
 	      
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
@@ -3355,10 +3433,10 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, KWignore=None, Nda
 	      #raise NotImplementedError('Use the source, luke!')
 
 	  else:
-	    tkwargs[kwkeys[i]]  = o[step][stride[1]]
+	    tkwargs[kwkeys[i]]  = o[step][eventstride]
 	    if isinstance(o,memdata):
 	      odat,stpsz = ravelScanSteps(o.data)
-	      tkwargs[kwkeys[i]] = odat[io[step]][stride[1]]
+	      tkwargs[kwkeys[i]] = odat[io[step]][eventstride]
 	    else:
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
 	      if not isPerEvt and ('memdata' in ixppytype):
@@ -3374,7 +3452,7 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, KWignore=None, Nda
 	if isPerEvt:
 	  # TODO: in case func works only for single shot
 	  tret = []
-	  for nevt in range(len(stride[1])):
+	  for nevt in range(len(eventstride)):
             stargs = pycopy.copy(targs)
             stkwargs = pycopy.copy(tkwargs)
 	    for o,io,k,i in ixppyip:
@@ -3421,8 +3499,8 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, KWignore=None, Nda
     # generate input structures
     output_list = []
     for step in range(len(rtimes)):
-      targs   = list(pycopy.copy(args))
-      tkwargs = pycopy.copy(kwargs)
+      targs   = list(pycopy.copy(ipargs))
+      tkwargs = pycopy.copy(ipkwargs)
       for o,k,i in ixppyip + otherip:
 	if not k:
 	  targs[i] = o[step]
@@ -3454,7 +3532,7 @@ def applyFunction(func,args,kwargs,InputDependentOutput=True, KWignore=None, Nda
       output = output_list[0]
   else:
     #pass
-    output = func(*args,**kwargs)
+    output = func(*ipargs,**ipkwargs)
   return output
 
 
@@ -3495,8 +3573,9 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
   if stride is None:
     stride = [range(len(lens)),'all']
 
-  output = [] 
-  for step in stride[0]:
+  output = []
+  stepstride = tools.iterfy(stride[0])
+  for step in stepstride:
     # get the indices from this ixppy type instance and step
     tstride = stride[1]
     if tstride=='all':
@@ -3525,10 +3604,9 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
 	tdataDat,repack = pack
 	ipdat.append(tdataDat[np.ix_(repack[iNo])])
       
-      #raise NotImplementedError('Use the source, luke!')
       td.append(func(ipdat))
 
-    output.append(np.array(td))
+    output.append((np.array(td),))
   return output
 
 
