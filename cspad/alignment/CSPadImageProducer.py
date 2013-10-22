@@ -9,7 +9,7 @@
 
 """This module provides access to the calibration parameters
 
-This software was developed for the SIT project.  If you use all or 
+This software was developed for the SIT project.  If you use all or
 part of it, please give an appropriate acknowledgment.
 
 @see RelatedModule
@@ -26,7 +26,7 @@ __version__ = "$Revision: 4 $"
 # $Source$
 
 #----------
-#  Imports 
+#  Imports
 #----------
 
 import sys
@@ -75,21 +75,21 @@ class CSPadImageProducer (object) :
         if quadNum == None :
             self.quad = ccp.cspadconfig.cspadQuad
         else :
-            self.quad = quadNum            
+            self.quad = quadNum
 
         indPairsInQuads  = ccp.cspadconfig.indPairsInQuads
         pairInQaudOriInd = ccp.cspadconfig.pairInQaudOriInd
 
-        pairXInQaud = calp.calibpars.getCalibPars ('center')[0]
-        pairYInQaud = calp.calibpars.getCalibPars ('center')[1]
-        dXInQaud    = calp.calibpars.getCalibPars ('center_corr')[0]
-        dYInQaud    = calp.calibpars.getCalibPars ('center_corr')[1]
-        offsetX     = calp.calibpars.getCalibPars ('marg_gap_shift')[0][0]
-        offsetY     = calp.calibpars.getCalibPars ('marg_gap_shift')[1][0]
-        dPhi        = calp.calibpars.getCalibPars ('tilt')
+        pairXInQaud = self.calibpars.getCalibPars ('center')[0]
+        pairYInQaud = self.calibpars.getCalibPars ('center')[1]
+        dXInQaud    = self.calibpars.getCalibPars ('center_corr')[0]
+        dYInQaud    = self.calibpars.getCalibPars ('center_corr')[1]
+        offsetX     = self.calibpars.getCalibPars ('marg_gap_shift')[0][0]
+        offsetY     = self.calibpars.getCalibPars ('marg_gap_shift')[1][0]
+        dPhi        = self.calibpars.getCalibPars ('tilt')
 
         #arr2dquad = np.zeros( (850,850), dtype=np.float32 ) # np.int16
-        arr2dquad = np.zeros( (ccp.cspadconfig.quadDimX,ccp.cspadconfig.quadDimY), dtype=np.float32 ) # dtype=np.int16 
+        arr2dquad = np.zeros( (ccp.cspadconfig.quadDimX,ccp.cspadconfig.quadDimY), dtype=np.float32 ) # dtype=np.int16
         #print 'arr2dquad.shape=',arr2dquad.shape
 
 #       for ind in xrange(1): # loop over ind = 0,1,2,...,7
@@ -102,26 +102,26 @@ class CSPadImageProducer (object) :
             asic2x1 = self.getImageArrayForPair( arr1ev, pair )
             rotarr2d_0 = np.rot90(asic2x1,pairInQaudOriInd[self.quad][ind])
             #print 'rotarr2d_0.shape=',rotarr2d_0.shape
-            #print 'rotarr2d.base is asic2x1 ? ',rotarr2d.base is asic2x1 
+            #print 'rotarr2d.base is asic2x1 ? ',rotarr2d.base is asic2x1
 
             rotarr2d = rotarr2d_0
 
-            ixOff  = offsetX + pairXInQaud[self.quad][ind] + dXInQaud[self.quad][ind] 
+            ixOff  = offsetX + pairXInQaud[self.quad][ind] + dXInQaud[self.quad][ind]
             iyOff  = offsetY + pairYInQaud[self.quad][ind] + dYInQaud[self.quad][ind]
             #print 'ixOff, iyOff :', ixOff, iyOff
 
             # 0:185, 0:388 -> 185x391
-            rot_index = pairInQaudOriInd[self.quad][ind] 
+            rot_index = pairInQaudOriInd[self.quad][ind]
 
             offS = 0.5*185
             offL = 0.5*(388+3)
             #print 'offS, offL :', offS, offL
 
-            if rot_index % 2 == 0 : self.lx0, self.ly0 = offS, offL 
-            else                  : self.lx0, self.ly0 = offL, offS  
+            if rot_index % 2 == 0 : self.lx0, self.ly0 = offS, offL
+            else                  : self.lx0, self.ly0 = offL, offS
 
-            ixOff -= self.lx0  
-            iyOff -= self.ly0  
+            ixOff -= self.lx0
+            iyOff -= self.ly0
 
             #-------- Apply tilt angle of 2x1 sensors
             if self.tiltIsOn :
@@ -143,15 +143,15 @@ class CSPadImageProducer (object) :
 
                 #print 'Tilt offset dx, dy=', rdphi * sinPhi, rdphi * cosPhi
 
-            #-------- 
+            #--------
 
             ixOff = int( ixOff )
             iyOff = int( iyOff )
 
             dimX, dimY = rotarr2d.shape
-            #print 'ixOff, iyOff =', ixOff, iyOff,           
-            #print ' dimX,  dimY =', dimX, dimY           
-            
+            #print 'ixOff, iyOff =', ixOff, iyOff,
+            #print ' dimX,  dimY =', dimX, dimY
+
             arr2dquad[ixOff:dimX+ixOff, iyOff:dimY+iyOff] += rotarr2d[0:dimX, 0:dimY]
 
         #print 'arr2dquad=\n', arr2dquad
@@ -165,14 +165,14 @@ class CSPadImageProducer (object) :
         quadInDetOriInd = ccp.cspadconfig.quadInDetOriInd
         quadNumsInEvent = ccp.cspadconfig.quadNumsInEvent
 
-        margX    = calp.calibpars.getCalibPars ('marg_gap_shift')[0][1]
-        margY    = calp.calibpars.getCalibPars ('marg_gap_shift')[1][1]
-        gapX     = calp.calibpars.getCalibPars ('marg_gap_shift')[0][2]
-        gapY     = calp.calibpars.getCalibPars ('marg_gap_shift')[1][2]
-        shiftX   = calp.calibpars.getCalibPars ('marg_gap_shift')[0][3]
-        shiftY   = calp.calibpars.getCalibPars ('marg_gap_shift')[1][3]
-        offX     = calp.calibpars.getCalibPars ('offset')[0] + calp.calibpars.getCalibPars ('offset_corr')[0] + margX
-        offY     = calp.calibpars.getCalibPars ('offset')[1] + calp.calibpars.getCalibPars ('offset_corr')[1] + margY
+        margX    = self.calibpars.getCalibPars ('marg_gap_shift')[0][1]
+        margY    = self.calibpars.getCalibPars ('marg_gap_shift')[1][1]
+        gapX     = self.calibpars.getCalibPars ('marg_gap_shift')[0][2]
+        gapY     = self.calibpars.getCalibPars ('marg_gap_shift')[1][2]
+        shiftX   = self.calibpars.getCalibPars ('marg_gap_shift')[0][3]
+        shiftY   = self.calibpars.getCalibPars ('marg_gap_shift')[1][3]
+        offX     = self.calibpars.getCalibPars ('offset')[0] + self.calibpars.getCalibPars ('offset_corr')[0] + margX
+        offY     = self.calibpars.getCalibPars ('offset')[1] + self.calibpars.getCalibPars ('offset_corr')[1] + margY
 
         #self.arr2dCSpad = np.zeros( (1710,1710), dtype=np.int16 )
         #self.arr2dCSpad = np.zeros( (1750,1750), dtype=np.int16 )
@@ -182,8 +182,8 @@ class CSPadImageProducer (object) :
         quadXOffset = [offX[0]-gapX+shiftX, offX[1]-gapX-shiftX, offX[2]+gapX-shiftX, offX[3]+gapX+shiftX]
         quadYOffset = [offY[0]-gapY-shiftY, offY[1]+gapY-shiftY, offY[2]+gapY+shiftY, offY[3]-gapY+shiftY]
 
-        #print 'quadXOffset = ', quadXOffset 
-        #print 'quadYOffset = ', quadYOffset 
+        #print 'quadXOffset = ', quadXOffset
+        #print 'quadYOffset = ', quadYOffset
 
         #for iq in range(1) :
         for iq in range(len(quadNumsInEvent)) :
@@ -203,7 +203,7 @@ class CSPadImageProducer (object) :
 #---------------------
 
     def getImageArrayForDet( self, arr1ev ):
-        """Returns the image array for entire CSpad detector"""       
+        """Returns the image array for entire CSpad detector"""
 
         if cp.confpars.eventCurrent == self.eventWithAlreadyGeneratedCSpadDetImage :
             #print 'Use already generated image for CSpad and save time'
@@ -241,14 +241,14 @@ class CSPadImageProducer (object) :
 #---------------------
 
     def getImageArrayForCSpad2x2Element( self, arr1ev ):
-        """Returns the image array for the CSpad2x2Element or CSpad2x2"""       
+        """Returns the image array for the CSpad2x2Element or CSpad2x2"""
 
         arr2x1Pair0 = self.getImageArrayForCSpad2x2ElementPair(arr1ev,0)
         arr2x1Pair1 = self.getImageArrayForCSpad2x2ElementPair(arr1ev,1)
         wid2x1      = arr2x1Pair0.shape[0]
         len2x1      = arr2x1Pair0.shape[1]
 
-        arrgapV = np.zeros( (20,len2x1), dtype=np.float ) # dtype=np.int16 
+        arrgapV = np.zeros( (20,len2x1), dtype=np.float ) # dtype=np.int16
         arr2d   = np.vstack((arr2x1Pair0, arrgapV, arr2x1Pair1))
 
         #print 'arr2d.shape=', arr2d.shape
@@ -286,7 +286,7 @@ class CSPadImageProducer (object) :
         quadNumsInEvent  = ccp.cspadconfig.quadNumsInEvent
         indPairsInQuads  = ccp.cspadconfig.indPairsInQuads
         gap              = ccp.cspadconfig.gapIn2x1
-        dPhi             = calp.calibpars.getCalibPars ('tilt')
+        dPhi             = self.calibpars.getCalibPars ('tilt')
 
         #print 'quadNumsInEvent =', quadNumsInEvent
         #print 'indPairsInQuads =\n',  indPairsInQuads
@@ -313,22 +313,22 @@ class CSPadImageProducer (object) :
                 if ind_segm_in_arr == -1 : continue
 
                 #arr_segm = arr_all[quad,segm,:] # old slyle of shape...
-                arr_segm = arr_all[ind_segm_in_arr,:]    
+                arr_segm = arr_all[ind_segm_in_arr,:]
 
                 if self.tiltIsOn :
                     angle  = dPhi[quad][segm] + 90*self.segmRotInd[quad][segm]
-                    #print 'angle = %f ' % (angle) 
+                    #print 'angle = %f ' % (angle)
                     #arr_segm_rot0 = np.rot90(arr_segm, self.segmRotInd[quad][segm])
                     arr_segm_rot  = spi.rotate(arr_segm, angle, reshape=True, output=np.float32 )
                 else :
                     arr_segm_rot = np.rot90(arr_segm, self.segmRotInd[quad][segm])
-        
+
                 nrows, ncols = arr_segm_rot.shape
                 #print 'quad, segm, nrows, ncols = ', quad, segm, nrows, ncols
-        
+
                 xOff = self.segmX[quad][segm] - nrows/2
                 yOff = self.segmY[quad][segm] - ncols/2
-        
+
                 arr_cspad_img[xOff:nrows+xOff, yOff:ncols+yOff] += arr_segm_rot[0:nrows, 0:ncols]
 
         if self.mirror : return  np.fliplr(arr_cspad_img)
@@ -353,15 +353,17 @@ class CSPadImageProducer (object) :
 
 #---------------------
 
-    def __init__ (self, rotation=0, tiltIsOn=False, mirror=False) :
+    def __init__ (self, calibpars, rotation=0, tiltIsOn=False, mirror=False) :
         #print 'CSPadImageProducer(): Initialization'
+
+        self.calibpars = calibpars
 
         self.rotation = rotation
         self.mirror   = mirror
         self.tiltIsOn = tiltIsOn
 
         self.detDimX, self.detDimY, self.segmX, self.segmY, self.segmRotInd = \
-                      cpe.cpeval.getCSPadGeometry (rotation)  
+                      cpe.cpeval.getCSPadGeometry (rotation)
 
         #self.printInputPars()
         #self.printGeometryPars()
@@ -379,14 +381,14 @@ def main_calib() :
 
     runnum=0
 
-    #path_calib = '/reg/neh/home/dubrovin/LCLS/CSPadAlignment-v01/calib-cxi37411-r0039-Dsd/' 
-    #path_calib = '/reg/neh/home/dubrovin/LCLS/CSPadAlignment-v01/calib-cxi37411-r0080-Ds1' 
-    #path_calib = '/reg/neh/home/dubrovin/LCLS/CSPadAlignment-v01/calib-cxi35711-r0009-det' 
-    #path_calib = '/reg/d/psdm/CXI/cxi37411/calib/CsPad::CalibV1/CxiDs1.0:Cspad.0' 
-    #path_calib = '/reg/d/psdm/CXI/cxi35711/calib/CsPad::CalibV1/CxiDs1.0:Cspad.0' 
-    #path_calib = '/reg/d/psdm/CXI/cxi37411/calib/CsPad::CalibV1/CxiDsd.0:Cspad.0' 
-    path_calib = '/reg/d/psdm/xpp/xpp47712/calib/CsPad::CalibV1/XppGon.0:Cspad.0' 
-    
+    #path_calib = '/reg/neh/home/dubrovin/LCLS/CSPadAlignment-v01/calib-cxi37411-r0039-Dsd/'
+    #path_calib = '/reg/neh/home/dubrovin/LCLS/CSPadAlignment-v01/calib-cxi37411-r0080-Ds1'
+    #path_calib = '/reg/neh/home/dubrovin/LCLS/CSPadAlignment-v01/calib-cxi35711-r0009-det'
+    #path_calib = '/reg/d/psdm/CXI/cxi37411/calib/CsPad::CalibV1/CxiDs1.0:Cspad.0'
+    #path_calib = '/reg/d/psdm/CXI/cxi35711/calib/CsPad::CalibV1/CxiDs1.0:Cspad.0'
+    #path_calib = '/reg/d/psdm/CXI/cxi37411/calib/CsPad::CalibV1/CxiDsd.0:Cspad.0'
+    path_calib = '/reg/d/psdm/xpp/xpp47712/calib/CsPad::CalibV1/XppGon.0:Cspad.0'
+
     #fname  = '/reg/d/psdm/CXI/cxi35711/hdf5/cxi35711-r0009.h5'
     #fname  = '/reg/d/psdm/CXI/cxi37411/hdf5/cxi37411-r0080.h5'
     #fname  = '/reg/d/psdm/CXI/cxi37411/hdf5/cxi37411-r0039.h5'
@@ -400,7 +402,7 @@ def main_calib() :
 
     event  = 0
 
-    print 'Load calibration parameters from', path_calib 
+    print 'Load calibration parameters from', path_calib
     calp.calibpars.setCalibParsForPath ( run=runnum, path=path_calib )
 
     print 'Get raw CSPad event %d from file %s \ndataset %s' % (event, fname, dsname)

@@ -53,6 +53,7 @@ class dataset(object):
   def __init__(self,
     inputFilesOrExpRunTuple='',
     detectors = [],
+    ixpFile=None,
     beamline = None,               
     rdPointDetectorsImmediately=True,
     rdTimestamps=True,
@@ -77,10 +78,13 @@ class dataset(object):
     self.config.readCachedData = readCachedData
     self._getFileStrategy()
     if len(self.config.fileNamesIxp)==0:
-      tfname =  self.config.fileNamesH5[0]
-      ixpname = os.path.join(self.config.cachePath,os.path.basename(tfname))
-      ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
-      self.config.ixp = Ixp(ixpname)
+      if ixpFile==None:
+	tfname =  self.config.fileNamesH5[0]
+	ixpname = os.path.join(self.config.cachePath,os.path.basename(tfname))
+	ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
+	self.config.ixp = Ixp(ixpname)
+      else:
+	self.config.ixp = Ixp(ixpFile)
     else:
       self.config.ixp = Ixp(self.config.fileNamesIxp[0])
 
@@ -744,6 +748,7 @@ class data(object):
     self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
     self._Nsteps = len(lens)
     self._lens = lens
+    self.evaluate = Evaluate(self)
 
   
   def __len__(self):
@@ -778,8 +783,8 @@ class data(object):
     if not hasattr(self,'_mem'):
       self._mem = mem()
     indchunks = []
-    for step in steps:
-      tevts = evts[step]
+    for stepNo,step in enumerate(steps):
+      tevts = evts[stepNo]
       tlen  = len(tevts)
       nextEvtNo = 0
       stepChunks = []
@@ -790,7 +795,7 @@ class data(object):
       while nextEvtNo<tlen:
         stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)])
         nextEvtNo+=Nread
-      indchunks.append(stepChunks)
+      indchunks.append((stepNo,stepChunks))
     return indchunks
   
   def chunks(self,steps=slice(None),evts=slice(None),memFrac=0.1):
@@ -824,29 +829,29 @@ class data(object):
 	path = name+'/'+path
     return ixpSeed,path
   
-  def evaluate(self,progress=True):
-    """Process all data of data instance which will be saved to a ixp hdf5 file. This function could be candidate for parallelization or background processing
-    """
-    ixp,path = self._getIxpHandle()
-    grp = ixp.fileHandle.require_group(path)
-    grp['_dtype'] = 'data'
-    ixp.save(self.time,grp,name='time')
-    dh = grp.require_group('data')
-    allchunks = self._memIterate()
-    eventShape = self._sizeEvt['shape']
-    # progress bar
-    widgets = ['Evaluating: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
-    pbar = pb.ProgressBar(widgets=widgets, maxval=len(allchunks)).start()
-    for stepNo,step in enumerate(allchunks):
-      totlen = np.sum([len(x) for x in step])
-      totshape = tuple([totlen] + list(eventShape))
-      for chunk in step:
-        tdat = self[stepNo,np.ix_(chunk)][0]
-        ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
-        ds[chunk,...] = tdat
-      pbar.update(stepNo+1)
-    pbar.finish()
-    self._rdStride = self._rdFromIxp
+  #def evaluate(self,progress=True):
+    #"""Process all data of data instance which will be saved to a ixp hdf5 file. This function could be candidate for parallelization or background processing
+    #"""
+    #ixp,path = self._getIxpHandle()
+    #grp = ixp.fileHandle.require_group(path)
+    #grp['_dtype'] = 'data'
+    #ixp.save(self.time,grp,name='time')
+    #dh = grp.require_group('data')
+    #allchunks = self._memIterate()
+    #eventShape = self._sizeEvt['shape']
+    ## progress bar
+    #widgets = ['Evaluating: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+    #pbar = pb.ProgressBar(widgets=widgets, maxval=len(allchunks)).start()
+    #for stepNo,step in enumerate(allchunks):
+      #totlen = np.sum([len(x) for x in step])
+      #totshape = tuple([totlen] + list(eventShape))
+      #for chunk in step:
+        #tdat = self[stepNo,np.ix_(chunk)][0]
+        #ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
+        #ds[chunk,...] = tdat
+      #pbar.update(stepNo+1)
+    #pbar.finish()
+    #self._rdStride = self._rdFromIxp
 
 
     
@@ -969,10 +974,16 @@ class data(object):
 			   isPerEvt = self._procObj['isPerEvt'],
 			   InputDependentOutput=True,
 			   NdataOut=1,NmemdataOut=0, picky=False)
-    return [tret[self._procObj['nargSelf']] for tret in ret]
+      if type(ret) is not tuple:
+	ret = (ret,)
+
+    #return [tret[self._procObj['nargSelf']] for tret in ret]
+    return ret[self._procObj['nargSelf']]
 
   def _rdFromIxp(self,step,evtInd):
-    return [self._ixpAddressData['#%06d'%step][np.array(evtInd),...]]
+    return [np.atleast_2d(self._ixpAddressData['#%06d'%step][np.array(evtInd),...])]
+  def _isIxp(self):
+    return self._rdStride == self._rdFromIxp
 
   def __add__(self,other):
     return applyDataOperator(operator.add,self,other)
@@ -1040,6 +1051,74 @@ Data = data
 
 #def dataInterpolate(source,steplengths,sourceInd,stride):
   #for 
+class Evaluate(object):
+  def __init__(self,datainstance):
+    self.data = datainstance
+
+  def __call__(self,stepSlice=slice(None),evtSlice=slice(None),progress=True,force=False):
+    """Process all data of data instance which will be saved to a ixp hdf5 file. This function could be candidate for parallelization or background processing
+    """
+    allchunks = self.data._memIterate(stepSlice,evtSlice)
+    timestamps = [np.concatenate([self.data.time[tstep][tchunk] for tchunk in tstepchunk]) for tstep,tstepchunk in allchunks]
+    ixp,path = self.data._getIxpHandle()
+    if path in ixp.fileHandle and not force:
+      deleteit = 'y' == raw_input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path)
+      if deleteit:
+	del ixp.fileHandle[path]
+      else:
+	return
+
+
+    
+    grp = ixp.fileHandle.require_group(path)
+    grp['_dtype'] = 'data'
+    ixp.save(timestamps,grp,name='time')
+    dh = grp.require_group('data')
+    eventShape = self.data._sizeEvt['shape']
+    # progress bar
+    widgets = ['Evaluating: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+    pbar = pb.ProgressBar(widgets=widgets, maxval=len(allchunks)).start()
+    for stepNo,step in allchunks:
+      totlen = np.sum([len(x) for x in step])
+      totshape = tuple([totlen] + list(eventShape))
+      startind = 0
+      for chunk in step:
+        tdat = self.data[stepNo,np.ix_(chunk)][0]
+        ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
+	ds[startind:startind+len(chunk),...] = tdat
+
+	startind += len(chunk)
+      pbar.update(stepNo+1)
+    pbar.finish()
+    
+    #raise NotImplementedError('Use the source, luke!')
+    #self.data = Data(time=timestamps,ixpAddressData=grp['data'],name=self.data.name)
+    self.data._ixpAddressData = grp['data'] 
+    self.data._rdStride = self.data._rdFromIxp
+    self.data._time = timestamps
+    lens = [len(td) for td in self.data._time]
+    self.data._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+    self.data._Nsteps = len(lens)
+    self.data._lens = lens
+
+  def __getitem__(self,x):
+    n = self.data._Nsteps
+    #lens = [len(tfilt) for tfilt in self._filter]
+    x = tools.iterfy(x)
+    if len(x)==1:
+      if n==1:
+	evtSlice = x[0]
+	stepSlice = slice(None)
+      else:
+	evtSlice = slice(None)
+	stepSlice = x[0]
+    elif len(x)==2:
+      evtSlice = x[1]
+      stepSlice = x[0]
+    
+    return self.__call__(stepSlice=stepSlice,evtSlice=evtSlice)
+
+  ## TODO: function that evaluates random sample of events...
 
 class scanVar(object):
   def __init__(self,fhandle,name,paths):
@@ -1562,6 +1641,8 @@ class Ixp(object):
     #cfh.close()
   
   def save(self, obj, parenth5handle, name=None, force=None):
+    if hasattr(obj,'_isIxp') and obj._isIxp():
+      return
     if force is None:
       force = self._forceOverwrite
     pH = parenth5handle
@@ -3381,7 +3462,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
       if (stride == None) and forceCalculation:
 	# find smallest chunk size, will go for that...
 	dataIPchunkings = [o._memIterate() for o,dum,dum in allobjects if isinstance(o,data)]
-	chunksize = np.min([np.min([len(tchunk) for tchunk in tchunks]) for tchunks in dataIPchunkings])
+	chunksize = np.min([np.min([len(tchunk[1]) for tchunk in tchunks]) for tchunks in dataIPchunkings])
 	# Get step stride and event strides
 	stepstride = range(len(rtimes))
 	eventstrides = []
@@ -3424,7 +3505,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	      targs[i] = odat[io[step]][eventstride]
 	    else:
 	      
-              tmp = o._getStepsShots(io[step][0],io[step][1])[0]
+              tmp = o._getStepsShots(io[stepstrideNo][0],io[stepstrideNo][1])[0]
 	      if not isPerEvt and ('memdata' in ixppytype):
 	        trnspsorder = range(np.rank(tmp))
                 trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
@@ -3471,8 +3552,8 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	else:
 
 	  tret = func(*targs,**tkwargs)
-	if type(tret) is not tuple: 
-	  tret = (tret,)
+	  if not type(tret) is tuple:
+            tret = (tret,)
 	if not isPerEvt and ('memdata' in ixppytype):
 	  tret = list(tret)
 	  for ono,ttret in enumerate(tret):
@@ -3486,7 +3567,20 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
     ############ interprete output automatically find memdata candidates ###########
       
       output_list = zip(*output_list)
-      output = output_list
+      output_ismemdata = [opNo  for opNo,ao in enumerate(output_list) \
+	  if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
+      for n,top in enumerate(output_list):
+	if n in output_ismemdata:
+	  output_list[n] = memdata(input=[top,rtimes],scan=scan)
+	#elif top.count(top[0])==len(top):
+	  #output_list[n] = top[0]
+	#elif len(top)>1:
+        else:
+	  output_list[n] = list(top)
+      if len(output_list)>1:
+	output = tuple(output_list)
+      else:
+	output = output_list[0]
       
 
   # "Easy" case where everything fits in memory, no data instance in input.

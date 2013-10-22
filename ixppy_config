@@ -93,6 +93,7 @@ timeTool   TTSPEC  notused notused
 #* areaDet_xpp
 opal2 Camera::Frame*/XppEndstation.0:Opal1000.2/image notused notused
 cspad  CsPad::ElementV2/XppGon.0:Cspad.0/data  CsPad::ElementV2/XppGon.0:Cspad.0/time  /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
+cspad  CsPad::ElementV*/XppGon.0:Cspad.0/data  notused notused
 cspad2x2  CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/data CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/time /Configure:0000/CsPad::ConfigV1/XppGon.0:Cspad.0/config
 cspad2x2 CsPad::ElementV2/XppGon.0:Cspad.0/data CsPad::ElementV2/XppGon.0:Cspad.0/time /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
 cs140  CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/data CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/time /Configure:0000/CsPad::ConfigV1/XppGon.0:Cspad.0/config

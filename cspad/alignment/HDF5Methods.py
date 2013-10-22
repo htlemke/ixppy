@@ -41,34 +41,38 @@ import GlobalMethods    as gm
 #  Class definition --
 #---------------------
 
-class HDF5Methods(object) :
+class HDF5File(object) :
     """This class contains a few methods to manipulate with hdf5 files"""
 
 #---------------------
 
-    def __init__ (self) :
-        #print """HDF5Methods: Initialization"""
-        self.h5file = None
-        self.dset   = None   
+    def __init__ (self, fname=None) :
+        #print """HDF5File: Initialization"""
+        self.dset  = None   
+        self.fname = fname   
+        if fname != None : h5file = self.open_hdf5_file(fname)
+        else             : self.h5file = None
 
 #---------------------
 
-    def open_hdf5_file(self, fname_input=None) :
+    def open_hdf5_file(self, fname) :
 
-        if fname_input==None : #self.fname = cp.confpars.dirName+'/'+cp.confpars.fileName
-            print 'open_hdf5_file(fname) : THE HDF5 FILE NAME NEEDS TO BE SPECIFIED !!!'
-        else :
-            self.fname = fname_input
-
-        #print '=== Open HDF5 file: ' + self.fname
+        #print '=== Open HDF5 file: ' + fname
+        if not os.path.exists(fname) :
+            print  'ERROR: THE SPECIFIED FILE "', fname, '" DOES NOT EXIST.'
+            return None
+            #sys.exit ( 'Exit on ERROR' )
 
         try :
-            self.h5file = h5py.File(self.fname,'r') # open read-only
+            self.h5file = h5py.File(fname,'r') # open read-only
+            self.fname = fname
+            print  'Open file', fname
             return self.h5file
 
         except IOError:
-            print 'IOError: CAN NOT OPEN FILE:', self.fname
+            print 'IOError: CAN NOT OPEN FILE:', fname
             return None
+            #sys.exit ( 'Exit on ERROR' )
 
 #---------------------
 
@@ -80,15 +84,37 @@ class HDF5Methods(object) :
 
     def get_dataset_from_hdf5_file(self,dsname) :
         #print 'From hdf5 file get dataset :', dsname
-
         try :
-            self.dset =  self.h5file[str(dsname)]
+            self.dset = self.h5file[str(dsname)]
             return self.dset
         except KeyError:
-            print 80*'!'
-            print 'WARNING:', dsname, ' DATASET DOES NOT EXIST IN HDF5\n'
-            print 80*'!'
+            #print 'ERROR: DATASET %s \nDOES NOT EXIST IN HDF5 file %s' % (dsname, self.fname)
             return None
+            #sys.exit ( 'Exit on ERROR' )
+
+#---------------------
+
+    def get_cspad_config_dsname( self, data_dsname ) :
+        """Find the CSPAD configuration dataset name in hdf5 file."""
+
+        grpname = '/Configure:0000'
+        pattern = 'CsPad::ConfigV'
+        suffix  = gm.get_item_second_to_last_name(data_dsname) + '/config' 
+
+        #print 'get_cspad_config_dsname(): loop over group content:'
+        grp = self.get_dataset_from_hdf5_file(grpname)
+        for key,val in dict(grp).iteritems() :
+            #print '  ', key, val
+            if key.find(pattern)==0 :
+                #print '    ', val.name
+                dsname = val.name  + '/' + suffix
+                #print 'get_cspad_config_dsname(): found configuration dsname in hdf5 file:', dsname
+                return dsname
+
+        return None
+
+#---------------------
+
 
 #---------------------
 #---------------------
@@ -182,6 +208,21 @@ def get_run_number_from_hdf5_file_name( fname ) :
 
 #---------------------
 
+def getDataSetForOneEvent( fname  = '/reg/d/psdm/CXI/cxi35711/hdf5/cxi35711-r0009.h5',
+                           dsname = '/Configure:0000/Run:0000/CalibCycle:0000/CsPad::ElementV2/CxiDs1.0:Cspad.0/data',
+                           event  = 0 ) :
+
+    #print 'fname:', fname
+    #print 'dsname:', dsname
+
+    hdf5file = hdf5mets.open_hdf5_file(fname)
+    dataset  = hdf5mets.get_dataset_from_hdf5_file(dsname)
+    evdata   = dataset[event]
+    hdf5mets.close_hdf5_file()
+    return evdata
+
+#---------------------
+
 def getOneCSPadEventForTest( fname  = '/reg/d/psdm/CXI/cxi35711/hdf5/cxi35711-r0009.h5',
                              dsname = '/Configure:0000/Run:0000/CalibCycle:0000/CsPad::ElementV2/CxiDs1.0:Cspad.0/data',
                              event  = 0 ) :
@@ -193,9 +234,11 @@ def getOneCSPadEventForTest( fname  = '/reg/d/psdm/CXI/cxi35711/hdf5/cxi35711-r0
     #dataset = file[dsname]
     #evdata  = dataset[event]
     #file.close()
+    #print 'fname:', fname
+    #print 'dsname:', dsname
     
-    hdf5file = hdf5mets.open_hdf5_file(fname)
-    ccp.cspadconfig.setCSPadConfigurationFromOpenFile( hdf5file, dsname, event )
+    h5file = hdf5mets.open_hdf5_file(fname)
+    ccp.cspadconfig.setCSPadConfigurationFromOpenFile( hdf5mets, dsname, event )
     dataset  = hdf5mets.get_dataset_from_hdf5_file(dsname)
     evdata   = dataset[event]
     hdf5mets.close_hdf5_file()
@@ -211,7 +254,7 @@ def getAverageCSPadEvent( fname   = '/reg/d/psdm/CXI/cxi35711/hdf5/cxi35711-r000
     print 'Average over', nevents, 'events, starting from', event1
 
     hdf5file = hdf5mets.open_hdf5_file(fname)
-    ccp.cspadconfig.setCSPadConfigurationFromOpenFile( hdf5file, dsname, event1 )
+    ccp.cspadconfig.setCSPadConfigurationFromOpenFile( hdf5mets, dsname, event1 )
     dataset  = hdf5mets.get_dataset_from_hdf5_file(dsname)
 
     evdata = np.zeros(dataset[event1].shape, dtype=np.float32)
@@ -228,7 +271,7 @@ def getAverageCSPadEvent( fname   = '/reg/d/psdm/CXI/cxi35711/hdf5/cxi35711-r000
 
 #---------------------
 
-hdf5mets = HDF5Methods()
+hdf5mets = HDF5File()
 
 #----------------------------------------------
 #----------------------------------------------
@@ -241,15 +284,15 @@ def main_test1() :
     fname   = '/reg/d/psdm/CXI/cxi35711/hdf5/cxi35711-r0009.h5'
     dsname  = '/Configure:0000/Run:0000/CalibCycle:0000/CsPad::ElementV2/CxiDs1.0:Cspad.0/data'
 
-    h5file = hdf5mets.open_hdf5_file(fname)
+    h5file = hdf5mets.HDF5File(fname)
 
-    grp = hdf5mets.get_dataset_from_hdf5_file('/')    
+    grp = h5file.get_dataset_from_hdf5_file('/')    
     print_hdf5_item_structure(grp)
 
-    arr = hdf5mets.get_dataset_from_hdf5_file(dsname)
+    arr = h5file.get_dataset_from_hdf5_file(dsname)
     print 'arr[event]=\n', arr[event]
 
-    hdf5mets.close_hdf5_file()
+    h5file.close_hdf5_file()
 
 #---------------------
 

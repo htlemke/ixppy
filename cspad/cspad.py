@@ -1,7 +1,7 @@
 import pylab as pl
 import numpy as np
 import os,sys
-from ixppy import tools
+from ixppy import tools,wrapFunc
 #from functools import partial
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -9,12 +9,57 @@ alignmentdir = parentdir+'/cspad/alignment'
 sys.path.insert(0,alignmentdir)
 
 import CalibPars          as calp
-import CalibParsEvaluated as cpe
-import CSPadConfigPars    as ccp
+#import CalibParsEvaluated as cpe
+#import CSPadConfigPars    as ccp
+from CSPADPixCoords import CSPADPixCoords
 import numpy as np
 
-
 def getCsPadPixCoordinates(path_calib=alignmentdir+'/calib-xpp-2013-01-29', 
+                           rotation=0, 
+                           mirror=False):
+  if not path_calib:
+    allfiles = os.listdir(alignmentdir)
+    files = []
+    for tf in allfiles:
+      if 'calib-' in tf:
+        files.append(tf)
+    print "Please select calibration file:"
+    for i,tf in enumerate(files):
+      print "%d  :  %s" %(i+1,tf)
+    path_calib = files[int(raw_input())-1]
+  path_calib = os.path.join(alignmentdir,path_calib)
+
+  run=0
+  calib = calp.CalibPars(path_calib,run)
+  coord = CSPADPixCoords(calib)
+  X,Y = coord.get_cspad_pix_coordinate_arrays_um  (config=None)
+  x = np.concatenate(X,0)
+  y = np.concatenate(Y,0)
+
+  #calp.calibpars.setCalibParsForPath (run=0,path=path_calib)
+  #cpe.cpeval.evaluateCSPadPixCoordinates (rotation, mirror)
+
+  #ccp.cspadconfig.setCSPadConfiguration(fname, dsname, event=0)
+  #quadNumsInEvent  = np.arange(4)
+  #indPairsInQuads  = np.arange(32).reshape(4,-1)
+  #nquads           = 4
+  #nsects           = 8
+#
+  #nsects_in_data = max(indPairsInQuads.flatten()) + 1
+  #x = np.zeros((nsects_in_data,185,388), dtype=np.float32)
+  #y = np.zeros((nsects_in_data,185,388), dtype=np.float32)
+ # 
+  #for iq in range(len(quadNumsInEvent)) :
+      #quad = int(quadNumsInEvent[iq]) # uint8 -> int
+      #for segm in range(8): # loop over ind = 0,1,2,...,7
+	  #ind_segm_in_arr = indPairsInQuads[quad][segm]
+	  #if ind_segm_in_arr == -1 : continue
+#
+	  #x[ind_segm_in_arr][:] = cpe.cpeval.pix_global_x[quad][segm][:]
+	  #y[ind_segm_in_arr][:] = cpe.cpeval.pix_global_y[quad][segm][:]
+  return x,y
+
+def getCsPadPixCoordinates_old(path_calib=alignmentdir+'/calib-xpp-2013-01-29', 
                            rotation=0, 
                            mirror=False):
   if not path_calib:
@@ -85,8 +130,9 @@ class CspadPattern(object):
     self.binning = np.ravel_multi_index((yind-1,xind-1),(Ny,Nx))
     self.numperbin = np.bincount(self.binning)
     self.pixssz = np.array([110.,110])*1e-6
+    self.bin = wrapFunc(self._bin,isPerEvt=True)
 
-  def bin(self,I):
+  def _bin(self,I):
     Ilong = np.bincount(self.binning, weights=np.asfarray(I.ravel()))
     Ilong = Ilong/self.numperbin
     P = np.zeros(np.prod(self.shpPattern))
