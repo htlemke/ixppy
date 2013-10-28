@@ -186,9 +186,9 @@ class azimuthalAveraging:
     return v
 
   def doAzimuthalAveraging(self,img):
-    img /= self.correction
+    #img /= self.correction
     t0=time.time()
-    I=np.bincount(self.idxs,img.ravel(),minlength=self.nq)
+    I=np.bincount(self.idxs,img.ravel()/self.correction.ravel(),minlength=self.nq)
     I=I[:self.nq]
     self.sig = np.sqrt(I)/self.norm
     #I2=n.bincount(self.idxs,n.ravel(img*img),minlength=self.nq)
