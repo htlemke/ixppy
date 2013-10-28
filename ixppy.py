@@ -1963,7 +1963,7 @@ def getExperimentList(printit=True,sortDates=True):
       print "%s    %s    %s"  %(l['startdate'][n],l['no'][n],l['pi'][n])
   return l
 
-def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None):
+def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, dname='profile'):
   if isinstance(Areadet,data):
     dat = Areadet
     det = None
@@ -1986,10 +1986,10 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None):
   if det==None:
     return limsdict,profile
   else:
-    if not hasattr(det,'profileLimits'):
-      det._add('profileLimits',[])
-    det.profileLimits.append(limsdict)
-    det._add('profile',profile)
+    if not hasattr(det,dname+'Limits'):
+      det._add(dname+'Limits',[])
+    det.__dict__[dname+'Limits'].append(limsdict)
+    det._add(dname,profile)
 
 #class Profile(object):
   #def __init__(self,type='horizontal',limits=[]):
@@ -3505,7 +3505,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	      targs[i] = odat[io[step]][eventstride]
 	    else:
 	      
-              tmp = o._getStepsShots(io[stepstrideNo][0],io[stepstrideNo][1])[0]
+              tmp = o._getStepsShots(io[step][0],io[step][1])[0]
 	      if not isPerEvt and ('memdata' in ixppytype):
 	        trnspsorder = range(np.rank(tmp))
                 trnspsorder = trnspsorder[1:]+[trnspsorder[0]]

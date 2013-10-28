@@ -33,6 +33,8 @@ class dropObject(object):
         self[name]._parent = self
       except:
 	pass
+  def _get_keys(self):
+    return [tk for tk in self.__dict__.keys() if not tk[0]=='_']
 
 def itemgetToIndices(x,size,boolean=False):
   if (type(x) is int) or (type(x) is np.int64):
