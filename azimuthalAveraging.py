@@ -1,13 +1,12 @@
 import numpy as np
 import pylab as plt
 import sys
-import mcutils as mc
 from scipy import hypot,arcsin,arccos
 import os
 import time
 import h5py
 from scipy.interpolate import griddata
-
+import utilities as util
 g_az = None
 
 def displayimg(img,**kwargs):
@@ -254,7 +253,7 @@ def doFolderOrFiles(folderNameOrFileList,
     ccdfilenames : pattern to look for files
   """
   az = None
-  t_start = mc.now()
+  t_start = util.now()
   while ((az is None) or (waitForFiles)):
     if (os.path.isdir(folderNameOrFileList)):
       f=os.popen("ls -1 %s/%s" % (folderNameOrFileList,ccdfilenames))
@@ -286,7 +285,7 @@ def doFolderOrFiles(folderNameOrFileList,
       finfo.write(az.header)
       finfo.close()
     if (len(files) == 0):
-      print "Done %d files I could find, waiting for new files (%s)" % (skipFirst,mc.now())
+      print "Done %d files I could find, waiting for new files (%s)" % (skipFirst,util.now())
       time.sleep(10)
     t0=time.time()
     t_save=0.
@@ -327,7 +326,7 @@ def doFolderOrFiles(folderNameOrFileList,
       finfo.write(s)
       finfo.close()
       hname = folderOut + "/" + folderOut.rstrip("/").split("/")[-1]+".h5"
-      t_end = mc.now()
+      t_end = util.now()
       if (~forceChi & (os.path.exists(hname))):
         hchi = h5py.File(hname,"r")
         flist = [hchi["flist"].value,flist]
@@ -396,7 +395,7 @@ def doImages(listOfImgs,
     folderOut : 
   """
   print "NJOBS",nJobs
-  t_start = mc.now()
+  t_start = util.now()
   t0=time.time()
   if (len(listOfImgs) == 0):
     return
@@ -433,7 +432,7 @@ def doImages(listOfImgs,
     #dataE=np.reshape(dataE, (nImg,az.nq) )
   else:
     dataI,dataE=_doImages(listOfImgs,az)
-  t_end = mc.now()
+  t_end = util.now()
   s="Time needed for %d images: %.2f ms/img"%(nImg,(time.time()-t0)/nImg*1e3)
   print s
   finfo=open(fname,"a")
