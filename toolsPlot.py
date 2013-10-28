@@ -278,8 +278,10 @@ def imagesc(*args,**kwargs):
     pl.clf()
   interpolation = 'nearest'
   if len(args)==1:
-    h = pl.imshow(args[0],interpolation=interpolation)
     I = args[0]
+    (ny,nx)=I.shape
+    x = np.arange(nx)
+    y = np.arange(ny)
   elif len(args)==3:
     x = args[0]
     y = args[1]
@@ -302,15 +304,24 @@ def imagesc(*args,**kwargs):
     elif not len(y)==ny:
       print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
       print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
-    dx = float(max(x)-min(x))
-    dy = float(max(y)-min(y))
-    xmn = min(x)-dx/(nx-1)/2
-    xmx = max(x)+dx/(nx-1)/2
-    ymn = min(y)-dy/(ny-1)/2
-    ymx = max(y)+dy/(ny-1)/2
-    h = pl.imshow(I,interpolation=interpolation,
+  dx = float(max(x)-min(x))/nx
+  dy = float(max(y)-min(y))/ny
+  xmn = min(x)-dx/2
+  xmx = max(x)+dx/2
+  ymn = min(y)-dy/2
+  ymx = max(y)+dy/2
+  def _format_coord(x, y):
+    icol = int( (x-xmn)/(dx)+0.5 ) 
+    irow = int( (y-ymn)/(dy)+0.5 )
+    try:
+      z = I[irow,icol]
+      return 'x=%1.4f, y=%1.4f, z=%1.4f'%(x, y, z)
+    except IndexError:
+      return 'x=%1.4f, y=%1.4f'%(x, y)
+  h = pl.imshow(I,interpolation=interpolation,
               extent=[xmn,xmx,ymn,ymx],origin='bottom',*kwargs)
-    pl.axis('tight')
+  h.axes.format_coord=_format_coord
+  pl.axis('tight')
 
   if slider:
     from matplotlib.widgets import Slider, Button, RadioButtons
