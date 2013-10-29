@@ -785,12 +785,32 @@ class data(object):
     indchunks = []
     for stepNo,step in enumerate(steps):
       tevts = evts[stepNo]
+
       tlen  = len(tevts)
       nextEvtNo = 0
       stepChunks = []
       if not hasattr(self,'_sizeEvt') or (self._sizeEvt is None):
-        tdat = self[step,tevts[0]]
-        self._sizeEvt = dict(bytes=tdat[0].nbytes , shape=np.shape(tdat[0][0]))
+	usedmem=0
+	thisstuff = self
+	done = False
+	gotshape = False
+	while not done:
+          tdat = thisstuff[step,tevts[0]]
+	  if not gotshape:
+	    thisshape = np.shape(tdat[0][0])
+	    gotshape = True
+	  usedmem += tdat[0].nbytes
+	  print usedmem
+	  if thisstuff._procObj==None:
+	    done = True
+	  else:
+	    args = thisstuff._procObj['args']
+	    isdatainst = np.array([isinstance(targ,data) for targ in args])
+	    if np.sum(isdatainst)>0:
+	      thisstuff = args[isdatainst.nonzero()[0][0]]
+
+
+        self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
       Nread = np.floor(self._mem.updatefree()/8/self._sizeEvt['bytes']*memFrac)
       while nextEvtNo<tlen:
         stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)])
