@@ -112,7 +112,7 @@ class dataset(object):
 	for name in self.config.lclsH5obj.scanVars.keys():
 	  tVar = self.config.lclsH5obj.scanVars[name]
 	  if not hasattr(tVar,'names'): continue
-	  for vname,vdat in zip(tVar.names,np.array(tVar.data).T):
+	  for vname,vdat in zip(tVar.names,np.asarray(tVar.data).T):
             addToObj(self,name+'.'+vname,vdat,ixpsaved=True)
       if hasattr(self,'scan'):
 	scan=self.scan
@@ -161,7 +161,7 @@ class dataset(object):
     Nc = []
     for d in tocheck:
       Nc.append(d._numOfScanSteps)
-    Nc = np.array(Nc)
+    Nc = np.asarray(Nc)
     NcMin = Nc.min(axis=0)
     NcMax = Nc.max(axis=0)
     for d in tocheck:
@@ -516,9 +516,9 @@ class memdata(object):
   def mad(self):
     return [tools.mad(d) for d in self._data]
   def sum(self):
-    return np.array([np.sum(d) for d in self._data])
+    return np.asarray([np.sum(d) for d in self._data])
   def sqrt(self):
-    return np.array([np.sqrt(d) for d in self._data])
+    return np.asarray([np.sqrt(d) for d in self._data])
 
 
 
@@ -803,7 +803,7 @@ class data(object):
 	    done = True
 	  else:
 	    args = thisstuff._procObj['args']
-	    isdatainst = np.array([isinstance(targ,data) for targ in args])
+	    isdatainst = np.asarray([isinstance(targ,data) for targ in args])
 	    if np.sum(isdatainst)>0:
 	      thisstuff = args[isdatainst.nonzero()[0][0]]
 
@@ -999,7 +999,7 @@ class data(object):
     return ret[self._procObj['nargSelf']]
 
   def _rdFromIxp(self,step,evtInd):
-    return [np.atleast_2d(self._ixpAddressData['#%06d'%step][np.array(evtInd),...])]
+    return [np.atleast_2d(self._ixpAddressData['#%06d'%step][np.asarray(evtInd),...])]
   def _isIxp(self):
     return self._rdStride == self._rdFromIxp
 
@@ -1200,7 +1200,7 @@ def ravelIndexScanSteps(ip,stepsizes,stepNo=None):
   op = []
   asz= 0
   for tip,tsz in zip(ip,stepsizes):
-    tip = np.array(tip,dtype=int)
+    tip = np.asarray(tip,dtype=int)
     op.append(tip+asz)
     asz+=tsz
   return np.hstack(op)
@@ -1237,7 +1237,7 @@ def getStepShotsFromIndsTime(inds,times,stride=None):
   added = []
   for addr in addresses:
     added.extend(addr)
-  added = np.array(added)
+  added = np.asarray(added)
   stepShots = []
   #print inds
   for step,ind in enumerate(inds):
@@ -2075,7 +2075,7 @@ def TTteachFilter(profiles,):
   pl.plot(profiles.transpose())
   print "select lower limit of noise area (NB: has same width as signal range!)"
   noiselim = pl.ginput(1)
-  noiselim = round(noiselim[0][0])+np.array([0,np.diff(np.array(siglim))[0]])
+  noiselim = round(noiselim[0][0])+np.asarray([0,np.diff(np.asarray(siglim))[0]])
   pl.axvspan(noiselim[0],noiselim[1],facecolor='r',alpha=0.5)
   pl.axvline(noiselim[0],color='r')
   pl.axvline(noiselim[1],color='r')
@@ -2092,17 +2092,17 @@ def TTteachFilter(profiles,):
   Rs = np.matrix(sacl)
 
   weights = R*Rs.transpose()
-  weights = np.array(weights).ravel()
+  weights = np.asarray(weights).ravel()
   weights = weights-np.median(weights)
 
 
-  filtsettings = dict(weights=np.array(weights),
+  filtsettings = dict(weights=np.asarray(weights),
                       #stepoffs=stepoffs,
                       noise_limits=noiselim)
   return filtsettings
 
 def TTapplyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings=None,saveplots=False):
-  weights = np.array(filtsettings['weights']).ravel()
+  weights = np.asarray(filtsettings['weights']).ravel()
   #stepoffs = filtsettings['stepoffs'] 
   lf = len(weights)
   halfrange = round(lf/10)
@@ -2119,7 +2119,7 @@ def TTapplyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettin
     try:
       if max(abs(d))>5:
         raise Exception("Strange array!")
-      f0 = np.convolve(np.array(weights).ravel(),d,'same')
+      f0 = np.convolve(np.asarray(weights).ravel(),d,'same')
       f = f0[lf/2:len(f0)-lf/2-1]
       mpr = f.argmax()
     #if True:
@@ -2316,13 +2316,13 @@ def TTapplyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettin
       poly_cen.append(tpoly_cen)
     runningno+=1
 
-  pos = np.array(pos)
-  amp = np.array(amp)
-  fwhm = np.array(fwhm)
+  pos = np.asarray(pos)
+  amp = np.asarray(amp)
+  fwhm = np.asarray(fwhm)
   returntuple = [pos,amp,fwhm]
   if polysettings:
-    poly_pos = np.array(poly_pos)
-    poly_cen = np.array(poly_cen)
+    poly_pos = np.asarray(poly_pos)
+    poly_cen = np.asarray(poly_cen)
     returntuple.append(poly_pos)
     returntuple.append(poly_cen)
 
@@ -2447,7 +2447,7 @@ def TTextractProfiles(Areadet, refmon=None, refthreshold=.1, lmon=None,
               if (xoffinds.size == 0):
                   if (profAvAll is None):
                     # create average images (fallback off image if not off are found ...)
-                    AvAll     = np.array([np.mean(tdat,axis=0)])
+                    AvAll     = np.asarray([np.mean(tdat,axis=0)])
                     profAvAll = extractProfilesFromData(AvAll,profileLimits)[0]
                   poff = profAvAll
               else:
@@ -2820,7 +2820,7 @@ def binStepData(data,binmat):
   bindat = []
   for sdata,sbinmat in zip(data,binmat):
     bindat.append(binData(sdata,sbinmat))
-  return np.array(bindat)
+  return np.asarray(bindat)
 
 def binData(data,binmat):
   shp = np.shape(binmat)
@@ -2850,7 +2850,7 @@ def statStepData(data):
     dsum.append(sdsum)
     dN.append(sdN)
     
-  return np.array(dmean),np.array(dstd),np.array(dmedian),np.array(dmad),np.array(dsum),np.array(dN)
+  return np.asarray(dmean),np.asarray(dstd),np.asarray(dmedian),np.asarray(dmad),np.asarray(dsum),np.asarray(dN)
 
 def statData(data):
   shp = np.shape(data)
@@ -2976,7 +2976,7 @@ def plotScan(data, monitorIPM='ipm3', detector='diodeU', detectorfieldname='chan
         Inorm.append(sum(i)/sum(m))
       else:
         Inorm.append(np.nan)
-    Inorm = np.array(Inorm)
+    Inorm = np.asarray(Inorm)
   
   if not figName:
     figName = 'plotScan figure'
@@ -3261,7 +3261,7 @@ def saveRunsToCache(exp,runnos,dets=[]):
   
 
 def ipmfilt(ipmdet):
-  d = [np.array([c0,c1,c2,c3]).transpose() for c0,c1,c2,c3 in zip(ipmdet._channel0,ipmdet._channel1,ipmdet._channel2,ipmdet._channel3)]
+  d = [np.asarray([c0,c1,c2,c3]).transpose() for c0,c1,c2,c3 in zip(ipmdet._channel0,ipmdet._channel1,ipmdet._channel2,ipmdet._channel3)]
   dall = np.vstack(d)
   ph = []
   f = tools.nfigure('ipmfilt')
@@ -3454,7 +3454,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
     otherlens = [(len(toa),iskey,argno) for toa,iskey,argno in otherargs if (type(toa) is not str and np.iterable(toa))]
     if not otherlens==[]:
       lens,lensiskey,lensargno = zip(*otherlens)
-      tequallengths = np.logical_and(np.array(lens)==len(rtimes),np.logical_not(np.array(lens)==1))
+      tequallengths = np.logical_and(np.asarray(lens)==len(rtimes),np.logical_not(np.asarray(lens)==1))
       otherip = [otherargs[eqi] for eqi in tequallengths.nonzero()[0]]
     else:
       otherip = []
@@ -3463,11 +3463,11 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 
   ############ generate output ############
   # case of data instance in input, at the moment seems like data might come out, but this has to be thought about more.
-  if np.array([isinstance(to[0],data) for to in allobjects]).any() or forceCalculation:
+  if np.asarray([isinstance(to[0],data) for to in allobjects]).any() or forceCalculation:
     if 'data' in outputtypes and stride==None:
       # this is the normal case to make an object that will act upon call
       output = []
-      for nargSelf in (np.array(outputtypes)=='data').nonzero()[0]:
+      for nargSelf in (np.asarray(outputtypes)=='data').nonzero()[0]:
         procObj = dict(func=func,args=ipargs,kwargs=ipkwargs,nargSelf=nargSelf,isPerEvt=isPerEvt)
         output.append(data(time=rtimes,input=procObj,scan=scan))
       if len(output)>1:
@@ -3602,7 +3602,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
       
 
   # "Easy" case where everything fits in memory, no data instance in input.
-  elif np.array([isinstance(to[0],memdata) for to in allobjects]).any():
+  elif np.asarray([isinstance(to[0],memdata) for to in allobjects]).any():
     ixppyip = []
     for o,iskey,argind in allobjects: #assuming here that data instances are out!
       ir,io      = filterTimestamps(rtimes,o.time)
@@ -3718,7 +3718,7 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
       
       td.append(func(ipdat))
 
-    output.append((np.array(td),))
+    output.append((np.asarray(td),))
   return output
 
 
