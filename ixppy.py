@@ -384,8 +384,6 @@ class dataset(object):
     else:
       self.config.filestrategy = ['h5']
 
-
-
 def address(fileNum,stepNum,what):
   return "_file%d.step%d.%s" % (fileNum,stepNum,what)
 
