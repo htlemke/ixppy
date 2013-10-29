@@ -28,8 +28,12 @@ Reference:
   bib code: 1989ApJ...338..277P
 
 """
-from numpy import *
-from numpy.fft import *
+#from numpy import *
+#from numpy.fft import *
+import numpy as np
+import numpy.fft as npfft
+import scipy.integrate
+import numpy as np
 
 def __spread__(y, yy, n, x, m):
   """
@@ -132,8 +136,8 @@ def fasper(x,y,ofac,hifac, MACC=4):
   xdif = xmax-xmin
 
   #extirpolate the data into the workspaces
-  wk1 = zeros(ndim, dtype='complex')
-  wk2 = zeros(ndim, dtype='complex')
+  wk1 = np.zeros(ndim, dtype='complex')
+  wk2 = np.zeros(ndim, dtype='complex')
 
   fac  = ndim/(xdif*ofac)
   fndim = ndim
@@ -145,8 +149,8 @@ def fasper(x,y,ofac,hifac, MACC=4):
     __spread__(1.0,wk2,ndim,ckk[j],MACC)
 
   #Take the Fast Fourier Transforms
-  wk1 = ifft( wk1 )*len(wk1)
-  wk2 = ifft( wk2 )*len(wk1)
+  wk1 = npfft.ifft( wk1 )*len(wk1)
+  wk2 = npfft.ifft( wk2 )*len(wk1)
 
   wk1 = wk1[1:nout+1]
   wk2 = wk2[1:nout+1]
@@ -162,13 +166,13 @@ def fasper(x,y,ofac,hifac, MACC=4):
   hc2wt = rwk2/hypo2
   hs2wt = iwk2/hypo2
 
-  cwt  = sqrt(0.5+hc2wt)
-  swt  = sign(hs2wt)*(sqrt(0.5-hc2wt))
+  cwt  = np.sqrt(0.5+hc2wt)
+  swt  = sign(hs2wt)*(np.sqrt(0.5-hc2wt))
   den  = 0.5*n+hc2wt*rwk2+hs2wt*iwk2
   cterm = (cwt*rwk1+swt*iwk1)**2./den
   sterm = (cwt*iwk1-swt*rwk1)**2./(n-den)
 
-  wk1 = df*(arange(nout, dtype='float')+1.)
+  wk1 = df*(np.arange(nout, dtype='float')+1.)
   wk2 = (cterm+sterm)/(2.0*var)
   pmax = wk2.max()
   jmax = wk2.argmax()
@@ -195,10 +199,27 @@ def getSignificance(wk1, wk2, nout, ofac):
   """ returns the peak false alarm probabilities
   Hence the lower is the probability and the more significant is the peak
   """
-  expy = exp(-wk2)          
+  expy = np.exp(-wk2)          
   effm = 2.0*(nout)/ofac       
   sig = effm*expy
   ind = (sig > 0.01).nonzero()
   sig[ind] = 1.0-(1.0-expy[ind])**effm
   return sig
 
+def sinTransform(x,y,dampingFactor=0.2):
+  """ y expected either 1D or (Nbin,Nx) 
+      TODO, improve by interpolating to q=0
+  """
+  y=np.atleast_2d(y)
+  rmin = 0.01
+  rmax = 10.
+  dr   = 0.01
+  r = np.arange(rmin,rmax,dr)
+  Nbin,Nx = y.shape
+  toint = x*np.sin(-x[:,np.newaxis]*r).T*np.exp(-x**2*dampingFactor**2/2)
+  ret = []
+  for i in range(Nbin):
+    temp = toint*y[i,:]
+    #tt =  scipy.integrate.simps(temp,x,axis=-1) 
+    ret.append( scipy.integrate.simps(temp,x,axis=-1) )
+  return r,np.array(ret)/r/np.pi/2
