@@ -17,16 +17,22 @@ import numpy as np
 def getCsPadPixCoordinates(path_calib=alignmentdir+'/calib-xpp-2013-01-29', 
                            rotation=0, 
                            mirror=False):
-  if not path_calib:
+  if path_calib==None or path_calib=='newest':
     allfiles = os.listdir(alignmentdir)
     files = []
     for tf in allfiles:
       if 'calib-' in tf:
         files.append(tf)
-    print "Please select calibration file:"
-    for i,tf in enumerate(files):
-      print "%d  :  %s" %(i+1,tf)
-    path_calib = files[int(raw_input())-1]
+    files.sort()
+
+    if path_calib==None:
+      print "Please select calibration file:"
+      for i,tf in enumerate(files):
+        print "%d  :  %s" %(i+1,tf)
+      path_calib = files[int(raw_input())-1]
+    else:
+      path_calib = files[-1]
+
   path_calib = os.path.join(alignmentdir,path_calib)
 
   run=0
@@ -108,7 +114,8 @@ class loadingtest(object):
     return getCsPadPixCoordinates(path_calib='')
 
 class CspadPattern(object):
-  def __init__(self,Nx=1000,Ny=1000):
+  def __init__(self,Nx=1000,Ny=1000,path_calib='newest'):
+    self._path_calib = path_calib
     self._path = os.path.abspath(__file__)
     self._xpx = [] 
     self._ypx = []
@@ -150,22 +157,22 @@ class CspadPattern(object):
     return indout
 
   def load_coordinates(self,rotation=0,mirror=0):
-    self._xpx,self._ypx = getCsPadPixCoordinates(rotation=rotation,mirror=mirror,path_calib='')
+    self._xpx,self._ypx = getCsPadPixCoordinates(rotation=rotation,mirror=mirror,path_calib = self._path_calib)
 
   def load_coordinates_test(self,rotation=0,mirror=0):
-      return getCsPadPixCoordinatesTT(rotation=rotation,mirror=mirror,path_calib='')
+      return getCsPadPixCoordinatesTT(rotation=rotation,mirror=mirror,path_calib = self._path_calib)
 
   def _get_xpx(self):
     if len(self._xpx)==0:
       #self._xpx = np.load(os.path.dirname(self._path) + '/' + 'cspad_x.npy')
-      self._xpx,self._ypx = getCsPadPixCoordinates(rotation=0,path_calib='')
+      self._xpx,self._ypx = getCsPadPixCoordinates(rotation=0,path_calib = self._path_calib)
     return self._xpx
   xpx = property(_get_xpx)
 
   def _get_ypx(self):
     if len(self._ypx)==0:
       #self._ypx = np.load(os.path.dirname(self._path) + '/' + 'cspad_y.npy')
-      self._xpx,self._ypx = getCsPadPixCoordinates(rotation=0,path_calib='')
+      self._xpx,self._ypx = getCsPadPixCoordinates(rotation=0,path_calib = self._path_calib)
     return self._ypx
   ypx = property(_get_ypx)
 
@@ -379,7 +386,7 @@ class CspadPattern(object):
     ## output
     #return iBinVec
 
-pattern = CspadPattern()
+#pattern = CspadPattern()
   
 
 def noiseMap(Istack):
