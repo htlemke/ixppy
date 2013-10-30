@@ -291,8 +291,8 @@ def test_cspadpixcoords_instantiation_1() :
 
 #------------------------------
 
-import PyCSPadImage.CSPadConfigPars as ccp # For test purpose only
-from   PyCSPadImage.CalibPars import *
+#import PyCSPadImage.CSPadConfigPars as ccp # For test purpose only
+#from   PyCSPadImage.CalibPars import *
 
 def test_cspadpixcoords_instantiation_2() :
     """ Instantiation with regular calibration parameters.

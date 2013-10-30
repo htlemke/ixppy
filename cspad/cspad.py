@@ -6,12 +6,12 @@ from ixppy import tools,wrapFunc
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 alignmentdir = parentdir+'/cspad/alignment'
-sys.path.insert(0,alignmentdir)
-
-import CalibPars          as calp
+#sys.path.insert(0,alignmentdir)
+import alignment
+from alignment import CalibPars          as calp
 #import CalibParsEvaluated as cpe
 #import CSPadConfigPars    as ccp
-from CSPADPixCoords import CSPADPixCoords
+from alignment.CSPADPixCoords import CSPADPixCoords
 import numpy as np
 
 def getCsPadPixCoordinates(path_calib=alignmentdir+'/calib-xpp-2013-01-29', 
