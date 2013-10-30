@@ -404,9 +404,10 @@ def applyFilterToAll(det,filter=None):
     filter = standardfilter()
   traces = det.TTtraces
   o = ixppy.applyFunction(TTapplyFilter,[traces,filter],dict(),outputtypes=['memdata']*3,forceCalculation=True)
-  det.TTpos = o[0]
-  det.TTamp = o[1]
-  det.TTfwhm = o[2]
+  det['TTpos'] = o[0]
+  det['TTamp'] = o[1]
+  det['TTfwhm'] = o[2]
+
 
   #Areadet[dataset_name_traces] = dat
 
