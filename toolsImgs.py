@@ -9,6 +9,7 @@ def edgeMask(imgOrShape,nPixels):
     mask = np.ones(imgOrShape,dtype=np.bool)
   else:
     mask = np.ones_like(imgOrShape,dtype=np.bool)
+  ndim = mask.ndim
   if ndim == 1:
     mask[:nPixels]  = False
     mask[-nPixels:] = False
