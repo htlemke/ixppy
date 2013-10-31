@@ -139,6 +139,11 @@ class CspadPattern(object):
     self.pixssz = np.array([110.,110])*1e-6
     self.bin = wrapFunc(self._bin,isPerEvt=True)
 
+
+  def imageShow(self,I):
+    img = self._bin(I)
+    tools.imagesc(self.xVec,self.yVec,img)
+
   def _bin(self,I):
     Ilong = np.bincount(self.binning, weights=np.asfarray(I.ravel()))
     Ilong = Ilong/self.numperbin
