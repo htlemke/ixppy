@@ -135,7 +135,7 @@ def getSpanCoordinates(direction='horizontal',axh=None,fig=None):
   print "Select Span region of interest, finish with right click."
   while not roi.finished:
     pl.waitforbuttonpress()
-  
+  print "Span %s selected."%(roi.lims) 
   roi.boxh.remove()
   fig.canvas.draw()
   del selector

@@ -521,7 +521,9 @@ class memdata(object):
     return np.asarray([np.sqrt(d) for d in self._data])
 
 
-
+  def corrFilter(self,other,ratio=False):
+    filt,lims = corrFilt(self,other,ratio=ratio)
+    return self.filter(lims[0])
 
   R = property(ravel)
 
@@ -1276,6 +1278,29 @@ def filterTimestamps(ts0,ts1):
   op1 = unravelScanSteps(sel1ri,ss1a)
   return op0,op1
 
+def filterTimestamps_new(ts0,ts1):
+  """returns 2 list of indices arrays: 
+    1) ts0 subset that is in ts1 
+    2) bring ts1 in the order of ts0"""
+  #raise NotImplementedError('Use the source, luke!')
+  ts0r,ss0 = ravelScanSteps(ts0)
+  ts1r,ss1 = ravelScanSteps(ts1)
+  ts0r = getTime(ts0r)
+  ts1r = getTime(ts1r)
+  ts0ru,ts0uind = np.unique(ts0r,return_inverse=True)
+  ts1ru,ts1uind = np.unique(ts1r,return_inverse=True)
+
+
+  sel0rb = np.in1d(ts0ru,ts1ru)
+  sel1rb = np.in1d(ts1ru,ts0ru)
+  sel1ri = sel1rb.nonzero()[0][ts1ru[sel1rb].argsort()[ts0ru[sel0rb].argsort().argsort()]]
+  sel0rb = ts0uind[sel0rb]
+  sel1ri = ts1uind[sel1ri]
+  op0 = unravelIndexScanSteps(sel0rb.nonzero()[0],ss0)
+  ss1a = [len(top0) for top0 in op0]
+  op1 = unravelScanSteps(sel1ri,ss1a)
+  return op0,op1
+
 def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
   """finds N closes events in ts0 to ts1. Returns those events (after 
   ravelling) plus the unravel information (lengths per step in ts0 events).
@@ -1290,13 +1315,13 @@ def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
   return indout,ss0
 
 
-def getTime(tsi):
+def getTime(tsi,resolution = 1e-9):
   """Takes structured second/nanosecond array and returns integer-clipped ms array.
   """
   if tsi.dtype.names:
     nam = tsi.dtype.names
     if ('nanoseconds' in nam) and ('seconds' in nam):
-      tso = np.int64(tsi['seconds'])*1000 + tsi['nanoseconds']/1000000
+      tso = np.int64(tsi['seconds'])*int(1/resolution) + tsi['nanoseconds']/int(1e-9/resolution)
   else:
     tso = tsi
   return tso
@@ -3043,6 +3068,7 @@ def digitize(dat,bins=None,graphicalInput=True,figName=None):
 	th.remove()
 	hs = []
       hs = [pl.axvline(te) for te in bins]
+    print "Selected bins: %g, %g,  "%(np.min(lims),np.max(lims))
   
   return np.digitize(dat,bins),bins
 
@@ -3081,19 +3107,10 @@ def parameterFilt(par,dataset=None,name=None,lims=None,graphicalInput=True,scans
   else:
     return tfilt,lims
 
-def parameterCorrFilt(par0,par1,dataset=None,name=None,lims=None,graphicalInput=True,scanstep=None,figName=None,ratio=False):
-  print dataset
-  par0 = iterfy(par0)
-  par1 = iterfy(par1)
-  if dataset:
-    dataset.filtTimestamps()
+def corrFilt(par0,par1,lims=None,graphicalInput=True,scanstep=None,figName=None,ratio=False):
+  
+ 
 
-  if not scanstep:
-    dat0 = np.hstack([spar for spar in par0])
-    dat1 = np.hstack([spar for spar in par1])
-  else:
-    dat0 = par0[scanstep]
-    dat1 = par1[scanstep]
   if not figName:
     figName = 'Select filter limits'
 
@@ -3101,43 +3118,20 @@ def parameterCorrFilt(par0,par1,dataset=None,name=None,lims=None,graphicalInput=
     tools.nfigure(figName)
     pl.clf()
     if ratio:
-      pl.plot(dat0,dat1/dat0,'.k',ms=1)
+      pl.plot(par0.R,par1.R/par0.R,'.k',ms=1)
     else:
-      pl.plot(dat0,dat1,'.k',ms=1)
+      pl.plot(par0.R,par1.R,'.k',ms=1)
     lims = tools.getRectangleCoordinates()
     lims = list(np.reshape(lims,[2,-1]))
+    print 'chosen limits are %s' %lims
+
+  filt0 = par0.filter(lims=list(lims[0])).ones()
+  filt1 = par1.filter(lims=list(lims[1])).ones()
+
+  filt = filt0*filt1
 
 
-
-  tfilt0 = []
-  tfilt1 = []
-  for tpar0,tpar1 in zip(par0,par1):
-    if ratio:
-      print np.shape(~((tpar0>lims[0][0])&(tpar0<lims[0][1])))
-      print np.shape(~((tpar1/tpar0>lims[1][0])&(tpar1/tpar0<lims[1][1])))
-      tfilt0.append(~((tpar0>lims[0][0])&(tpar0<lims[0][1])))
-      tfilt1.append(~((tpar1/tpar0>lims[1][0])&(tpar1/tpar0<lims[1][1])))
-    else:
-      print np.shape(~((tpar0>lims[0][0])&(tpar0<lims[0][1])))
-      print np.shape(~((tpar1>lims[1][0])&(tpar1<lims[1][1])))
-      tfilt0.append(~((tpar0>lims[0][0])&(tpar0<lims[0][1])))
-      tfilt1.append(~((tpar1>lims[1][0])&(tpar1<lims[1][1])))
-
-  if dataset:
-    #if not name:
-      #name = 'unnnamed'
-    #filtname = '_filt_'+name
-    #dataset.__dict__[filtname] = tfilt
-    #dataset._initfilter()
-    #return lims
-    #dataset.filter = tfilt0
-    #print 'tfilt0 done!!!'
-    tfilt = [tf1|tf0 for tf1,tf0 in zip(tfilt1,tfilt0)]
-    dataset.filter = tfilt
-    dataset._initfilter()
-    return lims
-  else:
-    return tfilt0,tfilt1,lims
+  return filt,lims
 
 
 def getRunInfo(run,epicsPVs=[]):
