@@ -379,6 +379,8 @@ class dataset(object):
 
     elif self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
       self.config.filestrategy = ['ixp']
+    elif not self.config.fileNamesH5 == [] and self.config.fileNamesIxp==[]:
+      self.config.filestrategy = ['h5']
 
 def address(fileNum,stepNum,what):
   return "_file%d.step%d.%s" % (fileNum,stepNum,what)
