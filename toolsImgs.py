@@ -1,4 +1,6 @@
 import numpy as np
+import Image
+
 def rebin(a, shape):
     sh = shape[0],a.shape[0]//shape[0],shape[1],a.shape[1]//shape[1]
     return a.reshape(sh).mean(-1).mean(1)
@@ -27,3 +29,8 @@ def edgeMask(imgOrShape,nPixels):
   else:
     print "Cannot make mask"
   return mask
+
+def loadImg(file):
+  im = Image.open(file)
+  return np.asarray(im.getdata()).reshape(im.size[1],im.size[0])
+

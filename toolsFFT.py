@@ -167,7 +167,7 @@ def fasper(x,y,ofac,hifac, MACC=4):
   hs2wt = iwk2/hypo2
 
   cwt  = np.sqrt(0.5+hc2wt)
-  swt  = sign(hs2wt)*(np.sqrt(0.5-hc2wt))
+  swt  = np.sign(hs2wt)*(np.sqrt(0.5-hc2wt))
   den  = 0.5*n+hc2wt*rwk2+hs2wt*iwk2
   cterm = (cwt*rwk1+swt*iwk1)**2./den
   sterm = (cwt*iwk1-swt*rwk1)**2./(n-den)
@@ -186,7 +186,7 @@ def fasper(x,y,ofac,hifac, MACC=4):
   #sig[ind] = 1.0-(1.0-expy[ind])**effm
 
   #Estimate significance of largest peak value
-  expy = exp(-pmax)          
+  expy = np.exp(-pmax)          
   effm = 2.0*(nout)/ofac       
   prob = effm*expy
 

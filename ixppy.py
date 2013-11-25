@@ -97,10 +97,6 @@ class dataset(object):
 	for name in names:
 	  self.__setitem__(name,dat.dataset[name],setParent=True)
 
-
-      
-
-
     
     if 'h5' in self.config.filestrategy:
       self.config.lclsH5obj= lclsH5.lclsH5(self.config.fileNamesH5,self.config.cnfFile)
@@ -381,8 +377,8 @@ class dataset(object):
 	print "found ixp file in cache, will not be used, but might get overridden!!"
 	self.config.filestrategy = ['h5']
 
-    else:
-      self.config.filestrategy = ['h5']
+    elif self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
+      self.config.filestrategy = ['ixp']
 
 def address(fileNum,stepNum,what):
   return "_file%d.step%d.%s" % (fileNum,stepNum,what)
