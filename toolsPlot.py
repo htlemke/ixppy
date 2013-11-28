@@ -322,7 +322,8 @@ def imagesc(*args,**kwargs):
               extent=[xmn,xmx,ymn,ymx],origin='bottom',*kwargs)
   h.axes.format_coord=_format_coord
   pl.axis('tight')
-
+  
+  slider=False
   if slider:
     from matplotlib.widgets import Slider, Button, RadioButtons
     fig = pl.gcf()
@@ -331,7 +332,7 @@ def imagesc(*args,**kwargs):
     axcolor = 'lightgoldenrodyellow'
     prc = np.percentile(I,range(0,101,10))
     axmin = fig.add_axes([0.25, 0.1, 0.65, 0.03], axisbg=axcolor)
-    axmax   = fig.add_axes([0.25, 0.15, 0.65, 0.03], axisbg=axcolor)
+    axmax = fig.add_axes([0.25, 0.15, 0.65, 0.03], axisbg=axcolor)
     for n in range(1,11):
       axmin.axvline(prc[n],color='k')
       axmax.axvline(prc[n],color='k')
@@ -342,7 +343,6 @@ def imagesc(*args,**kwargs):
       fig.canvas.draw()
     smin.on_changed(update)
     smax.on_changed(update)
-
   return h
 
 def imagesc2(*args,**kwargs):
@@ -403,11 +403,18 @@ def imagesc2(*args,**kwargs):
       axmax.axvline(prc[n],color='k')
     smin = Slider(axmin, 'Min', prc[0], prc[-1], valinit=prc[3])
     smax = Slider(axmax, 'Max', prc[0], prc[-1], valinit=prc[-4])
-    def update(val):
+    def updatemax(val):
+      if smax.val<smin.val:
+	smax.set_val(smin.val)
       h.set_clim([smin.val,smax.val])
       fig.canvas.draw()
-    smin.on_changed(update)
-    smax.on_changed(update)
+    def updatemin(val):
+      if smax.val<smin.val:
+	smin.set_val(smax.val)
+      h.set_clim([smin.val,smax.val])
+      fig.canvas.draw()
+    smin.on_changed(updatemin)
+    smax.on_changed(updatemax)
 
   return h
 

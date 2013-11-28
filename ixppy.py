@@ -83,6 +83,12 @@ class dataset(object):
 	ixpname = os.path.join(self.config.cachePath,os.path.basename(tfname))
 	ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
 	self.config.ixp = Ixp(ixpname)
+      elif os.path.isdir(ixpFile):
+	tfname =  self.config.fileNamesH5[0]
+	ixpname = os.path.join(ixpFile,os.path.basename(tfname))
+	ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
+	self.config.ixp = Ixp(ixpname)
+
       else:
 	self.config.ixp = Ixp(ixpFile)
     else:
