@@ -464,6 +464,11 @@ class memdata(object):
   def __len__(self):
     return len(self._filter)
   
+  def _get_lens(self):
+    return np.asarray([len(td) for td in self._filter])
+  
+  lens = property(_get_lens)
+  
   def _dataSource(self):
     if not self._data==None:
       return 'data'
@@ -523,6 +528,15 @@ class memdata(object):
     return np.asarray([np.sum(d) for d in self._data])
   def sqrt(self):
     return np.asarray([np.sqrt(d) for d in self._data])
+  def plot(self):
+    i = self.median()
+    e = self.mad()/np.sqrt(self.lens)
+    scanfields = self.scan.__dict__.keys()
+    scanfields = [tf for tf in scanfields if not tf[0]=='_']
+    x = self.scan.__dict__[scanfields[0]]
+    tools.nfigure('memdata plot')
+    pl.errorbar(x,i,yerr=e,fmt='.-')
+    pl.xlabel(scanfields[0])
 
 
   def corrFilter(self,other,ratio=False):
@@ -757,6 +771,9 @@ class data(object):
   
   def __len__(self):
     return len(self._lens)
+
+  def lens(self):
+    return np.asarray([len(td) for td in self._filter])
 
   def __repr__(self):
       return "`data` object %s, %d steps, %d events per step" % (self.name, self.__len__(),np.median(self._lens))
