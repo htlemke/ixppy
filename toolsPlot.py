@@ -14,6 +14,7 @@ from matplotlib.lines import Line2D
 from matplotlib.widgets import Widget
 from copy import copy 
 from matplotlib import pyplot as plt
+from matplotlib.nxutils import points_inside_poly
 
 def nfigure(name="noname",figsize=None,**figprops):
 	try:
@@ -738,3 +739,14 @@ def roipoly(ax=None):
   while not r.done:
     plt.waitforbuttonpress()
   return r.verts
+
+def polygonmask(pgon,x,y):
+  xshp = np.shape(x)
+  yshp = np.shape(y)
+  if not xshp==yshp:
+    print "Shaoes dont match"
+    return
+  mask = points_inside_poly(zip(x.ravel(),y.ravel()),pgon)
+  mask = np.reshape(mask,xshp)
+  return mask
+

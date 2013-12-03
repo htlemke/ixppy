@@ -161,6 +161,9 @@ class CspadPattern(object):
     indout = np.reshape(indout,self.shp)
     return indout
 
+  def polygonmask(self,polygon):
+    return polygonmask(polygon,self.xpx,self.ypx)
+
   def load_coordinates(self,rotation=0,mirror=0):
     self._xpx,self._ypx = getCsPadPixCoordinates(rotation=rotation,mirror=mirror,path_calib = self._path_calib)
 
