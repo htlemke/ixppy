@@ -14,7 +14,10 @@ from matplotlib.lines import Line2D
 from matplotlib.widgets import Widget
 from copy import copy 
 from matplotlib import pyplot as plt
-from matplotlib.nxutils import points_inside_poly
+try
+  from matplotlib.nxutils import points_inside_poly
+except:
+  pass
 
 def nfigure(name="noname",figsize=None,**figprops):
 	try:
