@@ -14,7 +14,7 @@ from matplotlib.lines import Line2D
 from matplotlib.widgets import Widget
 from copy import copy 
 from matplotlib import pyplot as plt
-try
+try:
   from matplotlib.nxutils import points_inside_poly
 except:
   pass
