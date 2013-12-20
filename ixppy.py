@@ -521,7 +521,7 @@ class memdata(object):
   def std(self):
     return [np.std(d) for d in self._data]
   def median(self):
-    return [np.median(d) for d in self._data]
+    return [np.median(d) for d in self]
   def mad(self):
     return [tools.mad(d) for d in self._data]
   def sum(self):
@@ -2027,6 +2027,67 @@ def getExperimentList(printit=True,sortDates=True):
       print "%s    %s    %s"  %(l['startdate'][n],l['no'][n],l['pi'][n])
   return l
 
+
+def getProfileLimitsNew(Areadet,step=0,shots=range(10),direction=False,lims=None, dname='profile'):
+  if lims==None:
+    getLims = True
+  else:
+    getLims = False
+  if isinstance(Areadet,data):
+    dat = Areadet
+    det = None
+  else:
+    dat = Areadet.data
+    det = Areadet
+  
+  I = np.mean(dat[step,np.ix_(shots)][0],axis=0)
+  if direction=='both':
+    tools.nfigure('Select limits')
+    pl.clf()
+    tools.imagesc(I)
+    print 'Select region of interest which spans both, horizontal and vertical profile'
+    limstot = np.round(tools.getRectangleCoordinates())
+    I = tools.subset(I,limstot)
+
+  raise NotImplementedError('Use the source, luke!')
+  if direction == 'horizontal' or direction == 'both':
+    if getLims:
+      tools.nfigure('Select limits')
+      pl.clf()
+      tools.imagesc(I)
+      print 'Select horizontal region of interest'
+      lims = np.round(tools.getSpanCoordinates('vertical'))
+    if direction == 'both':
+      limsver = lims
+    else:
+      limsdict = dict(projection = direction+' range',limits=lims)
+  
+  if direction == 'vertical' or direction == 'both':
+    if getLims:
+      tools.nfigure('Select limits')
+      pl.clf()
+      tools.imagesc(I)
+      print 'Select horizontal region of interest'
+      lims = np.round(tools.getSpanCoordinates('horizontal'))
+    if direction == 'both':
+      limshor = lims
+    else:
+      limsdict = dict(projection = direction+' range',limits=lims)
+  
+  if direction == 'both':
+    limsdict = dict(projection='box',limits=dict(total=limstot,vertical=limsver,horizontal=limshor))
+
+  tfun = ixppy.wrapFunc(extractProfilesFromData)
+  profile = tfun(dat,limsdict)
+  if det==None:
+    return limsdict,profile
+  else:
+    if not hasattr(det,dname+'Limits'):
+      det._add(dname+'Limits',[])
+    det.__dict__[dname+'Limits'].append(limsdict)
+    det._add(dname,profile)
+
+
 def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, dname='profile'):
   if isinstance(Areadet,data):
     dat = Areadet
@@ -2053,7 +2114,8 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, d
     if not hasattr(det,dname+'Limits'):
       det._add(dname+'Limits',[])
     det.__dict__[dname+'Limits'].append(limsdict)
-    det._add(dname,profile)
+    if not direction=='both':
+      det._add(dname,profile)
 
 #class Profile(object):
   #def __init__(self,type='horizontal',limits=[]):
@@ -2573,13 +2635,52 @@ def TTcalc_weightedRatio(det,mon,TTdet,tvec=None):
 
 #############
 
-def extractProfilesFromData(data,profileLimits):
-  cameraoffset = 32.
+def extractProfilesFromData(data,profileLimits,cameraoffset=32.):
   if profileLimits["projection"]=="vertical range":
     profiles = np.mean(data[:,profileLimits['limits'][0]:profileLimits['limits'][1],:],axis=1)-float(cameraoffset)
   elif profileLimits["projection"]=="horizontal range":
     profiles = np.mean(data[:,:,profileLimits['limits'][0]:profileLimits['limits'][1]],axis=2)-float(cameraoffset)
+  elif profileLimits["projection"]=="box":
+    if type(profileLimits['limits'])==dict:
+      limstot = profileLimits['limits']['total']
+      limshor = profileLimits['limits']['horizontal']
+      limsver = profileLimits['limits']['vertical']
+      profilehor = np.mean(data[:, 
+	min(limsver)+min(limstot[:,1]):max(limsver)+min(limstot[:,1])  ,
+	min(limstot[:,0]):max(limstot[:,0])],axis=1)
+      profilever = np.mean(data[:  ,
+	min(limstot[:,1]):max(limstot[:,1]), 
+	min(limshor)+min(limstot[:,0]):max(limshor)+min(limstot[:,0])],axis=2)
+      profiles = [profilehor,profilever]
+
   return profiles
+
+def extractProfilesPeakPar(profiles):
+  if type(profiles)==list:
+    res = []
+    for tprofiles in profiles:
+      stack=[]
+      for tprofile in tprofiles:
+	x = arange(len(tprofile))
+	stack.append(tools.peakAna(x,trpofile))
+      res.append(np.asarray(stack))
+    res = tuple(np.hstack(res).T)
+    return res
+
+def extractProfilesPeakParFromData(data,profileLimits):
+  return extractProfilesPeakPar(extractProfilesFromData(data,profileLimits))
+def getProfilePeakParameters(det):
+  data = det.data
+  profileLimits = det.profileLimits
+  o = ixppy.applyFunction(extractProfilesPeakParFromData,[data,profileLimits],dict(),outputtypes=['memdata']*6,forceCalculation=True)
+
+  det['xpos'] = o[0]
+  det['xfwhm'] = o[1]
+  det['xpeak'] = o[2]
+  det['ypos'] = o[3]
+  det['yfwhm'] = o[4]
+  det['ypeak'] = o[5]
+
 
 def rdHdf5dataFromDataSet(h5datasethandle,shots='all'):
   """Reads data from selected shots from dataset handle."""

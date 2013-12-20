@@ -14,10 +14,13 @@ from matplotlib.lines import Line2D
 from matplotlib.widgets import Widget
 from copy import copy 
 from matplotlib import pyplot as plt
-try:
+from distutils.version import LooseVersion
+
+if LooseVersion(matplotlib.__version__)<'1.2':
   from matplotlib.nxutils import points_inside_poly
-except:
-  pass
+else:
+  from matplotlib.path import Path as mPath
+  
 
 def nfigure(name="noname",figsize=None,**figprops):
 	try:
@@ -747,9 +750,15 @@ def polygonmask(pgon,x,y):
   xshp = np.shape(x)
   yshp = np.shape(y)
   if not xshp==yshp:
-    print "Shaoes dont match"
+    print "Shapes dont match"
     return
-  mask = points_inside_poly(zip(x.ravel(),y.ravel()),pgon)
+  if LooseVersion(matplotlib.__version__)<'1.2':
+    mask = points_inside_poly(zip(x.ravel(),y.ravel()),pgon)
+  else:
+    tpath = mPath(pgon) 
+    mask = tpath.contains_points(zip(x.ravel(),y.ravel()))
+  
+
   mask = np.reshape(mask,xshp)
   return mask
 

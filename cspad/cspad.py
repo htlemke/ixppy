@@ -553,8 +553,40 @@ def create_pixel_histogram(cspad_det,dark=None,Nmax=None):
   return histograms,histbins
 
 
-
+def maskEdge(shape=(185,388),offset=1,maskmid=True):
+  msk = np.zeros(shape,dtype='bool')
+  msk[:offset,:] = True
+  msk[:,:offset] = True
+  msk[-offset:,:] = True
+  msk[:,-offset:] = True
+  if maskmid:
+    msk[:,np.floor((max(shape)-1)/2.)] = True
+    msk[:,np.ceil((max(shape)-1)/2.)] = True
+  return msk
     
+def maskEdges(i,offset=1,maskmid=True):
+  shp = np.shape(i)
+  shpTile = shp[-2:]
+  shpdet  = shp[:-2]
+  mskTile = maskEdge(shape=shpTile,offset=offset,maskmid=maskmid)
+  tmsk = mskTile
+  iter_shpdet = list(shpdet)
+  iter_shpdet.reverse()
+  for N in iter_shpdet:
+    tmsk = [tmsk for n in xrange(N)]
+
+  return np.asarray(tmsk)
+  
+
+  
+
+
+
+
+
+
+
+
     
 
 

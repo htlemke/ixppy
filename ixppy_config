@@ -52,6 +52,7 @@ diode2    IpmFex*/XppSb3Pim   notused   notused
 diode3    IpmFex*/XppSb4_Pim     notused   notused 
 diode3    IpmFex*/XppSb4Pim   notused   notused 
 diodeU    IpmFex*/XppEnds_Ipm0   notused   notused 
+diodeU    IpmFex*/XppEndstation   notused   notused 
 lom_bpm   IpmFex*/XppMon_Pim0    notused   notused 
 lom_diode IpmFex*/XppMon_Pim1    notused   notused 
 encoder   Data*/XppGon.0:Encoder.0 notused notused
