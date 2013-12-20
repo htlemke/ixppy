@@ -14,6 +14,13 @@ from matplotlib.lines import Line2D
 from matplotlib.widgets import Widget
 from copy import copy 
 from matplotlib import pyplot as plt
+from distutils.version import LooseVersion
+
+if LooseVersion(matplotlib.__version__)<'1.2':
+  from matplotlib.nxutils import points_inside_poly
+else:
+  from matplotlib.path import Path as mPath
+  
 
 def nfigure(name="noname",figsize=None,**figprops):
 	try:
@@ -738,3 +745,23 @@ def roipoly(ax=None):
   while not r.done:
     plt.waitforbuttonpress()
   return r.verts
+<<<<<<< HEAD
+=======
+
+def polygonmask(pgon,x,y):
+  xshp = np.shape(x)
+  yshp = np.shape(y)
+  if not xshp==yshp:
+    print "Shapes dont match"
+    return
+  if LooseVersion(matplotlib.__version__)<'1.2':
+    mask = points_inside_poly(zip(x.ravel(),y.ravel()),pgon)
+  else:
+    tpath = mPath(pgon) 
+    mask = tpath.contains_points(zip(x.ravel(),y.ravel()))
+  
+
+  mask = np.reshape(mask,xshp)
+  return mask
+
+>>>>>>> b8a2a3c8c4f3d4a10177598056ba23a26d5ca9be

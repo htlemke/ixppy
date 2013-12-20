@@ -13,6 +13,14 @@ def filtvec(v,lims,getbool=False):
   else:
     return  (v>min(lims),v<max(lims))
 
+def subset(a,lims):
+  """cut a region from 2D array a given by ginput lims"""
+  lims = np.round(lims)
+  if len(np.shape(lims))==1 and len(lims)==4:
+    lims = np.reshape(lims,[2,2]).T
+
+  return a[min(lims[:,1]):max(lims[:,1]) , min(lims[:,0]):max(lims[:,0])]
+
 def filtWithPercentile(v,low,high):
 	""" return indeces that satisty the property that
 	values for this indeces are within `low` and `high` in the probability 
