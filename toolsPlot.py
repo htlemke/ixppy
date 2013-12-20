@@ -10,6 +10,11 @@ import os
 from toolsVecAndMat import *
 from toolsDistrAndHist import *
 
+from matplotlib.lines import Line2D
+from matplotlib.widgets import Widget
+from copy import copy 
+from matplotlib import pyplot as plt
+
 def nfigure(name="noname",figsize=None,**figprops):
 	try:
 		fig_names = [x.canvas.manager.window.get_title()
@@ -609,3 +614,127 @@ class hist_ascii(object):
         return his
             
  
+
+class Roipoly(Widget):
+  def __init__(self, ax, xy=None, callback=None, useblit=True):
+    self.axes = ax
+    self.figure = ax.figure
+    self.canvas = self.figure.canvas
+    self.useblit = useblit
+    if useblit:
+	self.background = self.canvas.copy_from_bbox(self.axes.bbox)
+    if not xy==None:
+      x, y = xy
+      self.verts = [(x,y)]
+    else:
+      self.verts = []
+
+    self.callback = callback
+    self.line=None
+    self.dragging = False
+    self.open_path = False
+    self.done = False
+    self.cids = []
+
+    self.cids.append(self.canvas.mpl_connect('button_press_event', self.onclick))
+    self.cids.append(self.canvas.mpl_connect('button_release_event', self.onrelease))
+    self.cids.append(self.canvas.mpl_connect('motion_notify_event', self.onmove))
+
+  def onrelease(self, event):
+    if self.dragging:
+      self.verts.append((event.xdata, event.ydata))
+      self.dragging = False
+      #if len(self.verts)>2:
+	#self.callback(self.verts)
+#
+
+  def onclick(self, event):
+    if event.inaxes != self.axes: return
+    self.clicktime = time.time()
+    if event.button==3:
+      if self.open_path:
+	self.open_path = False
+        self.verts.append((event.xdata, event.ydata))
+	plotdat = copy(self.verts)
+	plotdat.append(plotdat[0])
+	self.line.set_data(zip(*plotdat))
+        self.axes.lines.remove(self.line_close)
+	self.line_close=None
+      else:
+	
+	for cid in self.cids:
+	  self.canvas.mpl_disconnect(cid)
+        self.axes.lines.remove(self.line)
+	self.line = None
+	self.done = True
+
+	
+
+
+      #self.verts = None
+      #self.axes.lines.remove(self.line)
+      #self.verts = None
+      #for cid in self.cids:
+	  #self.canvas.mpl_disconnect(cid)
+      #return 
+    if event.button==1:
+      if not self.open_path:
+        self.verts = []
+
+	self.line=None
+	#self.dragging = False
+	#self.open_path = False
+
+      self.verts.append((event.xdata, event.ydata))
+      if self.line==None:
+	self.verts.append((event.xdata, event.ydata))
+	self.open_path = True
+	x,y = zip(*self.verts)
+	self.line = Line2D([x], [y], linestyle='-', color='black', lw=1.3)
+	self.axes.add_line(self.line)
+	self.line_close = Line2D([x], [y], linestyle=':', color='black', lw=1.3)
+	self.axes.add_line(self.line_close)
+
+    if self.useblit:
+	self.canvas.restore_region(self.background)
+	if not self.line==None:
+	  self.axes.draw_artist(self.line)
+	if not self.line_close==None:
+	  self.axes.draw_artist(self.line_close)
+	self.canvas.blit(self.axes.bbox)
+    else:
+	self.canvas.draw_idle()
+
+  def onmove(self, event):
+    if not self.open_path: return
+    if self.verts==[]: return
+    if event.inaxes != self.axes: return
+    if event.button==1 and (time.time()-self.clicktime)>.1:
+      self.dragging = True
+      self.verts.append((event.xdata, event.ydata))
+      plotdat = copy(self.verts)
+      closedat = [plotdat[-1],plotdat[0]]
+      self.line.set_data(zip(*plotdat))
+      self.line_close.set_data(zip(*closedat))
+    elif event.button==None:
+      plotdat = copy(self.verts)
+      plotdat.append((event.xdata, event.ydata))
+      closedat = [plotdat[-1],plotdat[0]]
+      self.line.set_data(zip(*plotdat))
+      self.line_close.set_data(zip(*closedat))
+
+    if self.useblit:
+	self.canvas.restore_region(self.background)
+	self.axes.draw_artist(self.line)
+	self.axes.draw_artist(self.line_close)
+	self.canvas.blit(self.axes.bbox)
+    else:
+	self.canvas.draw_idle()
+
+def roipoly(ax=None):
+  if ax==None:
+    ax = plt.gca()
+  r = Roipoly(ax)
+  while not r.done:
+    plt.waitforbuttonpress()
+  return r.verts
