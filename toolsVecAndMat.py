@@ -229,4 +229,7 @@ def rollingAverage(a, n=3):
   ret = np.cumsum(a, dtype=float)
   return (ret[n-1:] - ret[:1 - n]) / n
 
+def ndmesh(*args):
+  args = map(np.asarray,args)
+  return np.broadcast_arrays(*[x[(slice(None),)+(None,)*i] for i, x in enumerate(args)])
 

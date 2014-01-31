@@ -739,6 +739,7 @@ class Roipoly(Widget):
 	self.canvas.draw_idle()
 
 def roipoly(ax=None):
+  """ use polygonmask to get the pixel mask"""
   if ax==None:
     ax = plt.gca()
   r = Roipoly(ax)

@@ -398,6 +398,54 @@ def extractProfiles(Areadet, xrayoff=None, laseroff=None,
   #Areadet['datpump'] = datpump
   #Areadet['datrefIP'] = datrefIP
 
+def extractProfilesCorr(Areadet, xrayoff=None, laseroff=None, dataset_name_traces='TTtraces',dataset_name_traces_raw='TTtraces_raw'):
+  """
+    Areadet is the dataset with the camera images
+    'refmon' is the incoming intensity monitor (to check for x-ray off)
+    'refthreshold' threshold to find x-ray off
+    'Nxoff' number of x-ray off images to average around the image to analyze
+    'profileLimits' ROI {'limits': np.array([ 146.,  198.]), 'projection': 'vertical range'} os the kind
+    'profileLimitsRef' same as above for the reference trace
+    'Nmax' limits to Nmax images per calibcycle
+    'steps' analyze only every steps images
+    'calibcycles' which ones to do, if None do all
+  """
+  if not laseroff == None:
+    dat = Areadet[dataset_name_traces_raw] * laseroff.filter(False).ones()
+  else:
+    dat = Areadet[dataset_name_traces_raw]
+  #dat = dat - 32
+  
+  
+  datpump  = dat * xrayoff.filter(False).ones()
+  datref   = dat * xrayoff.filter(True).ones()
+  datrefIP = datref.interpolate(xrayoff.filter(False).time)
+  
+  Areadet[dataset_name_traces] = (datpump-datrefIP)/datrefIP
+
+def extractProfilesOnly(Areadet, profileLimits=None, transpose=False,dataset_name_traces='TTtraces_raw'):
+  """
+    Areadet is the dataset with the camera images
+    'refmon' is the incoming intensity monitor (to check for x-ray off)
+    'refthreshold' threshold to find x-ray off
+    'Nxoff' number of x-ray off images to average around the image to analyze
+    'profileLimits' ROI {'limits': np.array([ 146.,  198.]), 'projection': 'vertical range'} os the kind
+    'profileLimitsRef' same as above for the reference trace
+    'Nmax' limits to Nmax images per calibcycle
+    'steps' analyze only every steps images
+    'calibcycles' which ones to do, if None do all
+  """
+  #if not laseroff == None:
+    #dat = Areadet.data * laseroff.filter(False).ones()
+  #else:
+  dat = Areadet.data
+  #dat = dat - 32
+  
+  proflimits,profile = ixppy.getProfileLimits(dat,lims=profileLimits,transpose=transpose)
+  
+  Areadet[dataset_name_traces] = profile
+  Areadet[dataset_name_traces].evaluate()
+
 
 def applyFilterToAll(det,filter=None):
   if filter==None:

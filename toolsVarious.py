@@ -37,6 +37,8 @@ class dropObject(object):
     return [tk for tk in self.__dict__.keys() if not tk[0]=='_']
 
 def itemgetToIndices(x,size,boolean=False):
+  if size==0:
+    return []
   if (type(x) is int) or (type(x) is np.int64):
     xo = np.array([x])
   elif (type(x) is tuple) and isinstance(x[0],np.ndarray):

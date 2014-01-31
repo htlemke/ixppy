@@ -392,9 +392,10 @@ def address(fileNum,stepNum,what):
   return "_file%d.step%d.%s" % (fileNum,stepNum,what)
 
 class memdata(object):
-  def __init__(self,name=None,input=None,scan=None):
+  def __init__(self,name=None,input=None,scan=None,grid=None):
     self._name = name
     self.scan = scan
+    self.grid = grid
     if input==None:
       raise Exception("memdata can not be initialized as no datasources were defined.")
     if hasattr(input,'isevtObj') and input.isevtObj:
@@ -507,11 +508,82 @@ class memdata(object):
     else:
       tim,dum = ravelScanSteps(self.time)
       scan = tools.dropObject(name='scan')
-      scan['binedges'] = bins
-      scan['bincenters'] = tools.histVecCenter(bins)
+      if self._name==None:
+	nname = ''
+      else:
+	nname = self._name+'_'
+      scan[nname+'binedges'] = bins
+      scan[nname+'bincenters'] = tools.histVecCenter(bins)
 
       return memdata(input=[[dat[tf] for tf in filt],
                             [tim[tf] for tf in filt]],scan=scan)
+
+      #def digitize_new(self,*args,inplace=False):
+
+  #def digitize_new(self,*args):
+    #print args
+    #dat,stsz = ravelScanSteps(self.data)
+    #tim,stsz = ravelScanSteps(self.time)
+    #dimension = len(args)
+    #res_bins_dat = [dat]
+    #res_bins_tim = [tim]
+    #res_binvec = []
+    #for tbins in args:
+      #raise NotImplementeError
+      #if isinstance(tbins,memdata):
+	#print "Found memdata"
+	#res_bins_dat_tmp = []
+	#res_bins_tim_tmp = []
+	#for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
+	  #dum,tind = filterTimestamps(tbins.time,bins_tim)
+	  #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
+	  #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
+	#res_bins_dat = res_bins_dat_tmp
+        #res_bins_tim = res_bins_tim_tmp
+	#res_binvec.append(tbin.scan[tbin.scan.keys()[0]])
+      #else:
+	#res_bins_dat_tmp = []
+	#res_bins_tim_tmp = []
+	#for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
+	  #inds,bins = digitize(bins_dat,tbins)
+	  ## continue here ToDo
+	  #binrange = range(1,len(bins))
+	  #tind = [(inds==tbin).nonzero()[0] for tbin in binrange]
+	  #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
+	  #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
+	#res_bins_dat = res_bins_dat_tmp
+        #res_bins_tim = res_bins_tim_tmp
+      #return memdata(input=[res_bins_dat,res_bins_tim])
+
+
+	#if inplace:
+	  #self._filter = filt
+	  #return self
+	#else:
+	  #tim,dum = ravelScanSteps(self.time)
+	  #scan = tools.dropObject(name='scan')
+	  #scan['binedges'] = bins
+	  #scan['bincenters'] = tools.histVecCenter(bins)
+
+	  #return memdata(input=[[dat[tf] for tf in filt],
+				#[tim[tf] for tf in filt]],scan=scan)
+  #def digitize_even_newer(self,*args):
+    #dat,stsz = ravelScanSteps(self.data)
+    #inds,bins = digitize(dat,bins)
+    #binrange = range(1,len(bins))
+
+    #filt = [(inds==tbin).nonzero()[0] for tbin in binrange]
+    #if inplace:
+      #self._filter = filt
+      #return self
+    #else:
+      #tim,dum = ravelScanSteps(self.time)
+      #scan = tools.dropObject(name='scan')
+      #scan['binedges'] = bins
+      #scan['bincenters'] = tools.histVecCenter(bins)
+
+      #return memdata(input=[[dat[tf] for tf in filt],
+                            #[tim[tf] for tf in filt]],scan=scan)
   def ones(self):
     odat = [np.ones(len(dat)) for dat in self._data]
     return memdata(input=[odat,self.time],scan=self.scan)
@@ -987,10 +1059,11 @@ class data(object):
     stepInd_read = [n for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
     evtInd_read  = [indsdat_read[n] - int(np.sum(self._lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
 
-    dat = np.concatenate(
-	[self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)])
-    ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
-    dat = [dat[tind_resort,...] for tind_resort in ind_resort if len(tind_resort)>0]
+    dat = [self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)]
+    if not dat==[]:
+      dat = np.concatenate(dat)
+      ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
+      dat = [dat[tind_resort,...] for tind_resort in ind_resort if len(tind_resort)>0]
     return dat
 
     #if len(stepInd)>1:
@@ -1253,7 +1326,7 @@ def unravelIndexScanSteps(ip,stepsizes,replacements=None):
   return op
 
 ####
-def getStepShotsFromIndsTime(inds,times,stride=None):
+def getStepShotsFromIndsTime(inds,times,stride=None,getIncludedSteps=False):
   """ Takes inds (indices of the ravelled output sorted in lists of steps) as well as the time array of a detector to sort into inds. returns list for each nonempty inds step sontaining array of involved steps and shots in those steps.
   """
   addresses = [[(step,shot) for shot in range(len(ttime))] for step,ttime in enumerate(times)]
@@ -1263,8 +1336,10 @@ def getStepShotsFromIndsTime(inds,times,stride=None):
   added = np.asarray(added)
   stepShots = []
   #print inds
+  includedsteps = []
   for step,ind in enumerate(inds):
     if len(ind)>0:
+      includedsteps.append(step)
       ts = np.vstack(added[np.ix_(ind)])
       if not stride==None:
 	if len(stride)>step and np.iterable(stride[step]):
@@ -1276,51 +1351,59 @@ def getStepShotsFromIndsTime(inds,times,stride=None):
       tsteps = np.unique(ts[:,0])
       tshots = [ts[(ts[:,0]==n).nonzero()[0],1] for n in tsteps]
       stepShots.append([tsteps,tshots])
+
   #print stepShots
+  if getIncludedSteps:
+    return stepShots,np.asarray(includedsteps)
+    
   return stepShots
 
 
 ####
 
-def filterTimestamps(ts0,ts1):
+def filterTimestamps(ts0,ts1,asTime=True):
   """returns 2 list of indices arrays: 
     1) ts0 subset that is in ts1 
     2) bring ts1 in the order of ts0"""
   #raise NotImplementedError('Use the source, luke!')
   ts0r,ss0 = ravelScanSteps(ts0)
   ts1r,ss1 = ravelScanSteps(ts1)
-  ts0r = getTime(ts0r)
-  ts1r = getTime(ts1r)
-  sel0rb = np.in1d(ts0r,ts1r)
-  sel1rb = np.in1d(ts1r,ts0r)
-  sel1ri = sel1rb.nonzero()[0][ts1r[sel1rb].argsort()[ts0r[sel0rb].argsort().argsort()]]
+  ts0r = getTime(ts0r,asTime=asTime)
+  ts1r = getTime(ts1r,asTime=asTime)
+  
+  if (not (ts0r.dtype.names==None or ts1r.dtype.names==None)) and not asTime:
+    sel0rb,sel1ri = sortTimestampFiducials(ts0r,ts1r)
+  else:
+    sel0rb = np.in1d(ts0r,ts1r)
+    sel1rb = np.in1d(ts1r,ts0r)
+    sel1ri = sel1rb.nonzero()[0][ts1r[sel1rb].argsort()[ts0r[sel0rb].argsort().argsort()]]
   op0 = unravelIndexScanSteps(sel0rb.nonzero()[0],ss0)
   ss1a = [len(top0) for top0 in op0]
   op1 = unravelScanSteps(sel1ri,ss1a)
   return op0,op1
 
-def filterTimestamps_new(ts0,ts1):
-  """returns 2 list of indices arrays: 
-    1) ts0 subset that is in ts1 
-    2) bring ts1 in the order of ts0"""
-  #raise NotImplementedError('Use the source, luke!')
-  ts0r,ss0 = ravelScanSteps(ts0)
-  ts1r,ss1 = ravelScanSteps(ts1)
-  ts0r = getTime(ts0r)
-  ts1r = getTime(ts1r)
-  ts0ru,ts0uind = np.unique(ts0r,return_inverse=True)
-  ts1ru,ts1uind = np.unique(ts1r,return_inverse=True)
-
-
-  sel0rb = np.in1d(ts0ru,ts1ru)
-  sel1rb = np.in1d(ts1ru,ts0ru)
-  sel1ri = sel1rb.nonzero()[0][ts1ru[sel1rb].argsort()[ts0ru[sel0rb].argsort().argsort()]]
-  sel0rb = ts0uind[sel0rb]
-  sel1ri = ts1uind[sel1ri]
-  op0 = unravelIndexScanSteps(sel0rb.nonzero()[0],ss0)
-  ss1a = [len(top0) for top0 in op0]
-  op1 = unravelScanSteps(sel1ri,ss1a)
-  return op0,op1
+#def filterTimestamps_new(ts0,ts1):
+  #"""returns 2 list of indices arrays: 
+    #1) ts0 subset that is in ts1 
+    #2) bring ts1 in the order of ts0"""
+  ##raise NotImplementedError('Use the source, luke!')
+  #ts0r,ss0 = ravelScanSteps(ts0)
+  #ts1r,ss1 = ravelScanSteps(ts1)
+  #ts0r = getTime(ts0r)
+  #ts1r = getTime(ts1r)
+  #ts0ru,ts0uind = np.unique(ts0r,return_inverse=True)
+  #ts1ru,ts1uind = np.unique(ts1r,return_inverse=True)
+#
+#
+  #sel0rb = np.in1d(ts0ru,ts1ru)
+  #sel1rb = np.in1d(ts1ru,ts0ru)
+  #sel1ri = sel1rb.nonzero()[0][ts1ru[sel1rb].argsort()[ts0ru[sel0rb].argsort().argsort()]]
+  #sel0rb = ts0uind[sel0rb]
+  #sel1ri = ts1uind[sel1ri]
+  #op0 = unravelIndexScanSteps(sel0rb.nonzero()[0],ss0)
+  #ss1a = [len(top0) for top0 in op0]
+  #op1 = unravelScanSteps(sel1ri,ss1a)
+  #return op0,op1
 
 def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
   """finds N closes events in ts0 to ts1. Returns those events (after 
@@ -1328,25 +1411,93 @@ def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
   """
   ts0r,ss0 = ravelScanSteps(ts0)
   ts1r,ss1 = ravelScanSteps(ts1)
-  ts0r = getTime(ts0r)
-  ts1r = getTime(ts1r)
+  ts0r = getTime(ts0r,asTime=True)
+  ts1r = getTime(ts1r,asTime=True)
   ts0r = ts0r.astype(np.int32)
   ts1r = ts1r.astype(np.int32)
   indout = [np.abs(ts0r-tts1r).argsort()[:N] for tts1r in ts1r]
   return indout,ss0
 
 
-def getTime(tsi,resolution = 1e-9):
+def getTime(tsi,resolution = 1e-9,asTime=False):
   """Takes structured second/nanosecond array and returns integer-clipped ms array.
   """
   if tsi.dtype.names:
     nam = tsi.dtype.names
-    if ('nanoseconds' in nam) and ('seconds' in nam):
+    if (not asTime) and (('fiducials' in nam) and ('seconds' in nam)):
+      tso = tsi
+    elif ('nanoseconds' in nam) and ('seconds' in nam):
       tso = np.int64(tsi['seconds'])*int(1/resolution) + tsi['nanoseconds']/int(1e-9/resolution)
   else:
     tso = tsi
   return tso
 
+def sortTimestampFiducials(a,b,P=300,maxoff=10,remove_duplicates=False,remove_all_doubles=False):
+  """ sorting based on timestamps AND fiducials
+  brings those b that are in a into order of a
+  Takes the fiducial period (in ts units,<=the real period) and the max tx 
+  offset betwen a and b. Returns a boolead array of what in 
+  a is also in b and an array of indices that bring b in the 
+  order of a (only for those that exist there)"""
+
+  ats,af = (a['seconds'],a['fiducials'])
+  bts,bf = (b['seconds'],b['fiducials'])
+  # Getting timestamp groups
+  # down to integer units of the smallest offset to be considered
+  atsmn = min(ats)
+  ared = np.floor((ats-atsmn)/maxoff)
+  bred = np.floor((bts-atsmn)/maxoff)
+  #get number of small groups per search group (a), as well 
+  #as the number of search groups.
+  Na = np.floor(P/maxoff)-2 # number of small groups per search group in a
+  Nintervals = np.ceil(max(ared)/Na) # number of search groups
+  av = np.arange(Nintervals)  #this can be used for index comparison when looping through search groups
+  ai = np.searchsorted(np.arange(Nintervals)*Na , ared ,side='right')-1
+  print Na,Nintervals
+  print np.floor((ats-atsmn)/maxoff)
+  print av
+  print ai
+  Sela = []
+  Selbri = []
+  for nInt in av:
+    aInd = ai==nInt
+    bInd = np.logical_and(bred >= (nInt*Na-1), bred <= ((nInt+1)*Na+1))
+    taf = af[aInd]
+    tbf = bf[bInd]
+    if remove_duplicates:
+      aindDup = removeDuplicates(taf,remove_all_doubles=remove_all_doubles)
+      bindDup = removeDuplicates(tbf,remove_all_doubles=remove_all_doubles)
+    else:
+      aindDup = np.ones(np.shape(taf),dtype=bool)
+      bindDup = np.ones(np.shape(tbf),dtype=bool)
+      print 'notlookingfordoubles'
+    taf = taf[aindDup]
+    tbf = tbf[bindDup]
+    if not len(taf)==len(np.unique(taf)):
+      print "doubles in taf"
+    if not len(tbf)==len(np.unique(tbf)):
+      print "doubles in tbf"
+
+    sela = np.in1d(taf,tbf)
+    selb = np.in1d(tbf,taf)
+    selbri = selb.nonzero()[0]\
+	[tbf[selb].argsort()[taf[sela].argsort().argsort()]]
+    selbri = bInd.nonzero()[0][bindDup][selbri]
+    aindDup[aindDup] = sela
+    Sela.append(aindDup)
+    print len(aindDup)
+    Selbri.append(selbri)
+  return np.hstack(Sela),np.hstack(Selbri)
+
+
+def removeDuplicates(a,remove_all_doubles=True):
+  asrti = a.argsort()
+  asrt  = a[asrti]
+  cleansorted = np.concatenate(([True], asrt[1:] != asrt[:-1]))
+  if remove_all_doubles:
+    cleansorted = np.concatenate((cleansorted, [True]))
+    cleansorted = np.logical_and(cleansorted[:-1],cleansorted[1:])
+  return cleansorted[asrti.argsort()]
   ## check if timestamps are already read.
   #for det in self.detectors:
     #if not hasattr(self.__dict__[det],'time'):
@@ -3194,6 +3345,191 @@ def digitize(dat,bins=None,graphicalInput=True,figName=None):
   
   return np.digitize(dat,bins),bins
 
+def digitize_new(dat,bins=None,graphicalInput=True,figName=None):
+
+  
+  if isinstance(dat,memdata):
+    #####
+    dat,stsz = ravelScanSteps(dat.data)
+    tim,stsz = ravelScanSteps(dat.time)
+    #dimension = len(args)
+    #res_bins_dat = [dat]
+    #res_bins_tim = [tim]
+    #res_binvec = []
+    #for tbins in args:
+      #raise NotImplementeError
+      #if isinstance(tbins,memdata):
+	#print "Found memdata"
+	#res_bins_dat_tmp = []
+	#res_bins_tim_tmp = []
+	#for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
+	  #dum,tind = filterTimestamps(tbins.time,bins_tim)
+	  #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
+	  #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
+	#res_bins_dat = res_bins_dat_tmp
+	#res_bins_tim = res_bins_tim_tmp
+	#res_binvec.append(tbin.scan[tbin.scan.keys()[0]])
+      #else:
+	#res_bins_dat_tmp = []
+	#res_bins_tim_tmp = []
+	#for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
+	  #inds,bins = digitize(bins_dat,tbins)
+	  ## continue here ToDo
+	  #binrange = range(1,len(bins))
+	  #tind = [(inds==tbin).nonzero()[0] for tbin in binrange]
+	  #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
+	  #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
+	#res_bins_dat = res_bins_dat_tmp
+	#res_bins_tim = res_bins_tim_tmp
+      #return memdata(input=[res_bins_dat,res_bins_tim])
+
+
+    #####
+
+
+    if type(bins) is tuple:
+      Ndim = len(bins)
+      for tbins in bins:
+	if isinstance(tbins,memdata):
+	  tb = tbins.ones()*np.arange(len(tbins))
+	  tbInd,stsz = ravelScanSteps(tb.data)
+	  tbTim,stsz = ravelScanSteps(tb.time)
+
+
+
+  else:
+    if not figName:
+      figName = 'Select filter limits'
+
+    if graphicalInput and bins==None:
+      tools.nfigure(figName)
+      pl.clf()
+      N,edg = tools.histogramSmart(dat)
+      pl.step(edg[:-1]+np.diff(edg),N,'k')
+      lims = tools.getSpanCoordinates()
+      ip = 0
+      bins = None
+      hs = []
+      while not ip=='q':
+	ip = raw_input('Enter number of bins (q to finish)')
+	if ip=='q': continue
+	bins = np.linspace(np.min(lims),np.max(lims),int(ip))
+	for th in hs: 
+	  th.remove()
+	  hs = []
+	hs = [pl.axvline(te) for te in bins]
+      print "Selected bins: %g, %g,  "%(np.min(lims),np.max(lims))
+
+
+  return np.digitize(dat,bins),bins
+
+def getScanVec(instance):
+  leninst = len(instance)
+  scan = instance.scan
+  names = np.asarray(scan._get_keys())
+  lens = np.asarray([len(scan[tname]) for tname in names])
+  isbincenter = np.asarray([tname.split('_')[-1]=='bincenter' for tname in names])
+  if sum(lens==leninst)<1:
+    print "Attention: no suitable scan vector found for %s !" %instance._name
+    #raise Exception
+    return None
+  elif sum(isbincenter)==1:
+    sel_name = names[isbincenter][0]
+    return sel_name, scan[sel_name]
+  elif sum(isbincenter)>1:
+    sel_name = names[isbincenter[0]][0]
+    print "Attention: More than one bincenter array found for %s, will use %s." \
+	%(instance._name,sel_name)
+    return sel_name, scan[sel_name]
+  else:
+    sel_name = names[lens==leninst][0]
+    return sel_name, scan[sel_name]
+
+
+
+  
+def digitizeN(*args,**kwargs):
+  """multi-dimensional digitization, used memdata or timestamps to sort data"""
+  print args
+  print kwargs
+  target = kwargs.get('target', None)
+  if isinstance(target,memdata):
+    dat,stsz = ravelScanSteps(target.data)
+    tim,stsz = ravelScanSteps(target.time)
+  elif target==None:
+    atarg = args[0].ones()
+    for targ in args[1:]:
+      atarg = atarg*targ.ones()
+    dat,stsz = ravelScanSteps(atarg.data)
+    tim,stsz = ravelScanSteps(atarg.time)
+    
+
+  else: #assuming now it is timestamps
+    tim,stsz = ravelScanSteps(target)
+    dat = np.ones(np.shape(tim))
+  indmat = np.nan*np.ones((len(tim),len(args)))
+  vecs = []
+  names = []
+
+  for narg,targ in enumerate(args):
+    tname,tvec = getScanVec(targ)
+    vecs.append(tvec)
+    names.append(tname)
+    isused,sortThis = filterTimestamps(targ.time,[tim])
+    for nstep,sortThisStep in enumerate(sortThis):
+      indmat[sortThisStep,narg] = nstep
+  indmat = indmat[~(np.isnan(indmat).any(axis=1)),:]
+  totshape = tuple([len(tvec) for tvec in vecs])
+  indmat = np.asarray(indmat.T,dtype=int)
+  grouping = np.ravel_multi_index(indmat,totshape)
+  timout = [ tim[grouping==i] for i in range(np.prod(totshape))]
+  
+  datout = [ dat[grouping==i] for i in range(np.prod(totshape))]
+  scan = tools.dropObject(name='scan')
+  for tname,tvec in zip(names,vecs):
+    scan[tname] = tvec
+
+  grid = Grid(zip(names,vecs))
+
+
+  return memdata(name='%d-dimensional histogram'%(len(totshape)),input=[datout,timout],scan=scan,grid=grid)
+
+
+
+
+      
+class Grid(object):
+  def __init__(self,definition):
+    self._definition = definition
+
+  def _get_vec(self,sel=None):
+    if sel==None:
+      return tuple([tdef[1] for tdef in self._definition])
+    elif type(sel)==int:
+      return self._definition[sel][1]
+    elif type(sel)==str:
+      ind = (sel==np.asaray(self.names)).nonzero()
+      return self._definition[ind][1]
+
+  def _get_name(self,sel=None):
+    if sel==None:
+      return tuple([tdef[0] for tdef in self._definition])
+    elif type(sel)==int:
+      return self._definition[sel][0]
+  names = property(_get_name)
+
+  def _get_shape(self):
+    vecs = self._get_vec()
+    return tuple([len(tv) for tv in vecs])
+  shape = property(_get_shape)    
+
+
+    
+
+ 
+
+
+
 def parameterFilt(par,dataset=None,name=None,lims=None,graphicalInput=True,scanstep=None,figName=None):
   par = iterfy(par)
   if dataset:
@@ -3616,7 +3952,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	  ixppytype.append('data')
 	  eventstrides_ravel = [np.ravel(tevs) for tevs in eventstrides]
 
-	  io = getStepShotsFromIndsTime(io,o.time,stride=eventstrides_ravel)
+	  io = getStepShotsFromIndsTime(io,o.time,stride=eventstrides_ravel,getIncludedSteps=True)
 	if isinstance(o,memdata):
 	  ixppytype.append('memdata')
 	ixppyip.append(([o,io,iskey,argind]))
@@ -3639,7 +3975,10 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	      targs[i] = odat[io[step]][eventstride]
 	    else:
 	      
-              tmp = o._getStepsShots(io[step][0],io[step][1])[0]
+	      #tmp = o._getStepsShots(io[step][0],io[step][1])[0]
+	      
+	      io,inclsteps = io
+	      tmp = np.concatenate(o._getStepsShots(io[(inclsteps==step).nonzero()[0]][0],io[(inclsteps==step).nonzero()[0]][1]),axis=0)
 	      if not isPerEvt and ('memdata' in ixppytype):
 	        trnspsorder = range(np.rank(tmp))
                 trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
