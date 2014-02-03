@@ -746,8 +746,6 @@ def roipoly(ax=None):
   while not r.done:
     plt.waitforbuttonpress()
   return r.verts
-<<<<<<< HEAD
-=======
 
 def polygonmask(pgon,x,y):
   xshp = np.shape(x)
@@ -765,4 +763,3 @@ def polygonmask(pgon,x,y):
   mask = np.reshape(mask,xshp)
   return mask
 
->>>>>>> b8a2a3c8c4f3d4a10177598056ba23a26d5ca9be

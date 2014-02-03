@@ -233,3 +233,9 @@ def ndmesh(*args):
   args = map(np.asarray,args)
   return np.broadcast_arrays(*[x[(slice(None),)+(None,)*i] for i, x in enumerate(args)])
 
+
+def flatten(x):
+  if np.iterable(x):
+    return [a for i in x for a in flatten(i)]
+  else:
+    return [x]

@@ -518,6 +518,9 @@ class memdata(object):
       return memdata(input=[[dat[tf] for tf in filt],
                             [tim[tf] for tf in filt]],scan=scan)
 
+
+  def digitizeN(self,*args):
+    return digitizeN(*args,target=self)
       #def digitize_new(self,*args,inplace=False):
 
   #def digitize_new(self,*args):
@@ -587,28 +590,42 @@ class memdata(object):
   def ones(self):
     odat = [np.ones(len(dat)) for dat in self._data]
     return memdata(input=[odat,self.time],scan=self.scan)
+  
+  def _stepStatFunc(self,func):
+    data = np.asarray([func(d) for d in self._data])
+    if not self.grid==None:
+      data = data.reshape(self.grid.shape)
+    return data
+
 
   def mean(self):
-    return [np.mean(d) for d in self._data]
+    return self._stepStatFunc(np.mean)
   def std(self):
-    return [np.std(d) for d in self._data]
+    return self._stepStatFunc(np.std)
   def median(self):
-    return [np.median(d) for d in self]
+    return self._stepStatFunc(np.median)
   def mad(self):
-    return [tools.mad(d) for d in self._data]
+    return self._stepStatFunc(tools.mad)
   def sum(self):
-    return np.asarray([np.sum(d) for d in self._data])
-  def sqrt(self):
-    return np.asarray([np.sqrt(d) for d in self._data])
+    return self._stepStatFunc(np.sum)
+  def count(self):
+    return self._stepStatFunc(len)
+  #def sqrt(self):
+    #return np.asarray([np.sqrt(d) for d in self._data])
   def plot(self):
-    i = self.median()
-    e = self.mad()/np.sqrt(self.lens)
-    scanfields = self.scan.__dict__.keys()
-    scanfields = [tf for tf in scanfields if not tf[0]=='_']
-    x = self.scan.__dict__[scanfields[0]]
-    tools.nfigure('memdata plot')
-    pl.errorbar(x,i,yerr=e,fmt='.-')
-    pl.xlabel(scanfields[0])
+    i = self.median().ravel()
+    if not self.grid==None:
+      tools.imagesc(*self.grid.format(i))
+
+    else:
+      e = self.mad()/np.sqrt(self.lens)
+      
+      scanfields = self.scan.__dict__.keys()
+      scanfields = [tf for tf in scanfields if not tf[0]=='_']
+      x = self.scan.__dict__[scanfields[0]]
+      tools.nfigure('memdata plot')
+      pl.errorbar(x,i,yerr=e,fmt='.-')
+      pl.xlabel(scanfields[0])
 
 
   def corrFilter(self,other,ratio=False):
@@ -1921,6 +1938,10 @@ class Ixp(object):
 	  self.mkDset(newgroup,'data',data.data)
 	  self.mkDset(newgroup,'time',data.time)
 	  self.save(data.scan,newgroup,name='scan')
+	  if not data.grid==None:
+	    gridgroup = newgroup.require_group('grid')
+	    self.mkDset(gridgroup,'definition',data.grid._definition)
+	  
 	except Exception,e:
 	  print e
 	  print "could not save memdata instance %s" %name
@@ -1982,7 +2003,15 @@ class Ixp(object):
 	  except Exception,e:
 	    print e
 	    scan = None
-	  return memdata(input = [data,time], name=name, scan=scan)
+	  if 'grid' in rootgroup.keys():
+	    try:
+	      grid = Grid(self.rdDset(rootgroup['grid']['definition']))
+	    except Exception,e:
+	      print e
+	      grid = None
+	  else:
+	    grid = None
+	  return memdata(input = [data,time], name=name, scan=scan, grid=grid)
 	except:
 	  print "reading error with memdata instance %s" %name
 	  return name+"_empty_corrupt"
@@ -2001,7 +2030,19 @@ class Ixp(object):
         listkeys.sort()
         data = []
         for key in listkeys:
-          data.append(self.rdDset(rootgroup[key]))
+	  #data.append(self.rdDset(rootgroup[key]))
+          keydat = self.rdDset(rootgroup[key])
+          data.append(keydat)
+
+      if tdtype == 'tuple':
+        listkeys = [key for key in allkeys if '#' in key]
+        listkeys.sort()
+        data = []
+        for key in listkeys:
+	  #data.append(self.rdDset(rootgroup[key]))
+          keydat = self.rdDset(rootgroup[key])
+          data.append(keydat)
+	data = tuple(data)
       
       if tdtype == 'dict':
         dictkeys = [key for key in allkeys if '_dtype' not in key]
@@ -2011,7 +2052,7 @@ class Ixp(object):
 
     else:
       data = rootgroup.value
-      if data is 'empty':
+      if data=='empty':
         data = []
 
     return data
@@ -3334,7 +3375,7 @@ def digitize(dat,bins=None,graphicalInput=True,figName=None):
     bins = None
     hs = []
     while not ip=='q':
-      ip = raw_input('Enter number of bins (q to finish)')
+      ip = raw_input('Enter number of bins (q to finish) ')
       if ip=='q': continue
       bins = np.linspace(np.min(lims),np.max(lims),int(ip))
       for th in hs: 
@@ -3450,8 +3491,6 @@ def getScanVec(instance):
   
 def digitizeN(*args,**kwargs):
   """multi-dimensional digitization, used memdata or timestamps to sort data"""
-  print args
-  print kwargs
   target = kwargs.get('target', None)
   if isinstance(target,memdata):
     dat,stsz = ravelScanSteps(target.data)
@@ -3486,8 +3525,10 @@ def digitizeN(*args,**kwargs):
   
   datout = [ dat[grouping==i] for i in range(np.prod(totshape))]
   scan = tools.dropObject(name='scan')
-  for tname,tvec in zip(names,vecs):
-    scan[tname] = tvec
+
+  meshes = tools.ndmesh(*tuple(vecs))
+  for tname,tmesh in zip(names,meshes):
+    scan[tname] = tmesh.ravel()
 
   grid = Grid(zip(names,vecs))
 
@@ -3501,6 +3542,7 @@ def digitizeN(*args,**kwargs):
 class Grid(object):
   def __init__(self,definition):
     self._definition = definition
+    self._ixpsaved = ['_definition']
 
   def _get_vec(self,sel=None):
     if sel==None:
@@ -3522,6 +3564,52 @@ class Grid(object):
     vecs = self._get_vec()
     return tuple([len(tv) for tv in vecs])
   shape = property(_get_shape)    
+ 
+  def gridshape(self,vec): 
+    if not len(vec)==np.prod(self.shape):
+      raise Exception('length of vec does not match grid size!')
+    else:
+      vec = np.asarray(vec)
+      return np.reshape(vec,self.shape)
+
+
+  def format(self,vec,dims=None,method=np.mean):
+    isSelection = np.iterable(vec[0])
+    vec = self.gridshape(vec)
+    if not dims==None:
+      adims = list(self.shape)
+      for rdim in dims:
+	adims.remove(rdim)
+      trsp  = dims+tuple(adims)
+      vec = vec.transpose(trsp)
+    return self[:]+(vec,)
+ 
+      #if len(adims)>0:
+	#stridestr = '[...'+len(adims)*',:'+']'
+	#if isSelection:
+	  #exec('vec'+stridestr+' = np.concatenate(vec'+stridestr+'.ravel(),axis=0)')
+	#else:
+	  #vec[len(dims)-1] = np.concatenate(vec[len(dims)-1])
+
+
+
+
+
+
+
+
+
+
+  def __len__(self):
+    return len(self._definition)
+
+  def __getitem__(self,x):
+    if type(x)==slice:
+      inds = range(*x.indices(len(self)))
+      return tuple([self._get_vec(sel=ind) for ind in inds])
+    else:
+      return self._get_vec(sel=x)
+
 
 
     

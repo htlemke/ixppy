@@ -323,4 +323,5 @@ def dictMerge(a, b):
 def varName(varStr): 
   return re.sub('\W|^(?=\d)','_', varStr)
 
+
 #polyval = wrapFunc(np.polyval)
