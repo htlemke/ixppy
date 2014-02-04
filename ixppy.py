@@ -1969,7 +1969,7 @@ class Ixp(object):
       for key in data.keys():
         tname = '%s' %key
         self.mkDset(newgroup,tname,data[key])
-    if type(data) in [np.ndarray,int,float,str,
+    if type(data) in [np.ndarray,int,float,str,np.unicode_,
                       np.string_,np.bool,np.int,
                       np.int8,np.int16,np.int32,np.int64,
                       np.uint8,np.uint16,np.uint32,np.uint64,
