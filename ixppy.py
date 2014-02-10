@@ -494,7 +494,7 @@ class memdata(object):
     else:
       tim,dum = ravelScanSteps(self.time)
       return memdata(input=[[dat[tf] for tf in filt],
-                            [tim[tf] for tf in filt]])
+                            [tim[tf] for tf in filt]],scan=self.scan,grid = self.grid)
   
   def digitize(self,bins=None,inplace = False):
     dat,stsz = ravelScanSteps(self.data)
@@ -591,17 +591,23 @@ class memdata(object):
     odat = [np.ones(len(dat)) for dat in self._data]
     return memdata(input=[odat,self.time],scan=self.scan)
   
-  def _stepStatFunc(self,func):
-    data = np.asarray([func(d) for d in self._data])
+  def _stepStatFunc(self,func,*args,**kwargs):
+    data = np.asarray([func(d,*args,**kwargs) for d in self._data])
     if not self.grid==None:
       data = data.reshape(self.grid.shape)
     return data
 
-
-  def mean(self):
-    return self._stepStatFunc(np.mean)
-  def std(self):
-    return self._stepStatFunc(np.std)
+  def mean(self,weights=None):
+    if not weights==None:
+      return np.asarray([np.average(d,weights=w) for d,w in zip(self._data,weights)])
+    else:
+      return self._stepStatFunc(np.mean)
+      
+  def std(self,weights=None):
+    if not weights==None:
+      return np.asarray([tools.weighted_avg_and_std(d,w)[1] for d,w in zip(self._data,weights)])
+    else:
+      return self._stepStatFunc(np.std)
   def median(self):
     return self._stepStatFunc(np.median)
   def mad(self):

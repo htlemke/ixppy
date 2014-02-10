@@ -106,7 +106,7 @@ def TTteachFilter(profiles,):
                       noise_limits=noiselim)
   return filtsettings
 
-def TTapplyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings=None,saveplots=False):
+def applyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings=None,saveplots=False):
   weights = np.array(filtsettings['weights']).ravel()
   #stepoffs = filtsettings['stepoffs'] 
   lf = len(weights)
@@ -451,7 +451,7 @@ def applyFilterToAll(det,filter=None):
   if filter==None:
     filter = standardfilter()
   traces = det.TTtraces
-  o = ixppy.applyFunction(TTapplyFilter,[traces,filter],dict(),outputtypes=['memdata']*3,forceCalculation=True)
+  o = ixppy.applyFunction(applyFilter,[traces,filter],dict(),outputtypes=['memdata']*3,forceCalculation=True)
   det['TTpos'] = o[0]
   det['TTamp'] = o[1]
   det['TTfwhm'] = o[2]

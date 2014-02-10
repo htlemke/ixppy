@@ -45,6 +45,16 @@ def digitize2D(x1,x2,bins1,bins2):
 ##from scipy.stats import norm, median
 ##from scipy.stats.stats import nanmedian,_nanmedian
         
+def weighted_avg_and_std(values, weights):
+  """
+  Return the weighted average and standard deviation.
+
+  values, weights -- Numpy ndarrays with the same shape.
+  """
+  average = np.average(values, weights=weights)
+  variance = np.average((values-average)**2, weights=weights)  # Fast and numerically precise
+  return (average, np.sqrt(variance))
+
 def mad(a, c=0.6745, axis=None):
     """
     Median Absolute Deviation along given axis of an array:
