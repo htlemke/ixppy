@@ -599,19 +599,33 @@ class memdata(object):
 
   def mean(self,weights=None):
     if not weights==None:
-      return np.asarray([np.average(d,weights=w) for d,w in zip(self._data,weights)])
+      weights = self.ones()*weights
+      selfdat = weights.ones()*self
+      return np.asarray([np.average(d,weights=w) for d,w in zip(selfdat._data,weights)])
     else:
       return self._stepStatFunc(np.mean)
       
   def std(self,weights=None):
     if not weights==None:
-      return np.asarray([tools.weighted_avg_and_std(d,w)[1] for d,w in zip(self._data,weights)])
+      weights = self.ones()*weights
+      selfdat = weights.ones()*self
+      return np.asarray([tools.weighted_avg_and_std(d,w)[1] for d,w in zip(selfdat._data,weights)])
     else:
       return self._stepStatFunc(np.std)
-  def median(self):
-    return self._stepStatFunc(np.median)
-  def mad(self):
-    return self._stepStatFunc(tools.mad)
+  def median(self,weights=None):
+    if not weights==None:
+      weights = self.ones()*weights
+      selfdat = weights.ones()*self
+      return np.asarray([tools.weighted_median(d,w) for d,w in zip(selfdat._data,weights)])
+    else:
+      return self._stepStatFunc(np.median)
+  def mad(self,weights=None):
+    if not weights==None:
+      weights = self.ones()*weights
+      selfdat = weights.ones()*self
+      return np.asarray([tools.weighted_mad(d,w) for d,w in zip(selfdat._data,weights)])
+    else:
+      return self._stepStatFunc(tools.mad)
   def sum(self):
     return self._stepStatFunc(np.sum)
   def count(self):

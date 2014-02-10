@@ -314,6 +314,7 @@ class detector(object):
 	    data = [tdat,times]
 	    self.fields[tname] = data 
 
+
   def _initAreaDet(self):
     self.time = self._readTime(self._paths['time'][0])
     self.readData = self._readDataGeneral
