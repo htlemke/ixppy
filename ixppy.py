@@ -601,7 +601,10 @@ class memdata(object):
     if not weights==None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
-      return np.asarray([np.average(d,weights=w) for d,w in zip(selfdat._data,weights)])
+      data =  np.asarray([np.average(d,weights=w) if len(w)>0 else np.nan for d,w in zip(selfdat._data,weights)])
+      if not self.grid==None:
+	data = data.reshape(self.grid.shape)
+      return data
     else:
       return self._stepStatFunc(np.mean)
       
@@ -883,6 +886,10 @@ class data(object):
 
   def lens(self):
     return np.asarray([len(td) for td in self._filter])
+  
+  def ones(self):
+    odat = [np.ones(len(tim)) for tim in self.time]
+    return memdata(input=[odat,self.time],scan=self.scan)
 
   def __repr__(self):
       return "`data` object %s, %d steps, %d events per step" % (self.name, self.__len__(),np.median(self._lens))
@@ -3131,7 +3138,7 @@ def digitizeData(data,bins,prcentile=.9):
         pl.step(edg[:-1]+np.diff(edg),N,'k')
         lims = tools.getSpanCoordinates()
         nbins = int(raw_input('Please enter number of bins: '))
-        cbins = np.linspace(lims[0],lims[1],np.abs(nbins))
+        cbins = np.linspace(lims[0],lims[1],np.abs(nbins)+1)
 
       else:
         # tbins>0
@@ -4003,6 +4010,8 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	allobjects.append((ipkwargs[key],1,keyno))
   if not allobjects==[]:
     scan = allobjects[0][0].scan
+    grid = allobjects[0][0].grid
+    
   rtimes = get_common_timestamps([ao[0] for ao in allobjects])
   # get also other arguments in seperate list for later use in length analysis if needed
   if not picky and not rtimes==None:
@@ -4152,7 +4161,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	  if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
       for n,top in enumerate(output_list):
 	if n in output_ismemdata:
-	  output_list[n] = memdata(input=[top,rtimes],scan=scan)
+	  output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
 	#elif top.count(top[0])==len(top):
 	  #output_list[n] = top[0]
 	#elif len(top)>1:
@@ -4196,7 +4205,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
     for n,top in enumerate(output_list):
       if n in output_ismemdata:
-	output_list[n] = memdata(input=[top,rtimes],scan=scan)
+	output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
       elif top.count(top[0])==len(top):
 	output_list[n] = top[0]
       elif len(top)>1:
