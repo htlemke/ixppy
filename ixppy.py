@@ -638,7 +638,8 @@ class memdata(object):
   def plot(self):
     i = self.median().ravel()
     if not self.grid==None:
-      tools.imagesc(*self.grid.format(i))
+      x,y,im = self.grid.format(i)
+      tools.imagesc(x,y,im.T)
 
     else:
       e = self.mad()/np.sqrt(self.lens)
@@ -3148,7 +3149,7 @@ def digitizeData(data,bins,prcentile=.9):
 
         elif type(tbins) is float:
         # bin size given, full range
-          cbins = np.arang(min(adata),max(adata),tbins)
+          cbins = np.arange(min(adata),max(adata),tbins+1)
         pass
 
     else:
@@ -3404,7 +3405,7 @@ def digitize(dat,bins=None,graphicalInput=True,figName=None):
     while not ip=='q':
       ip = raw_input('Enter number of bins (q to finish) ')
       if ip=='q': continue
-      bins = np.linspace(np.min(lims),np.max(lims),int(ip))
+      bins = np.linspace(np.min(lims),np.max(lims),int(ip)+1)
       for th in hs: 
 	th.remove()
 	hs = []
