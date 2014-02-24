@@ -833,9 +833,10 @@ class interp(object):
   
 
 class data(object):
-  def __init__(self,name=None,time=None,input=None,scan=None,ixpAddressData=None,parent=None):
+  def __init__(self,name=None,time=None,input=None,scan=None,ixpAddressData=None,parent=None,grid=None):
     self.name = name
     self.scan = scan
+    self.grid = grid
     self._ixpAddressData = ixpAddressData
     self._parent = parent
     #if input==None:
