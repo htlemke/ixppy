@@ -2097,6 +2097,7 @@ def _rdConfigurationRaw(fina="ixppy_config"):
   lines = fhandle.readlines()
   fhandle.close()
   foundlabel = False
+  lines.append("#* end"); # needed to read the last block
   for i in range(len(lines)):
     line = lines[i].strip()
 

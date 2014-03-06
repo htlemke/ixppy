@@ -182,4 +182,5 @@ ebeam  Bld::BldDataEBeamV1/Ebeam/data  Bld::BldDataEBeamV1/Ebeam/time  dummy
 #phasec  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/data  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/time dummy
 
 
-
+#* areaDet_common
+xtcav Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/image Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/time dummy
