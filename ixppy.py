@@ -115,6 +115,7 @@ class dataset(object):
 	  tVar = self.config.lclsH5obj.scanVars[name]
 	  if not hasattr(tVar,'names'): continue
 	  for vname,vdat in zip(tVar.names,np.asarray(tVar.data).T):
+	    vname = getValidFieldname(vname,lowerit=True) 
             addToObj(self,name+'.'+vname,vdat,ixpsaved=True)
       if hasattr(self,'scan'):
 	scan=self.scan
@@ -4326,6 +4327,22 @@ def get_common_timestamps(allobjects):
       times = np.hstack(times)[iar]
       times = unravelScanSteps(times,stpsz)
   return times
+
+
+def getValidFieldname(name,lowerit=True):
+  if lowerit:
+    name = name.lower()
+  name = name.replace(':','_')
+  name = name.replace('.','_')
+  name = name.replace(' ','_')
+  name = name.replace('-','_')
+  #if lowerit:
+    #while name.find('_')>-1:
+      #s,e = name.split('_')
+      #name = s+e[0].upper()+e[1:]
+  return name
+
+
 
 #def get_ts_ind_for_data(timestamps,obj):
   #ia,io = filterTimestamps(timestamps,obj.time)

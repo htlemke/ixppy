@@ -127,6 +127,10 @@ diode3      IpmFex*/XcsBeamline.2:Ipimb.3  notused   notused
 diode4      IpmFex*/XcsBeamline.2:Ipimb.4  notused   notused 
 diode5      IpmFex*/XcsBeamline.2:Ipimb.5  notused   notused 
 
+#* pointDet_cxi
+epics     EpicsArch.0:NoDevice.0 notused   notused
+eventCode EvrData                notused   EvrData*eventcodes
+timeTool   TTSPEC  notused notused
 
 # XCS area detectors, label as #*line, then line of alias, and data, time, and config datasets
 #* areaDet_xcs
@@ -137,6 +141,8 @@ cspad  CsPad::ElementV*/XcsEndstation.0:Cspad.0/data notused notused
 dg1  Camera::FrameV1/CxiDg1.0:Tm6740.0/image  Camera::FrameV1/CxiDg1.0:Tm6740.0/time dummy
 dg2  Camera::FrameV1/CxiDg2.0:Tm6740.0/image  Camera::FrameV1/CxiDg2.0:Tm6740.0/time dummy
 dg4  Camera::FrameV1/CxiDg4.0:Tm6740.0/image  Camera::FrameV1/CxiDg2.0:Tm6740.0/time dummy
+opal0  Camera::FrameV1/CxiDsu.0:Opal1000.0/image  Camera::FrameV1/CxiDsu.0:Opal1000.0/image dummy
+
 
 # AMO area detectors, label as #*line, then line of alias, and data, time, and config datasets
 #* areaDet_amo
