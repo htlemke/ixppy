@@ -1110,7 +1110,8 @@ class data(object):
     if not dat==[]:
       dat = np.concatenate(dat)
       ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
-      dat = [dat[tind_resort,...] for tind_resort in ind_resort if len(tind_resort)>0]
+      ind_resort = [tools.smartIdx(l) for l in ind_resort if len(l)>0]
+      dat = [dat[tind_resort,...] for tind_resort in ind_resort]
     return dat
 
     #if len(stepInd)>1:
