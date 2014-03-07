@@ -28,7 +28,6 @@ def smartIdx(idx,forceContigous=False):
     else:
       d = i[1:]-i[0:-1]
       dmean = int(d.mean())
-      print i,d,dmean
       if np.all(d==dmean):
         ret = slice(i[0],i[-1]+1,dmean)
       else:
