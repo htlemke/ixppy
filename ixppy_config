@@ -25,6 +25,7 @@ xpp lap /home/marcoc/slac/experiments/TRABS_Oct10/data
 #* cache_directory
 xpp lap /home/marcoc/ixppy_cache
 xpp default /reg/neh/home1/lemke/ixppy_cache
+xpp default /reg/neh/home1/marcoc/ixppy_cache
 
 # Scan step (mnemonic,data)
 #* scan_step

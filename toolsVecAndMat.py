@@ -7,6 +7,33 @@ from toolsLog import logbook
 from scipy import percentile
 import toolsDistrAndHist
 
+def smartIdx(idx,forceContigous=False):
+  """ Try to interpret an array of bool as slice;
+  this allows selecting a subarray alot more efficient 
+  since array[slice] it returns a view and not a copy """
+  if (isinstance(idx,int)):
+    ret = slice(idx,idx+1)
+  else:
+    idx = np.asarray(idx)
+    if idx.dtype == np.bool:
+      i = np.where(idx)[0]
+    else:
+      i = idx
+    # in case there is only one
+    if (len(i) == 1):
+      ret = slice(i[0],i[0]+1)
+      return ret
+    if forceContigous:
+      ret = slice(i[0],i[-1])
+    else:
+      d = i[1:]-i[0:-1]
+      dmean = int(d.mean())
+      if np.all(d==dmean):
+        ret = slice(i[0],i[-1]+1,dmean)
+      else:
+        ret = idx
+  return ret
+
 def filtvec(v,lims,getbool=False):
   if not getbool:
     return np.logical_and(v>min(lims),v<max(lims))
