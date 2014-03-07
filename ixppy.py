@@ -1215,9 +1215,20 @@ class Evaluate(object):
   def __init__(self,datainstance):
     self.data = datainstance
 
+  def _checkParent(self):
+    if self.data._procObj is not None:
+      args = self.data._procObj['args']
+      for targ in args:
+        if isinstance(targ,data):
+          continue
+        else:
+          print "fund evaluating first",tarrg
+          targ.evaluate()
+
   def __call__(self,stepSlice=slice(None),evtSlice=slice(None),progress=True,force=False):
     """Process all data of data instance which will be saved to a ixp hdf5 file. This function could be candidate for parallelization or background processing
     """
+
     allchunks = self.data._memIterate(stepSlice,evtSlice)
     timestamps = [np.concatenate([self.data.time[tstep][tchunk] for tchunk in tstepchunk]) for tstep,tstepchunk in allchunks]
     ixp,path = self.data._getIxpHandle()
