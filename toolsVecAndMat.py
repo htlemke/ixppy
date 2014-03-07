@@ -17,12 +17,13 @@ def smartIdx(idx,forceContigous=False):
     idx = np.asarray(idx)
     if idx.dtype == np.bool:
       i = np.where(idx)[0]
-      # in case there is only one
-      if (len(i) == 0):
-        ret = slice(i[0],i[0]+1)
-        return ret
     else:
       i = idx
+    # in case there is only one
+    if (len(i) == 0):
+      ret = slice(i[0],i[0]+1)
+      return ret
+
     if forceContigous:
       ret = slice(i[0],i[-1])
     else:
