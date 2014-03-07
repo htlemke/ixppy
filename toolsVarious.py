@@ -4,6 +4,7 @@ import numpy as np
 from copy import deepcopy
 import re
 from itertools import takewhile
+from toolsVecAndMat import smooth
 #from ixppy import wrapFunc
 
 def allnamesequal(name):
@@ -322,6 +323,25 @@ def dictMerge(a, b):
 
 def varName(varStr): 
   return re.sub('\W|^(?=\d)','_', varStr)
+
+def find_peaks_zc(x,smoothWindow=10,min_dist=None,max_dist=None):
+  xd = smooth(np.diff(x),smoothWindow)
+  zc = np.where(np.diff(np.sign(xd)))[0]
+  Dzc = np.diff(zc)
+  if min_dist is not None:
+    sel = Dzc>min_dist
+    Dzc = Dzc[sel]
+    selind = (~sel).nonzero()[0]
+    zc = np.delete(zc,np.hstack([selind,selind+1]))
+  if max_dist is not None:
+    sel = Dzc<max_dist
+    Dzc = Dzc[sel]
+    selind = (~sel).nonzero()[0]
+    zc = np.delete(zc,np.hstack([selind,selind+1]))
+  return zc,Dzc 
+
+
+
 
 
 #polyval = wrapFunc(np.polyval)
