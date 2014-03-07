@@ -20,10 +20,9 @@ def smartIdx(idx,forceContigous=False):
     else:
       i = idx
     # in case there is only one
-    if (len(i) == 0):
+    if (len(i) == 1):
       ret = slice(i[0],i[0]+1)
       return ret
-
     if forceContigous:
       ret = slice(i[0],i[-1])
     else:
