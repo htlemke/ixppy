@@ -7,6 +7,33 @@ from toolsLog import logbook
 from scipy import percentile
 import toolsDistrAndHist
 
+def smartIdx(idx,forceContigous=False):
+  """ Try to interpret an array of bool as slice;
+  this allows selecting a subarray alot more efficient 
+  since array[slice] it returns a view and not a copy """
+  if (isinstance(idx,int)):
+    ret = slice(idx,idx+1)
+  else:
+    idx = np.asarray(idx)
+    if idx.dtype == np.bool:
+      i = np.where(idx)[0]
+    else:
+      i = idx
+    # in case there is only one
+    if (len(i) == 1):
+      ret = slice(i[0],i[0]+1)
+      return ret
+    if forceContigous:
+      ret = slice(i[0],i[-1])
+    else:
+      d = i[1:]-i[0:-1]
+      dmean = int(d.mean())
+      if np.all(d==dmean):
+        ret = slice(i[0],i[-1]+1,dmean)
+      else:
+        ret = idx
+  return ret
+
 def filtvec(v,lims,getbool=False):
   if not getbool:
     return np.logical_and(v>min(lims),v<max(lims))
@@ -228,6 +255,23 @@ def rollingFunction(v,fun,ptrad=10,truncate=False):
 def rollingAverage(a, n=3):
   ret = np.cumsum(a, dtype=float)
   return (ret[n-1:] - ret[:1 - n]) / n
+
+def smooth(x,window_len=11,window='hanning'):
+        if x.ndim != 1:
+                raise ValueError, "smooth only accepts 1 dimension arrays."
+        if x.size < window_len:
+                raise ValueError, "Input vector needs to be bigger than window size."
+        if window_len<3:
+                return x
+        if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+                raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+        s=np.r_[2*x[0]-x[window_len-1::-1],x,2*x[-1]-x[-1:-window_len:-1]]
+        if window == 'flat': #moving average
+                w=np.ones(window_len,'d')
+        else:  
+                w=eval('np.'+window+'(window_len)')
+        y=np.convolve(w/w.sum(),s,mode='same')
+        return y[window_len:-window_len+1]
 
 def ndmesh(*args):
   args = map(np.asarray,args)

@@ -115,6 +115,7 @@ class dataset(object):
 	  tVar = self.config.lclsH5obj.scanVars[name]
 	  if not hasattr(tVar,'names'): continue
 	  for vname,vdat in zip(tVar.names,np.asarray(tVar.data).T):
+	    vname = getValidFieldname(vname,lowerit=True) 
             addToObj(self,name+'.'+vname,vdat,ixpsaved=True)
       if hasattr(self,'scan'):
 	scan=self.scan
@@ -1143,7 +1144,8 @@ class data(object):
     if not dat==[]:
       dat = np.concatenate(dat)
       ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
-      dat = [dat[tind_resort,...] for tind_resort in ind_resort if len(tind_resort)>0]
+      ind_resort = [tools.smartIdx(l) for l in ind_resort if len(l)>0]
+      dat = [dat[tind_resort,...] for tind_resort in ind_resort]
     return dat
 
     #if len(stepInd)>1:
@@ -1249,9 +1251,20 @@ class Evaluate(object):
   def __init__(self,datainstance):
     self.data = datainstance
 
+  def _checkParent(self):
+    if self.data._procObj is not None:
+      args = self.data._procObj['args']
+      for targ in args:
+        if isinstance(targ,data):
+          continue
+        else:
+          print "fund evaluating first",tarrg
+          targ.evaluate()
+
   def __call__(self,stepSlice=slice(None),evtSlice=slice(None),progress=True,force=False):
     """Process all data of data instance which will be saved to a ixp hdf5 file. This function could be candidate for parallelization or background processing
     """
+
     allchunks = self.data._memIterate(stepSlice,evtSlice)
     timestamps = [np.concatenate([self.data.time[tstep][tchunk] for tchunk in tstepchunk]) for tstep,tstepchunk in allchunks]
     ixp,path = self.data._getIxpHandle()
@@ -2170,6 +2183,7 @@ def _rdConfigurationRaw(fina="ixppy_config"):
   lines = fhandle.readlines()
   fhandle.close()
   foundlabel = False
+  lines.append("#* end"); # needed to read the last block
   for i in range(len(lines)):
     line = lines[i].strip()
 
@@ -4398,6 +4412,22 @@ def get_common_timestamps(allobjects):
       times = np.hstack(times)[iar]
       times = unravelScanSteps(times,stpsz)
   return times
+
+
+def getValidFieldname(name,lowerit=True):
+  if lowerit:
+    name = name.lower()
+  name = name.replace(':','_')
+  name = name.replace('.','_')
+  name = name.replace(' ','_')
+  name = name.replace('-','_')
+  #if lowerit:
+    #while name.find('_')>-1:
+      #s,e = name.split('_')
+      #name = s+e[0].upper()+e[1:]
+  return name
+
+
 
 #def get_ts_ind_for_data(timestamps,obj):
   #ia,io = filterTimestamps(timestamps,obj.time)
