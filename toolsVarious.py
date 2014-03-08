@@ -325,3 +325,20 @@ def varName(varStr):
 
 
 #polyval = wrapFunc(np.polyval)
+def dict2class(d):
+    """Return a class that has same attributes/values and 
+       dictionaries key/value
+    """
+    
+    #see if it is indeed a dictionary
+    if type(d) != types.DictType:
+        return None
+    
+    #define a dummy class
+    class Dummy:
+        pass
+        
+    c = Dummy
+    for elem in d.keys():
+        c.__dict__[elem] = d[elem]
+    return c

@@ -865,23 +865,57 @@ class data(object):
       self._rdStride = self._rdFromIxp
 
     if time==None:
-      print Exception("Warning: Missing timestamps for data instance!")
-    if hasattr(time,'isevtObj') and input.isevtObj:
-      self._evtObjtime = input
-      self._rdTime = None
-    elif hasattr(time,'__call__'):
-      self._rdTime = input
-      self._evtObj = None
+      self._time = []
+      print "Warning: Missing timestamps for data instance,\n--> data needs to be appended."
     else:
-      self._time = time
-      self._evtObj = None
-      self._rdTime = None
+      if hasattr(time,'isevtObj') and input.isevtObj:
+	self._evtObjtime = input
+	self._rdTime = None
+      elif hasattr(time,'__call__'):
+	self._rdTime = input
+	self._evtObj = None
+      else:
+	self._time = time
+	self._evtObj = None
+	self._rdTime = None
     lens = [len(td) for td in self._time]
     self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
     self._Nsteps = len(lens)
     self._lens = lens
     self.evaluate = Evaluate(self)
 
+
+  def _deleteIxp(self,force=False):
+    ixp,path = self._getIxpHandle()
+    if path in ixp.fileHandle and not force:
+      deleteit = 'y' == raw_input("Dataset %s exists in ixp file, would you like   to delete it? (y/n) "%path)
+      if deleteit:
+	del ixp.fileHandle[path]
+      else:
+	return
+
+  def _appendData(self,input_data):
+    assert np.iterable(input_data), "input data has to be iterable"
+    assert (type(input_data) is list) or (type(input_data) is tuple)  , "input_data has to be either list or tuple"
+    data = input_data[0]
+    time = input_data[1]
+    if len(input_data)>2:
+      steps = input_data[2]
+    else:
+      steps = None
+    ixp,path = self._getIxpHandle()
+    grp = ixp.fileHandle.require_group(path)
+    if (type(data) is list) and (type(time) is list):
+      self._time.extend(time)
+      for tdata,ttime in zip(data,time):
+	ixp.appendData(grp,(tdata,ttime))
+
+    self._ixpAddressData = grp['data']
+    self._rdStride = self._rdFromIxp
+    lens = [len(td) for td in self._time]
+    self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+    self._Nsteps = len(lens)
+    self._lens = lens
   
   def __len__(self):
     return len(self._lens)
@@ -2085,6 +2119,45 @@ class Ixp(object):
         data = []
 
     return data
+
+  def appendData(self,datagroup,data,step=None):
+    assert len(data)==2
+    tim = data[1]
+    dat = data[0]
+    shp = dat.shape
+    try:
+      datagroup['_dtype'] = 'data'
+    except:
+      del datagroup['_dtype']
+      datagroup['_dtype'] = 'data'
+    dh = datagroup.require_group('data')
+    dt = datagroup.require_group('time')
+    dhk = [int(tmp[1:]) for tmp in dh.keys()]
+    dtk = [int(tmp[1:]) for tmp in dt.keys()]
+    assert dhk == dtk, "Inconsistency in data instance ixp file!"
+    if step is None:
+      if len(dhk)==0:
+	step = 0
+      else:
+        step = max(dhk)+1
+
+    if step in dtk:
+      dsd = datagroup['data/#%06d'%step]
+      dst = datagroup['time/#%06d'%step]
+      assert dsd.shape[0]==dst.shape[0]
+      assert dsd.shape[1:]==shp[1:]
+      dsd.resize((dsd.shape[0]+shp[0],)+shp[1:])
+      dst.resize((dst.shape[0]+shp[0],))
+      dsd[-shp[0]:] = dat
+      dst[-shp[0]:] = tim
+
+    else:
+      dsd = datagroup.create_dataset('data/#%06d'%step,data=dat,maxshape=(None,)+shp[1:])
+      dst = datagroup.create_dataset('time/#%06d'%step,data=tim,maxshape=(None,))
+    
+
+
+
 
 ############ CONFIG FILE #############
 def _rdConfigurationRaw(fina="ixppy_config"):
