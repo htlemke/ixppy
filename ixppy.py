@@ -2145,8 +2145,13 @@ class Ixp(object):
       datagroup['_dtype'] = 'data'
     dh = datagroup.require_group('data')
     dt = datagroup.require_group('time')
-    dhk = [int(tmp[1:]) for tmp in dh.keys()]
-    dtk = [int(tmp[1:]) for tmp in dt.keys()]
+    try:
+      datagroup['time/_dtype'] = 'list'
+    except:
+      del datagroup['time/_dtype']
+      datagroup['time/_dtype'] = 'list'
+    dhk = [int(tmp[1:]) for tmp in dh.keys() if tmp[0]=='#']
+    dtk = [int(tmp[1:]) for tmp in dt.keys() if tmp[0]=='#']
     assert dhk == dtk, "Inconsistency in data instance ixp file!"
     if step is None:
       if len(dhk)==0:
