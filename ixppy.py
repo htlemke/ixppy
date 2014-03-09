@@ -142,7 +142,7 @@ class dataset(object):
     #return "dropObject with fields: "+str(self.__dict__.keys())
   def __getitem__(self,x):
     return self.__dict__[x]
-  def __setitem__(self,name,var,setParent=False):
+  def __setitem__(self,name,var,setParent=True):
     self._add(name,var)
     if setParent:
       try:
@@ -1177,7 +1177,10 @@ class data(object):
     return ret[self._procObj['nargSelf']]
 
   def _rdFromIxp(self,step,evtInd):
-    return [np.atleast_2d(self._ixpAddressData['#%06d'%step][np.asarray(evtInd),...])]
+    if len(evtInd)==1:
+      return [np.asarray([(self._ixpAddressData['#%06d'%step][np.asarray(evtInd),...])])]
+    else:
+      return [np.atleast_2d(self._ixpAddressData['#%06d'%step][np.asarray(evtInd),...])]
   def _isIxp(self):
     return self._rdStride == self._rdFromIxp
 
