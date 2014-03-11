@@ -1,6 +1,8 @@
 from scipy import optimize,special
 import numpy as np
 import utilities
+from toolsVecAndMat import smartIdx
+import timeTool
 import sys
 sqrt2=np.sqrt(2.)
 
@@ -33,17 +35,18 @@ def findStepWithPoly(x,data,kind="stepUp",excludePoints=100,order=20,fitrange=10
 		use = "max"
 	else:
 		use = "min"
-
 	poly    = np.polyfit(x,data,order)
 	polyder = np.polyder(poly)
 	x_poly1 = findDerPeak(x,np.polyval(polyder,x),use=use,excludePoints=excludePoints)
-	idx = ( x>(x_poly1-fitrange) ) & (x<(x_poly1+fitrange) )
+	# find closest
+	idx = np.abs(x - x_poly1).argmin()
+	idx = slice(idx-fitrange,idx+fitrange)
 	poly    = np.polyfit(x[idx],data[idx],order)
 	polyder = np.polyder(poly)
 	x_poly2 = findDerPeak(x[idx],np.polyval(polyder,x[idx]),use=use,excludePoints=10)
 	return x_poly2
 
-def findStepWithErfFit(x,data,kind="stepUp",excludePoints=100,order=20,fitrange=50):
+def findStepWithErfFit(x,data,kind="stepUp",excludePoints=100,order=20,fitrange=50,guessMethod="digital"):
 	""" Look for a step in the data
 	    Data can be a 1D array or a 2D ones, in the latter case the 'axis' index
 	    if used as different shot index
@@ -51,11 +54,21 @@ def findStepWithErfFit(x,data,kind="stepUp",excludePoints=100,order=20,fitrange=
 	    the 'excludePoints' keyword is used to limit the search 'excludePoints' 
 	    away from the extremes
 	"""
-	x_poly = findStepWithPoly(x,data,kind=kind,excludePoints=excludePoints,order=order,fitrange=fitrange)
-	idx = ( x>(x_poly-fitrange) ) & (x<(x_poly+fitrange) )
+	if (guessMethod == "digital"):
+		f = timeTool.standardfilter()
+		pos,ampl,fwhm = timeTool.applyFilter( (data,), f )
+		pos += f["weights"].size/2
+		x_poly = pos[0]
+		#print "Digital guess",x_poly
+		idx = int(pos)
+	else:
+		x_poly = findStepWithPoly(x,data,kind=kind,excludePoints=excludePoints,order=order,fitrange=fitrange)
+	#idx = ( x>(x_poly-fitrange) ) & (x<(x_poly+fitrange) )
+		idx = np.abs(x - x_poly).argmin()
+	idx = slice(idx-fitrange,idx+fitrange)
 	xfit = x[idx]; y = data[idx]
 	# estimate errors by high order polinomial fit
-	p = np.polyfit(xfit,y,30)
+	p = np.polyfit(xfit[-100:],y[-100:],4)
 	err = y-np.polyval(p,xfit)
 	err = np.std(err)
 	# autoguess parameters
@@ -72,8 +85,9 @@ def findStepWithErfFit(x,data,kind="stepUp",excludePoints=100,order=20,fitrange=
 		(ex0,ea,esig,eb0,eb1) = np.sqrt( np.diag( fitp[1] ) )
 	except:
 		(ex0,ea,esig,eb0,eb1) = (0,0,0,0,0)
-	if (x0>xfit.max()) or (x0<xfit.min()): x0 = xfit.mean()
+	if (x0>xfit.max()) or (x0<xfit.min()): x0 = 0.
 	yfit = TTfuncFit(xfit,x0,a,sig,b0,b1)
+	#print "Final fit", x0,ex0
 	return x0,a,sig,xfit,yfit,ex0,ea,esig
 
 def findStepImage(img,img_bkg=None,roi=None,roiref=None,roinorm=None,run=None,axis=0,use="max"):

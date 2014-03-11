@@ -22,6 +22,9 @@ import time
 #import lclsH5
 #import copy as pycopy
 
+
+standFilter = None
+
 ############ TIMING TOOL #############
 
 def TTextractFromRun(run,opalNo=0,referenceCode=162,refthreshold=True,laseroffCode=67,lmonthreshold=True,outputfile=None,filter='standard'):
@@ -42,11 +45,15 @@ def TTextractFromRun(run,opalNo=0,referenceCode=162,refthreshold=True,laseroffCo
   d.save()
 
 def standardfilter():
-  path = os.path.abspath(__file__)
-  pathname = os.path.dirname(path)
-  weights = np.loadtxt(pathname+'/TTfilt_standard.dat')
-  filt = dict()
-  filt['weights']=weights
+  if globals()["standFilter"] is not None:
+    return globals()["standFilter"]
+  else:
+    path = os.path.abspath(__file__)
+    pathname = os.path.dirname(path)
+    weights = np.loadtxt(pathname+'/TTfilt_standard.dat')
+    filt = dict()
+    filt['weights']=weights
+    globals()["standFilter"] = filt
   return filt
 
 def TTextract(det,refmon=None,refthreshold=True,lmon=None,lmonthreshold=True,filter='standard',saveoffs=False):
