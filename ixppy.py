@@ -1509,8 +1509,6 @@ def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
   ts1r,ss1 = ravelScanSteps(ts1)
   ts0r = getTime(ts0r,asTime=True)
   ts1r = getTime(ts1r,asTime=True)
-  ts0r = ts0r.astype(np.int32)
-  ts1r = ts1r.astype(np.int32)
   indout = [np.abs(ts0r-tts1r).argsort()[:N] for tts1r in ts1r]
   return indout,ss0
 
