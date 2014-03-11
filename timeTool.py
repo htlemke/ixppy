@@ -113,7 +113,7 @@ def TTteachFilter(profiles,):
                       noise_limits=noiselim)
   return filtsettings
 
-def applyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings=None,saveplots=False):
+def applyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings=None,saveplots=False,kind="stepUp"):
   weights = np.array(filtsettings['weights']).ravel()
   #stepoffs = filtsettings['stepoffs'] 
   lf = len(weights)
@@ -133,7 +133,10 @@ def applyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings
         raise Exception("Strange array!")
       f0 = np.convolve(np.array(weights).ravel(),d,'same')
       f = f0[lf/2:len(f0)-lf/2-1]
-      mpr = f.argmax()
+      if (kind=="stepUp"):
+        mpr = f.argmax()
+      else:
+        mpr = f.argmin()
     #if True:
       xd = np.arange(max(0,mpr-halfrange),min(mpr+halfrange,len(f)-1))
       yd = f[max(0,mpr-halfrange):min(mpr+halfrange,len(f)-1)]
