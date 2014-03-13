@@ -62,7 +62,6 @@ def findStepWithErfFit(x,data,kind="stepUp",excludePoints=100,order=20,fitrange=
 	if (guessMethod == "digital"):
 		f = timeTool.standardfilter()
 		pos,ampl,fwhm = timeTool.applyFilter( (data,), f, kind=kind )
-		pos += f["weights"].size/2
 		x_poly = pos[0]
 		#print "Digital guess",x_poly
 		idx = int(pos)
