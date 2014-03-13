@@ -4,8 +4,44 @@ from toolsLog import logbook
 import toolsVarious
 import h5py
 import os
+from multiprocessing import Pool
+
 
 _datasetsInHdf5File={}
+
+class ixppyHDF5(h5py.File):
+  def __init__(self,name,mode=None, driver=None, libver=None, userblock_size=None, **kwds):
+    self.h = h5py.File.__init__(self,name,mode=mode,driver=driver,libver=libver,\
+            userblock_size=userblock_size,**kwds)
+  def getNames(self):
+    if not hasattr(self,"_names"): self._names = getNames(self)
+    return self._names
+
+  def datasetGet(self,name):
+    if (name in self):
+      return self[name]
+    else:
+      return None
+
+  def getObj(self):
+    if not hasattr(self,"obj"): self.obj = Hdf5ToObj(self)
+    return self.obj
+
+  def datasetRead(self,name,chunksize=1):
+    dataset = self.dataset(name)
+    if dataset is None: return None
+    size = dataset.size
+    n = dataset.shape[0]
+    isMultiProcessUseful = size> (1024*1024)
+    if (nChunkSize > 1) and isMultiProcessUseful:
+      idx = range(n)
+      def f(x):
+        return dataset[x]
+      p = Pool(); # 16-43 ms overhead
+      res = p.map_async(f,idx,chunksize=chunksize)
+
+      
+
 
 def openOrCreateFile(fname,mode="r"):
   if (os.path.isfile(fname)):
@@ -38,12 +74,16 @@ def datasetWrite(h5handle,name,data):
   h5handle[name]=data
 
 def datasetRead(h5handle,name):
-  """ read name from hdf5, if it does not exist return None """
+  """ read name from hdf5, returning the dataset instance, if it does not exist return None """
   #print "H5 read",name
   if (datasetExists(h5handle,name)):
     return h5handle[name]
   else:
     return None
+
+def getData(h5handle,name,slice=None,chunksize=1):
+  dataset = getDataset(h5handle,name)
+  return datasetToNumpy(dataset,slice=slice,chunksize=chunksize)
 
 def getDataset(h5handle,reRead=False):
   # caching
@@ -88,8 +128,37 @@ def Hdf5ToObj(h5handle):
       ret._add(name,h5handle[h])
   return ret
 
-def datasetToNumpy(data,slice=None):
-  if slice is None:
-    return data[...]
+def f(arg):
+  dataset,x=arg
+  return dataset[x]
+
+def f1(dataset,x):
+  return dataset[x]
+
+
+def datasetToNumpy(dataset,sliceSel=None,chunksize=1):
+  size = dataset.size
+  n = dataset.shape[0]
+  if (sliceSel is None): sliceSel = slice(0,n,1)
+  isMultiProcessUseful = size> (1024*1024)
+  if (chunksize > 1) and isMultiProcessUseful:
+    # subdivide indices in chunksize
+    start,stop,step = sliceSel.indices(n)
+    nC = int(float(stop-start)/step/chunksize+0.5)
+    print nC
+    args = []
+    for i in range(nC):
+      s1 = start+i*(chunksize*step)
+      s2 = start+(i+1)*(chunksize*step)
+      print i,s1,s2
+      args.append( (dataset,slice(s1,s2,step) ) )
+    print args
+    raw_input("Not working yet, use chunksize = 1")
+    p = Pool(); # 16-43 ms overhead
+    res = p.map_async(f,args,chunksize=1)
+    p.close()
+    p.join()
+    data = np.asarray(res.get())
   else:
-    return data[slice]
+    data = dataset[sliceSel]
+  return data
