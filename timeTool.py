@@ -122,6 +122,44 @@ def applyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings
   amp = []
   fwhm = []
   runningno = 0
+  for d in data:
+    f0 = np.convolve(np.array(weights).ravel(),d,'same')
+    f = f0[lf/2:len(f0)-lf/2-1]
+    if (kind=="stepUp"):
+      mpr = f.argmax()
+    else:
+      mpr = f.argmin()
+    # now do a parabolic fit around the max
+    xd = np.arange(max(0,mpr-halfrange),min(mpr+halfrange,len(f)-1))
+    yd = f[max(0,mpr-halfrange):min(mpr+halfrange,len(f)-1)]
+    p2 = np.polyfit(xd,yd,2)
+    tpos = -p2[1]/2./p2[0]
+    tamp = np.polyval(p2,tpos)
+    try:
+      beloh = (f<tamp/2).nonzero()[0]-mpr
+      tfwhm = abs(beloh[beloh<0][-1]-beloh[beloh>0][0])
+    except:
+      print "FWHM not applied"
+      tfwhm = np.nan
+    pos.append(tpos)
+    amp.append(tamp)
+    fwhm.append(tfwhm)
+    runningno+=1
+  pos  = np.asarray(pos) + lf/2.
+  amp  = np.asarray(amp)
+  fwhm = np.asarray(fwhm)
+  returntuple = [pos,amp,fwhm]
+  return tuple(returntuple)
+
+def applyFilterOld(data,filtsettings,plotOutput=False,polysettings=None,erfsettings=None,saveplots=False,kind="stepUp"):
+  weights = np.array(filtsettings['weights']).ravel()
+  #stepoffs = filtsettings['stepoffs'] 
+  lf = len(weights)
+  halfrange = round(lf/10)
+  pos = []
+  amp = []
+  fwhm = []
+  runningno = 0
   if polysettings:
     poly_pos = []
     poly_cen = []
