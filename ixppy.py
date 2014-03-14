@@ -2429,7 +2429,7 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, d
       det._add(dname+'Limits',[])
     det.__dict__[dname+'Limits'].append(limsdict)
     if not direction=='both':
-      det._add(dname,profile)
+      det[dname] = profile
 
 #class Profile(object):
   #def __init__(self,type='horizontal',limits=[]):
