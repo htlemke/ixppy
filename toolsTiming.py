@@ -150,7 +150,7 @@ def findStepWithFit(x,data,kind="stepUp",excludePoints=100,\
   else:
     x_guess = guessStep
     idx_guess = np.abs(x - x_guess).argmin()
-  idx = slice(idx_guess-fitrange,idx_guess+fitrange)
+  idx = slice(np.max([0,idx_guess-fitrange]),np.min([idx_guess+fitrange,len(x)]))
   xfit = x[idx]; y = data[idx]
   # estimate errors by high order polinomial fit
   p = np.polyfit(xfit[-10:],y[-10:],4)
