@@ -14,9 +14,10 @@ def TTfuncFit(x,x0,a,sig,b0,b1):
 
 def TTfuncFitExp(x,x0,a,sig,b0,b1,tau):
   sig=abs(sig)
-  step = a*0.5*np.exp(-(2*tau*(x-x0)-sig**2)/2/tau**2)*(1-special.erf( (-tau*(x-x0)+sig**2)/sqrt2/tau/sig))
+  step = (special.erf((x-x0)/sig/sqrt2)+1)/2
+  step -= 0.5*np.exp(-(2*tau*(x-x0)-sig**2)/2/tau**2)*(1-special.erf( (-tau*(x-x0)+sig**2)/sqrt2/tau/sig))
   bkg  = (b0+b1*x)
-  return step+bkg
+  return a*step+bkg
 
 def findDerPeak(x,der,excludePoints=50,use="max"):
     if (use=="max"):
