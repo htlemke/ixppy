@@ -129,3 +129,62 @@ def findStepImage(img,img_bkg=None,roi=None,roiref=None,roinorm=None,run=None,ax
 	diff_curve = img_diff.mean(axis=axis)
 	x = np.arange(roi.cmin,roi.cmax)
 	return findStepCurve(c,diff_curve,use=use)
+
+def findStepWithFit(x,data,kind="stepUp",excludePoints=100,\
+  order=20,fitrange=50,guessStep="digital",fitKind="Erf"):
+  """ Look for a step in the data
+      Data can be a 1D array or a 2D ones, in the latter case the 'axis' index
+      if used as different shot index
+      The 'kind' keywords should be either 'stepUp' or 'stepDown'
+      the 'excludePoints' keyword is used to limit the search 'excludePoints' 
+      away from the extremes
+  """
+  if (guessStep == "digital"):
+    f = timeTool.standardfilter()
+    pos,ampl,fwhm = timeTool.applyFilter( (data,), f, kind=kind )
+    idx_guess = int(pos[0])
+    x_guess = x[ idx_guess ]
+  elif (guessStep == "poly"):
+    x_guess = findStepWithPoly(x,data,kind=kind,excludePoints=excludePoints,order=order,fitrange=fitrange)
+    idx_guess = np.abs(x - x_guess).argmin()
+  else:
+    x_guess = guessStep
+    idx_guess = np.abs(x - x_guess).argmin()
+  idx = slice(idx_guess-fitrange,idx_guess+fitrange)
+  xfit = x[idx]; y = data[idx]
+  # estimate errors by high order polinomial fit
+  p = np.polyfit(xfit[-10:],y[-10:],4)
+  err = y-np.polyval(p,xfit)
+  err = np.std(err)
+  # autoguess parameters
+  sig = fitrange/6.
+  meanLeft = np.mean(y[:10])
+  meanRight= np.mean(y[-10:])
+  a   = meanRight-meanLeft
+  b0  = meanLeft
+  b1  = 0.001
+  if (fitKind == "Erf"):
+    p0 = (x_guess,a,sig,b0,b1)
+    fitp=optimize.curve_fit(TTfuncFit,xfit,y,p0=p0,\
+    maxfev=10000,ftol=1e-3, sigma=err)
+    names = ["steppos","amp","sig","b0","b1"]
+    yfit = TTfuncFit(xfit,*(fitp[0]))
+  else:
+    tau = sig*2
+    p0 = (x_guess,a,sig,b0,b1,tau)
+    fitp = optimize.curve_fit(TTfuncFitExp,xfit,y,p0=p0,maxfev=10000,
+      ftol=1e-3,sigma=err)
+    names = ["steppos","amp","sig","b0","b1","tau"]
+    yfit = TTfuncFitExp(xfit,*(fitp[0]))
+  try:
+    parErrs = np.sqrt( np.diag( fitp[1] ) )
+  except:
+    parErrs = np.zeros(len(names))
+  x0 = fitp[0][0]
+  if x0<xfit.min(): fitp[0][0] = 0.
+  ParBest = {}
+  ParErr  = {}
+  for i in range(len(names)):
+    ParBest[ names[i] ] = fitp[0][i]
+    ParErr[ names[i] ] = parErrs[i]
+  return ParBest,ParErr,xfit,yfit
