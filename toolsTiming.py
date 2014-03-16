@@ -144,6 +144,7 @@ def findStepWithFit(x,data,kind="stepUp",excludePoints=100,\
     f = timeTool.standardfilter()
     pos,ampl,fwhm = timeTool.applyFilter( (data,), f, kind=kind )
     idx_guess = int(pos[0])
+    if (idx_guess<0) or (idx_guess>(len(x)-1)): idx_guess=len(x)/2
     x_guess = x[ idx_guess ]
   elif (guessStep == "poly"):
     x_guess = findStepWithPoly(x,data,kind=kind,excludePoints=excludePoints,order=order,fitrange=fitrange)

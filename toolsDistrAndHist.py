@@ -7,7 +7,17 @@ import pylab as pl
 import time
 import types
 import numpy.ma as ma
+#from toolsVarious import iterfy
 from tools import *
+
+def iterfy(iterable):
+    if isinstance(iterable, basestring):
+        iterable = [iterable]
+    try:
+        iter(iterable)
+    except TypeError:
+        iterable = [iterable]
+    return iterable
 
 
 def poiss_prob(x,count):
