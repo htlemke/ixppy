@@ -495,11 +495,11 @@ def extractProfilesOnly(Areadet, profileLimits=None, transpose=False,dataset_nam
   Areadet[dataset_name_traces].evaluate()
 
 
-def applyFilterToAll(det,filter=None):
+def applyFilterToAll(det,filter=None,kind='stepUp'):
   if filter==None:
     filter = standardfilter()
   traces = det.TTtraces
-  o = ixppy.applyFunction(applyFilter,[traces,filter],dict(),outputtypes=['memdata']*3,forceCalculation=True)
+  o = ixppy.applyFunction(applyFilter,[traces,filter],dict(kind=kind),outputtypes=['memdata']*3,forceCalculation=True)
   det['TTpos'] = o[0]
   det['TTamp'] = o[1]
   det['TTfwhm'] = o[2]

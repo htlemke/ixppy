@@ -2429,7 +2429,7 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, d
       det._add(dname+'Limits',[])
     det.__dict__[dname+'Limits'].append(limsdict)
     if not direction=='both':
-      det._add(dname,profile)
+      det[dname] = profile
 
 #class Profile(object):
   #def __init__(self,type='horizontal',limits=[]):
@@ -2949,11 +2949,17 @@ def TTcalc_weightedRatio(det,mon,TTdet,tvec=None):
 
 #############
 
-def extractProfilesFromData(data,profileLimits,cameraoffset=32.):
+def extractProfilesFromData(data,profileLimits,cameraoffset=0):
   if profileLimits["projection"]=="vertical range":
-    profiles = np.mean(data[:,profileLimits['limits'][0]:profileLimits['limits'][1],:],axis=1)-float(cameraoffset)
+    if len(profileLimits['limits'])==0:
+      profiles = np.mean(data[:,:,:],axis=1)-float(cameraoffset)
+    else:
+      profiles = np.mean(data[:,profileLimits['limits'][0]:profileLimits['limits'][1],:],axis=1)-float(cameraoffset)
   elif profileLimits["projection"]=="horizontal range":
-    profiles = np.mean(data[:,:,profileLimits['limits'][0]:profileLimits['limits'][1]],axis=2)-float(cameraoffset)
+    if len(profileLimits['limits'])==0:
+      profiles = np.mean(data[:,:,:],axis=2)-float(cameraoffset)
+    else:
+      profiles = np.mean(data[:,:,profileLimits['limits'][0]:profileLimits['limits'][1]],axis=2)-float(cameraoffset)
   elif profileLimits["projection"]=="box":
     if type(profileLimits['limits'])==dict:
       limstot = profileLimits['limits']['total']
