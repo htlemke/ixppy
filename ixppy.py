@@ -636,14 +636,14 @@ class memdata(object):
     return self._stepStatFunc(len)
   #def sqrt(self):
     #return np.asarray([np.sqrt(d) for d in self._data])
-  def plot(self):
-    i = self.median().ravel()
+  def plot(self,weights=None):
+    i = self.median(weights=weights).ravel()
     if not self.grid==None:
       x,y,im = self.grid.format(i)
       tools.imagesc(x,y,im.T)
 
     else:
-      e = self.mad()/np.sqrt(self.lens)
+      e = self.mad(weights=weights)/np.sqrt(self.lens)
       
       scanfields = self.scan.__dict__.keys()
       scanfields = [tf for tf in scanfields if not tf[0]=='_']
@@ -884,6 +884,14 @@ class data(object):
     self._Nsteps = len(lens)
     self._lens = lens
     self.evaluate = Evaluate(self)
+    self._cacheLast = False                                                          
+    self._lastCache = None
+    self._showMe = False
+    self._showMeName = None
+
+  def _showme(self,name=None):
+    self._showMe = True
+    self._showMeName = name
 
 
   def _deleteIxp(self,force=False):
@@ -1132,20 +1140,43 @@ class data(object):
     
 
   def _getStepsShots(self,stepInd,evtInd):
-    lens = [len(tfilt) for tfilt in self._filter]
-    inds = ravelIndexScanSteps(evtInd,lens,stepNo = stepInd)
-    indsdat = np.hstack(self._filter).argsort()[inds]
-    indsdat_sorted = np.sort(indsdat)
-    indsdat_read = unravelIndexScanSteps(indsdat_sorted,self._lens)
-    stepInd_read = [n for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
-    evtInd_read  = [indsdat_read[n] - int(np.sum(self._lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+    if self._showMe:
+      t0 = time.time()
+      print "%s is requested for stepInd %s and evtInd %s"%(self._showMeName,stepInd,evtInd)
+    if self._cacheLast:
+      if self._lastCache is None:
+        readit = True
+      else:
+        if stepInd==self._lastCache['stepInd']\
+            and np.asarray([len(teI)==len(tceI) for teI,tceI in zip(evtInd,self._lastCache['evtInd'])]).all()\
+	    and np.asarray([(teI==tceI).all() for teI,tceI in zip(evtInd,self._lastCache['evtInd'])]).all():
+	  dat = self._lastCache['dat']
+	  readit=False
+	  print "recycle"
+	else:
+	  readit=True
+    else:
+      readit=True
 
-    dat = [self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)]
-    if not dat==[]:
-      dat = np.concatenate(dat)
-      ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
-      ind_resort = [tools.smartIdx(l) for l in ind_resort if len(l)>0]
-      dat = [dat[tind_resort,...] for tind_resort in ind_resort]
+    if readit:
+      lens = [len(tfilt) for tfilt in self._filter]
+      inds = ravelIndexScanSteps(evtInd,lens,stepNo = stepInd)
+      indsdat = np.hstack(self._filter).argsort()[inds]
+      indsdat_sorted = np.sort(indsdat)
+      indsdat_read = unravelIndexScanSteps(indsdat_sorted,self._lens)
+      stepInd_read = [n for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+      evtInd_read  = [indsdat_read[n] - int(np.sum(self._lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+
+      dat = [self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)]
+      if not dat==[]:
+	dat = np.concatenate(dat)
+	ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
+	ind_resort = [tools.smartIdx(l) for l in ind_resort if len(l)>0]
+	dat = [dat[tind_resort,...] for tind_resort in ind_resort]
+      self._lastCache = dict(dat=dat,stepInd=stepInd,evtInd=evtInd)	
+
+    if self._showMe:
+      print "...this took %4g seconds." %(time.time()-t0)
     return dat
 
     #if len(stepInd)>1:
@@ -1509,7 +1540,7 @@ def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
   ts1r,ss1 = ravelScanSteps(ts1)
   ts0r = getTime(ts0r,asTime=True)
   ts1r = getTime(ts1r,asTime=True)
-  indout = [np.abs(ts0r-tts1r).argsort()[:N] for tts1r in ts1r]
+  indout = [np.sort(np.abs(ts0r-tts1r).argsort()[:N]) for tts1r in ts1r]
   return indout,ss0
 
 
@@ -4334,7 +4365,7 @@ def wrapFunc(func,InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=Fal
     comes after ixppy instances if avaiable.
   """
 
-  @wraps(func)
+  @wraps(func,assigned=('__name__', '__doc__'))
   def wrapper(*args,**kwargs):
     return applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=NdataOut,NmemdataOut=NmemdataOut, picky=picky, isPerEvt=isPerEvt, stride=None)
   return wrapper
@@ -4387,7 +4418,7 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
       ipdat = []
       for pack in package:
 	tdataDat,repack = pack
-	ipdat.append(tdataDat[np.ix_(repack[iNo])])
+	ipdat.append(tdataDat[tools.smartIdx(repack[iNo])])
       
       td.append(func(ipdat))
 
@@ -4784,3 +4815,10 @@ point_detectors = cnfFile['pointDet'].keys()
 area_detectors = cnfFile['areaDet'].keys()
 detectors = point_detectors
 detectors.extend(area_detectors)
+
+
+#numpyfuncs = ['abs','polyval']
+##exec('from numpy import ' + join(numpyfuncs,sep = ','))
+#for fnam in numpyfuncs:
+  #exec('%s = wrapFunc(np.%s)'%(fnam,fnam))
+import wrapped
