@@ -593,7 +593,7 @@ class memdata(object):
     return memdata(input=[odat,self.time],scan=self.scan)
   
   def _stepStatFunc(self,func,*args,**kwargs):
-    data = np.asarray([func(d,*args,**kwargs) for d in self._data])
+    data = np.asarray([func(d,*args,**kwargs) for d in self])
     if not self.grid==None:
       data = data.reshape(self.grid.shape)
     return data
@@ -602,7 +602,7 @@ class memdata(object):
     if not weights==None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
-      data =  np.asarray([np.average(d,weights=w) if len(w)>0 else np.nan for d,w in zip(selfdat._data,weights)])
+      data =  np.asarray([np.average(d,weights=w) if len(w)>0 else np.nan for d,w in zip(selfdat,weights)])
       if not self.grid==None:
 	data = data.reshape(self.grid.shape)
       return data
@@ -613,21 +613,21 @@ class memdata(object):
     if not weights==None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
-      return np.asarray([tools.weighted_avg_and_std(d,w)[1] for d,w in zip(selfdat._data,weights)])
+      return np.asarray([tools.weighted_avg_and_std(d,w)[1] for d,w in zip(selfdat,weights)])
     else:
       return self._stepStatFunc(np.std)
   def median(self,weights=None):
     if not weights==None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
-      return np.asarray([tools.weighted_median(d,w) for d,w in zip(selfdat._data,weights)])
+      return np.asarray([tools.weighted_median(d,w) for d,w in zip(selfdat,weights)])
     else:
       return self._stepStatFunc(np.median)
   def mad(self,weights=None):
     if not weights==None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
-      return np.asarray([tools.weighted_mad(d,w) for d,w in zip(selfdat._data,weights)])
+      return np.asarray([tools.weighted_mad(d,w) for d,w in zip(selfdat,weights)])
     else:
       return self._stepStatFunc(tools.mad)
   def sum(self):
@@ -1898,7 +1898,7 @@ class Ixp(object):
 
   def get_cacheFileHandle(self):
     if self._fileHandle is None:
-      cfh = h5py.File(self.fileName)
+      cfh = h5py.File(self.fileName,'a')
       self._fileHandle = cfh
     else:
       cfh = self._fileHandle
