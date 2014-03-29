@@ -4821,4 +4821,4 @@ detectors.extend(area_detectors)
 ##exec('from numpy import ' + join(numpyfuncs,sep = ','))
 #for fnam in numpyfuncs:
   #exec('%s = wrapFunc(np.%s)'%(fnam,fnam))
-import wrapped
+#import wrapped
