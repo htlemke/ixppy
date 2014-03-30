@@ -588,6 +588,16 @@ class memdata(object):
 
       #return memdata(input=[[dat[tf] for tf in filt],
                             #[tim[tf] for tf in filt]],scan=scan)
+  def interpolate(self,other,type='mean',Nclosest=5):
+    timenew = other.time
+    o = getClosestEvents(self.time,timenew,Nclosest)
+    sr,stepsz = ravelScanSteps(self.data)
+    if type=='mean':
+      op = np.asarray([np.mean(sr[tools.smartIdx(tsel)]) for tsel in o[0]])
+    odat = unravelScanSteps(op,o[1])
+    return memdata(input=[odat,timenew],scan=other.scan)
+  #return data(time=timenew,input=procObj,scan=self.scan)
+
   def ones(self):
     odat = [np.ones(len(dat)) for dat in self._data]
     return memdata(input=[odat,self.time],scan=self.scan)
