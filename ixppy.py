@@ -1417,7 +1417,8 @@ class scanVar(object):
 
 def ravelScanSteps(ip):
   stepsizes = [len(tip) for tip in ip]
-  op = np.hstack(ip)
+  rip = [tip for tip in ip if len(tip)>0]
+  op = np.hstack(rip)
   return op,stepsizes
 
 def ravelIndexScanSteps(ip,stepsizes,stepNo=None):
@@ -2130,7 +2131,8 @@ class Ixp(object):
 	  else:
 	    grid = None
 	  return memdata(input = [data,time], name=name, scan=scan, grid=grid)
-	except:
+	except Exception,e:
+	  print e
 	  print "reading error with memdata instance %s" %name
 	  return name+"_empty_corrupt"
       if tdtype == 'data':
