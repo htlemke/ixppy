@@ -150,9 +150,9 @@ class dataset(object):
       except:
 	pass
 	  
-  def save(self,name=None):
+  def save(self,name=None,force=False):
     #self.config.ixp.save(self,self._ixpHandle,name='dataset')
-    self._ixpHandle.save(self,self._ixpHandle.fileHandle,name='dataset')
+    self._ixpHandle.save(self,self._ixpHandle.fileHandle,name='dataset',force=force)
     #self._checkCalibConsistency()
   # END OF DATASET.__init__
 
@@ -1000,6 +1000,9 @@ class data(object):
 	    isdatainst = np.asarray([isinstance(targ,data) for targ in args])
 	    if np.sum(isdatainst)>0:
 	      thisstuff = args[isdatainst.nonzero()[0][0]]
+	    elif 'ixppyInput' in thisstuff._procObj.keys():
+	      ixpIP = thisstuff._procObj['ixppyInput'][0][0]
+	      thisstuff = ixpIP
 
 
         self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
@@ -1040,6 +1043,21 @@ class data(object):
 	present = tp
 	path = name+'/'+path
     return ixpSeed,path
+
+  def get_memdata(self):
+    data = self[:,:]
+    nel = np.shape(data[0])[1]
+    memdat = []
+    for n in range(nel):
+      tmemdat = []
+      for step in data:
+	tmemdat.append(step[:,n])
+      memdat.append(memdata(input=[tmemdat,self.time],scan=self.scan,grid=self.grid))
+    return memdat
+
+
+
+
   
   #def evaluate(self,progress=True):
     #"""Process all data of data instance which will be saved to a ixp hdf5 file. This function could be candidate for parallelization or background processing
@@ -1346,6 +1364,7 @@ class Evaluate(object):
     #self.data = Data(time=timestamps,ixpAddressData=grp['data'],name=self.data.name)
     self.data._ixpAddressData = grp['data'] 
     self.data._rdStride = self.data._rdFromIxp
+    self.data._procObj = None
     self.data._time = timestamps
     lens = [len(td) for td in self.data._time]
     self.data._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
@@ -1996,6 +2015,8 @@ class Ixp(object):
       return
     if force is None:
       force = self._forceOverwrite
+    else:
+      self._forceOverwrite = force
     pH = parenth5handle
     isgr = hasattr(obj,'_ixpsaved')
     if name is None:
