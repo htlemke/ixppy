@@ -119,6 +119,8 @@ def weighted_percentiles(data, wt, percentiles):
           return o
 
 def weighted_median(data,wt):
+  if len(data)==0:
+    return np.nan
   return weighted_percentiles(data,wt,[.5])[0]
 
 def weighted_mad(data,wt,c=0.6745):
