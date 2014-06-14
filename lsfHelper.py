@@ -59,6 +59,7 @@ def writePyFile(funcs,experiment=None,save=True):
     filestr += modname+'.'+funcname+'(d)\n'
     if save:
       filestr += 'd.save(force=True)\n'
+    filestr += 'print \'Batch job completed successfully.\'\n'
   h = file(filename,'w')
   h.write(filestr)
   h.close()

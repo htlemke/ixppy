@@ -60,6 +60,7 @@ lom_bpm   IpmFex*/XppMon_Pim0    notused   notused
 lom_diode IpmFex*/XppMon_Pim1    notused   notused 
 encoder   Data*/XppGon.0:Encoder.0 notused notused
 timeTool   TTSPEC  notused notused
+#adc       Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0  notused   notused
 #ipm1  Lusi::IpmFexV1/NH2-SB1-IPM-01/data  Lusi::IpmFexV1/NH2-SB1-IPM-01/time  dummy
 #ipm2  Lusi::IpmFexV1/XppSb2_Ipm/data  Lusi::IpmFexV1/XppSb2_Ipm/time  dummy
 #ipm3  Lusi::IpmFexV1/XppSb3_Ipm/data  Lusi::IpmFexV1/XppSb3_Ipm/time  dummy
@@ -113,6 +114,9 @@ opal2 Camera::FrameV1/XppEndstation.0:Opal1000.2/image Camera::FrameV1/XppEndsta
 yaglom Camera::FrameV1/XppEndstation.1:Tm6740.1/image Camera::FrameV1/XppEndstation.1:Tm6740.1/time dummy
 yag3m  Camera::FrameV1/XCS-YAG-3m/image Camera::FrameV1/XCS-YAG-3m/time  dummy
 orca Camera::FrameV1/XppEndstation.0:OrcaFl40.0/image Camera::FrameV1/XppEndstation.0:OrcaFl40.0/time dummy
+rayonix Camera::FrameV1/XppSb1Pim.0:Rayonix.0/image  Camera::FrameV1/XppSb1Pim.0:Rayonix.0/time dummy
+rayonix Camera::Frame*/XppEndstation.0:Rayonix.0/image Camera::Frame*/XppEndstation.0:Rayonix.0/image dummy
+cspadAzAv noSrc__azimuthalInt/data noSrc__azimuthalInt/time dummy
 
 # XCS area detectors, label as #*line, then line of alias, and data, time, and config datasets
 #* pointDet_xcs

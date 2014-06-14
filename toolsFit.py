@@ -165,8 +165,12 @@ def minuitfit(function,startpars,xdat,ydat,edat=None,fixedpar=None,stepszpar=Non
 	return m
 
 
-def gauss(par=dict(A=[],pos=[],sig=[]),dat=[]):
+def gauss_par(par=dict(A=[],pos=[],sig=[]),dat=[]):
 	res = par['A']*np.exp(-(dat-par['pos'])**2/par['sig']**2/2)
+	return res
+
+def gauss(dat,A,pos,sig):
+	res = A*np.exp(-(dat-pos)**2/sig**2/2)
 	return res
 
 def heaviside(dat):

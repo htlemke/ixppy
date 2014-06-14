@@ -126,7 +126,7 @@ class lclsH5(object):
       detDataset = [x for x in h5names if (re.search(nameData,x) is not None)]
       nameConf = name["conf"].replace("*","\S+")
       detConf    = [x for x in h5confs if (re.search(nameConf,x) is not None)]
-      data = [x for x in detDataset if x[-5:]=="/data" or x[-8:]=="/evrData"]
+      data = [x for x in detDataset if x[-5:]=="/data" or x[-8:]=="/evrData" or x[-13:]=="/channelValue"]
       time = [x for x in detDataset if x[-5:]=="/time"]
       if ( (len(data) != 0) and (len(time) != 0) ):
         ret[mnemonic] = {}
@@ -677,7 +677,7 @@ def parseToCnf(fileHandle):
 
 def getDetNamefromPath(path,lowerit=False):
   name = 'data'
-  while name in ['evrData','data','time','image','array']:
+  while name in ['evrData','data','time','image','array','channelValue']:
     path,name = os.path.split(path)
   name = name.lower()
   name = name.replace(':','_')
@@ -716,7 +716,7 @@ def crawlforDatasets(group,skipEpics = True, skipEvr = True):
             dset['dset_time'] =  group['time'].name
             #dset['dset_type'] =  'areadet'
             found.extend([dset])
-      elif u'data' in itemnames:
+      elif u'data' in itemnames or u'channelValue' in itemnames:
         if isinstance(group['data'],h5py.Dataset):
           if group['time'].shape[0] == group['data'].shape[0]:
             dset = dict()

@@ -1336,6 +1336,8 @@ class Evaluate(object):
 	del ixp.fileHandle[path]
       else:
 	return
+    elif path in ixp.fileHandle and force:
+      del ixp.fileHandle[path]
 
 
     
@@ -1904,7 +1906,7 @@ class singledet(object):
           tpointdets[tpd] = pointdets[tpd][sNO]
       else:
         tpointdets = None
-      memavailable = mem().free/8
+      memavailable = mem().free/20.
       allchunks.append(self._chunks(h5dset,indices[sNO],memavailable,Nmax,tpointdets))
 
     return allchunks
@@ -3686,15 +3688,13 @@ def digitizeN(*args,**kwargs):
   target = kwargs.get('target', None)
   if isinstance(target,memdata):
     dat,stsz = ravelScanSteps(target.data)
-    tim,stsz = ravelScanSteps(target.time)
+    tim,stszt = ravelScanSteps(target.time)
   elif target==None:
     atarg = args[0].ones()
     for targ in args[1:]:
       atarg = atarg*targ.ones()
     dat,stsz = ravelScanSteps(atarg.data)
     tim,stsz = ravelScanSteps(atarg.time)
-    
-
   else: #assuming now it is timestamps
     tim,stsz = ravelScanSteps(target)
     dat = np.ones(np.shape(tim))
@@ -3706,16 +3706,24 @@ def digitizeN(*args,**kwargs):
     tname,tvec = getScanVec(targ)
     vecs.append(tvec)
     names.append(tname)
-    isused,sortThis = filterTimestamps(targ.time,[tim])
+    isused,sortThis = filterTimestamps(targ.time,[tim],asTime=True)
     for nstep,sortThisStep in enumerate(sortThis):
       indmat[sortThisStep,narg] = nstep
-  indmat = indmat[~(np.isnan(indmat).any(axis=1)),:]
+  gd = ~np.isnan(indmat).any(axis=1)
+  indmat = indmat[gd,:]
+  #print np.shape(indmat)
+  #from matplotlib import pyplot as plt
+  #plt.clf()
+
   totshape = tuple([len(tvec) for tvec in vecs])
   indmat = np.asarray(indmat.T,dtype=int)
   grouping = np.ravel_multi_index(indmat,totshape)
-  timout = [ tim[grouping==i] for i in range(np.prod(totshape))]
+  groupingall = np.ones(len(tim),dtype=int)
+  groupingall[gd] = grouping
+
+  timout = [ tim[groupingall==i] for i in range(np.prod(totshape))]
   
-  datout = [ dat[grouping==i] for i in range(np.prod(totshape))]
+  datout = [ dat[groupingall==i] for i in range(np.prod(totshape))]
   scan = tools.dropObject(name='scan')
 
   meshes = tools.ndmesh(*tuple(vecs))
