@@ -117,6 +117,7 @@ orca Camera::FrameV1/XppEndstation.0:OrcaFl40.0/image Camera::FrameV1/XppEndstat
 rayonix Camera::FrameV1/XppSb1Pim.0:Rayonix.0/image  Camera::FrameV1/XppSb1Pim.0:Rayonix.0/time dummy
 rayonix Camera::Frame*/XppEndstation.0:Rayonix.0/image Camera::Frame*/XppEndstation.0:Rayonix.0/image dummy
 cspadAzAv noSrc__azimuthalInt/data noSrc__azimuthalInt/time dummy
+adc	Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0/channelValue  Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0/time notused
 
 # XCS area detectors, label as #*line, then line of alias, and data, time, and config datasets
 #* pointDet_xcs
