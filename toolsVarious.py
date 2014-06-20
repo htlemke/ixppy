@@ -364,7 +364,9 @@ def dict2class(d):
     return c
 
 def corrNonlinGetPar(data,correct,order=2,data_0=0,correct_0=0):
-  return np.polyfit(data,correct,order)
+  p =  np.polyfit(data,correct,order)
+  p[-1] = p[-1]-correct_0
+  return p
 
 def corrNonlin(data,polypar,data_0=0,correct_0=0):
   m = 1/np.polyval(np.polyder(polypar),data_0)
