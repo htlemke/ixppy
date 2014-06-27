@@ -6,7 +6,8 @@ numpyfuncs = [
     'std',
     'sum',
     'exp',
-    'avverage',
+    'average',
+    'apply_over_axes'
     ]
 
 for funName in numpyfuncs:

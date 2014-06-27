@@ -97,6 +97,7 @@ class dataset(object):
     self._ixpHandle = self.config.ixp
     self._ixpsaved = []
     if 'ixp' in self.config.filestrategy:
+      self.config.ixp.get_cacheFileHandle(reopen=True)
       dat = self.config.ixp.load()
       if 'dataset' in [ixps[0] for ixps in dat._ixpsaved]:
 	names = [tn[0] for tn in dat.dataset._ixpsaved]
@@ -439,7 +440,7 @@ class memdata(object):
 	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
 	self._Nsteps = len(lens)
     dat,stepsz = ravelScanSteps(self._time)
-    return [dat[tf] for tf in self._filter]
+    return [dat[tf] if len(tf)>0 else [] for tf in self._filter]
   time = property(_getFilteredTime)
 
   def __repr__(self):
@@ -1357,6 +1358,7 @@ class Evaluate(object):
         tdat = self.data[stepNo,np.ix_(chunk)][0]
         ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
 	ds[startind:startind+len(chunk),...] = tdat
+	ixp.fileHandle.flush()
 
 	startind += len(chunk)
       pbar.update(stepNo+1)
@@ -1439,7 +1441,10 @@ class scanVar(object):
 def ravelScanSteps(ip):
   stepsizes = [len(tip) for tip in ip]
   rip = [tip for tip in ip if len(tip)>0]
-  op = np.hstack(rip)
+  if len(rip)==0:
+    op = []
+  else:
+    op = np.hstack(rip)
   return op,stepsizes
 
 def ravelIndexScanSteps(ip,stepsizes,stepNo=None):
@@ -1950,7 +1955,7 @@ class chunk(object):
   #time = property(get_time)
 
 ############ CACHE #############
-
+_ixpOpenHandles = []
 class Ixp(object):
   def __init__(self,filename):
     self.fileName = filename
@@ -1959,11 +1964,24 @@ class Ixp(object):
     self._fileHandle = None
     self._forceOverwrite = False
 
-  def get_cacheFileHandle(self):
+  def get_cacheFileHandle(self,reopen=False,mode='a'):
     if self._fileHandle is None:
-      cfh = h5py.File(self.fileName,'a')
+      if reopen:
+	openNames = [th.filename for th in _ixpOpenHandles]
+	if self.fileName in openNames:
+	  exHandle = _ixpOpenHandles[openNames.index(self.fileName)]
+	  exHandle.close()
+	  _ixpOpenHandles.remove(exHandle)
+      cfh = h5py.File(self.fileName,mode)
       self._fileHandle = cfh
+      _ixpOpenHandles.append(cfh)
     else:
+      cfh = self._fileHandle
+      if reopen:
+	if cfh in _ixpOpenHandles:
+	  sfh.close()
+	  _ixpOpenHandles.remove(exHandle)
+          self._fileHandle = h5py.File(self.fileName,mode)
       cfh = self._fileHandle
     return cfh
 

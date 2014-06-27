@@ -80,8 +80,12 @@ def applyFileOnRun(fina,runno,experiment=None):
   #os.system(execstr)
   return result
 
-def applyOnRunlist(funcs,runnos,experiment,save=True):
-  fina = writePyFile(funcs,experiment=experiment,save=save)
+def applyOnRunlist(input,runnos,experiment,save=True):
+  if type(input) is str:
+    fina = input
+  elif type(input) is list:
+    funcs = input
+    fina = writePyFile(funcs,experiment=experiment,save=save)
   returns = []
   for runno in runnos:
     returns.append(applyFileOnRun(fina,runno))
