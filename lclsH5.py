@@ -86,6 +86,7 @@ class lclsH5(object):
 
     
 
+    #raise NotImplementedError('Use the source, luke!')
     ret = {}
     ## *** start EpicsPV *** #
     ## look for epics name
@@ -156,6 +157,7 @@ class lclsH5(object):
       conf = [ ]
       data = [x for x in detDataset if (re.search(name,x) is not None)]
       time = [x for x in detDataset if x[-5:]=="/time"]
+      #raise NotImplementedError('Use the source, luke!')
       if ( (len(data) != 0) and (len(time) !=0) ):
         ret[mnemonic] = {}
         ret[mnemonic]["data"] = [replaceCalibCycleString(tdat) for tdat in data]
@@ -492,6 +494,7 @@ class detector(object):
       except:
         time = np.array([])
 
+      #raise NotImplementedError('Use the source, luke!')
       times.append(time)
     return times
 

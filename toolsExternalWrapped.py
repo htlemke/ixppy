@@ -6,6 +6,7 @@ numpyfuncs = [
     'std',
     'sum',
     'exp',
+    'nansum',
     'average',
     'apply_over_axes'
     ]

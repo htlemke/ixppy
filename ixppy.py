@@ -486,9 +486,9 @@ class memdata(object):
   def ravel(self):
     return np.hstack(self.data)
 
-  def filter(self,lims=None,inplace=False):
+  def filter(self,lims=None,inplace=False,perc=False):
     dat,stsz = ravelScanSteps(self.data)
-    lims,filt = filter(dat,lims)
+    lims,filt = filter(dat,lims,perc=perc)
     filt = unravelIndexScanSteps(filt.nonzero()[0],stsz)
     if inplace:
       self._filter = filt
@@ -1545,6 +1545,13 @@ def filterTimestamps(ts0,ts1,asTime=True):
   ss1a = [len(top0) for top0 in op0]
   op1 = unravelScanSteps(sel1ri,ss1a)
   return op0,op1
+
+def matchEvents(*args):
+  filt = args[0].ones()
+  for tobj in args[1:]:
+    filt *=tobj.ones()
+  ret = [filt*tobj for tobj in args]
+  return tuple(ret)
 
 #def filterTimestamps_new(ts0,ts1):
   #"""returns 2 list of indices arrays: 
@@ -3449,103 +3456,6 @@ def statData(data):
 
 
 
-def calc_polyFitPar(scanvec,detector,monitor,binning=None):
-  pass
-
-def calc_weighted_ratio(detector,monitor,binning=None):
-  pass
-
-def plotScan(data, monitorIPM='ipm3', detector='diodeU', detectorfieldname='channel0', monitorFiltLims=None, detectorFiltLims=None, scanvec=[], binning=None,binningFiltLims=1,figName=None, oversampling=1,binningCalib=None,centerbinning=False):
-  """ NB the binning assumes that the size of elements matches the dataset after timestamp cleanup"""
-  #de=bug
-  #if isinstance(data,ixppy.dataset):
-  if type(data) is not str or not tuple:
-    d=data
-  else:
-    datasets = [monitorIPM,detector]
-    if binning:
-      if type(binning) is tuple:
-        datasets.append(binning[0])
-    d = dataset(data,datasets)
-    d.filtTimestamps()
-  M = d.__dict__[monitorIPM].sum
-  I = d.__dict__[detector].__dict__['__'+detectorfieldname]()
-  if binning:
-    if type(binning) is tuple:
-      B = d.__dict__[binning[0]].__dict__['__'+binning[1]]()
-    else:
-      B = binning 
-  if not monitorFiltLims:
-    parameterFilt(M,d,name='Amonitor',figName='plotScan monitor filter')
-  else:
-    parameterFilt(M,d,name='Amonitor',lims=monitorFiltLims)
-
-  if detectorFiltLims:
-    if  detectorFiltLims==1:
-      parameterFilt(I,d,name='Bdetector',figName='plotScan detector filter')
-    elif len(detectorFiltLims)==2:
-      parameterFilt(I,d,name='Bdetector',lims=detectorFiltLims)
-
-  if len(scanvec)==0:
-    scanvec = d.scanVec
-  if binning:
-    if binningFiltLims:
-      if  binningFiltLims==1:
-        binFlt = parameterFilt(B,d,name='Cbinning',figName='plotScan binning filter')
-      elif len(binningFiltLims)==2:
-        parameterFilt(B,d,name='Cbinning',lims=binningFiltLims)
-      B = [ b[~flt] for b,flt in zip(B,d._mergefilters()) ]
-    if binningCalib is not None:
-      B = [np.polyval(binningCalib,b) for b in B]
-    cB = np.mean(np.hstack(B))
-    print cB
-    if centerbinning:
-      Bc = [b-cB for b in B]
-    else:
-      Bc = B
-    binscanvec = [sv+bc for sv,bc in zip(scanvec,Bc)]
-    bins = tools.oversample(scanvec,oversampling)
-    binsz = np.mean(np.diff(bins))
-    edges = np.hstack([bins-binsz/2,bins[-1]+binsz/2])
-    indxs = np.digitize(np.hstack(binscanvec),edges)
-    #de=bug
-
-
-    M = d.__dict__[monitorIPM].sum
-    I = d.__dict__[detector].__dict__['__'+detectorfieldname]()
-    Inorm = np.bincount(indxs,weights=np.hstack(I),minlength=len(edges)+1) / np.bincount(indxs,weights=np.hstack(M),minlength=len(edges)+1)
-    Inorm = Inorm[1:-1]
-    scanvec = bins
-    #de=bug
-
-  else:
-    M = d.__dict__[monitorIPM].sum
-    I = d.__dict__[detector].__dict__['__'+detectorfieldname]()
-    Inorm = []
-    for m,i in zip(M,I):
-      if not len(m)==0 and not len(i)==0:
-        Inorm.append(sum(i)/sum(m))
-      else:
-        Inorm.append(np.nan)
-    Inorm = np.asarray(Inorm)
-  
-  if not figName:
-    figName = 'plotScan figure'
-
-  tools.nfigure(figName)
-  #de=bug
-  try:
-    pl.plot(scanvec,Inorm,'.-')
-  except:
-    pl.plot(scanvec[:-1],Inorm,'.-')
-
-  pl.xlabel(d.scanMot)
-  pl.ylabel('$\sum$'+detector+'.'+detectorfieldname+' / $\sum$'+monitorIPM+'sum')
-  pl.draw()
-  return scanvec,Inorm
-
-
-
 
 
 
@@ -3554,7 +3464,7 @@ def plotScan(data, monitorIPM='ipm3', detector='diodeU', detectorfieldname='chan
 
 ###### Filtering events ############
 
-def filter(dat,lims=None,graphicalInput=True,figName=None):
+def filter(dat,lims=None,graphicalInput=True,figName=None,perc=False):
 
   if not figName:
     figName = 'Select filter limits'
@@ -3565,6 +3475,9 @@ def filter(dat,lims=None,graphicalInput=True,figName=None):
     N,edg = tools.histogramSmart(dat)
     pl.step(edg[:-1]+np.diff(edg),N,'k')
     lims = tools.getSpanCoordinates()
+  elif perc:
+    lims = np.percentile(dat,lims)
+    
   if type(lims) is bool:
     filt = (dat==lims)
   else:
@@ -4511,7 +4424,7 @@ def get_common_timestamps(allobjects):
     else:
       ia,io = filterTimestamps(times,o.time)
       iar,stpsz = ravelScanSteps(ia)
-      times = np.hstack(times)[iar]
+      times = np.hstack([tt for tt in times if len(tt)>0])[iar]
       times = unravelScanSteps(times,stpsz)
   return times
 
