@@ -41,9 +41,10 @@ def writePyFile(funcs,experiment=None,save=True):
   filestr = preamble
   if experiment==None:
     filestr += 'experiment = sys.argv[1]\nprint "got experiment %s"%experiment\n'
-    filestr += 'runno = int(sys.argv[2])\nprint "got run %d"%runno\n'
+    filestr += 'runnos = [int(tr) for tr in sys.argv[2:]]\nprint "got run %s"%runnos\n'
   else:
-    filestr += 'runno = int(sys.argv[1])\nprint "got run %d"%runno\n'
+    filestr += 'runnos = [int(tr) for tr in sys.argv[1:]]\nprint "got run %s"%runnos\n'
+    #filestr += 'runno = int(sys.argv[1])\nprint "got run %d"%runno\n'
   modnames = []
   for func in funcs:
     modFina = sys.modules[func.__module__].__file__
@@ -53,7 +54,7 @@ def writePyFile(funcs,experiment=None,save=True):
   if experiment==None:
     filestr += 'd = eval(\'ixppy.dataset((\\\'%s\\\',%d))\'%(experiment,runno))\n'
   else:
-    filestr += 'd = ixppy.dataset((\'%s\',runno))\n'%experiment
+    filestr += 'd = ixppy.dataset((\'%s\',runnos))\n'%experiment
   for func,modname in zip(funcs,modnames):
     funcname = func.__name__
     filestr += modname+'.'+funcname+'(d)\n'
@@ -70,12 +71,15 @@ def applyFileOnRun(fina,runno,experiment=None):
   execstr+= '-o ' + os.path.splitext(fina)[0]
   if not experiment==None:
     execstr+= '_'+experiment
-  execstr+= '_run%04d'%runno + '.out '
+  for tr in runno:
+    execstr+= '_run%04d'%tr
+  execstr+= '.out '
   execstr+=' python '
   execstr+=fina+' '
   if not experiment==None:
     execstr+= experiment+' '
-  execstr+= str(runno) + ' '
+  for run in runno:
+    execstr+= str(run) + ' '
   result = subprocess.check_output(execstr, shell=True)
   #os.system(execstr)
   return result

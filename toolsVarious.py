@@ -48,6 +48,8 @@ def itemgetToIndices(x,size,boolean=False):
     xo = np.arange(*x.indices(size))
   else:
     raise IndexError
+  if len(xo)==0:
+    return []
     
   if (max(xo)>=size):
     raise IndexError

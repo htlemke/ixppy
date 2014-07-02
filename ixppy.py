@@ -1059,11 +1059,15 @@ class data(object):
     if len(x)==1:
       if n==1:
         stepInd = [0]
+	#if len(x[1])==0:
+	  #return []
         evtInd = [tools.itemgetToIndices(x[0],lens[tind],boolean=True) for tind in stepInd]
       else:
 	raise IndexError('More than one scanstep [scanstep,event] index pair required!')
     elif len(x)==2:
       stepInd = tools.itemgetToIndices(x[0],n)
+      #if len(x[1])==0:
+	#return []
       evtInd = [tools.itemgetToIndices(x[1],lens[tind]) for tind in stepInd]
     #print stepInd,evtInd
     return self._getStepsShots(stepInd,evtInd)
@@ -1107,7 +1111,8 @@ class data(object):
 	if 0 in lens:
 	  zinds = (np.asarray(lens)==0).nonzero()[0]
 	  for zind in zinds:
-	    dat.insert(zind,[])
+	    if zind in stepInd:
+	      dat.insert(zind,[])
 
       self._lastCache = dict(dat=dat,stepInd=stepInd,evtInd=evtInd)	
 
@@ -1679,7 +1684,14 @@ class Evaluate(object):
 
     allchunks = self.data._memIterate(stepSlice,evtSlice)
     timestamps = []
-    timestamps = [np.concatenate([self.data.time[tstep][tchunk] for tchunk in tstepchunk if len(tchunk)>0]) for tstep,tstepchunk in allchunks]
+    for tstep,tstepchunk in allchunks:
+      tts = [self.data.time[tstep][tchunk] for tchunk in tstepchunk if len(tchunk)>0]
+      if len(tts)>0:
+	timestamps.append(np.concatenate(tts))
+      else:
+	timestamps.append([])
+    #timestamps = [np.concatenate([self.data.time[tstep][tchunk] for tchunk in tstepchunk if len(tchunk)>0]) for tstep,tstepchunk in allchunks]
+
     ixp,path = self.data._getIxpHandle()
     if path in ixp.fileHandle and not force:
       deleteit = 'y' == raw_input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path)
@@ -1705,9 +1717,16 @@ class Evaluate(object):
       totshape = tuple([totlen] + list(eventShape))
       startind = 0
       for chunk in step:
-        tdat = self.data[stepNo,np.ix_(chunk)][0]
-        ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
-	ds[startind:startind+len(chunk),...] = tdat
+	if len(chunk)==0:
+	  tdat = []
+	else:
+          tdat = self.data[stepNo,np.ix_(chunk)][0]
+	if totshape[0]==0:
+	  print stepNo,totshape
+          ixp.save([],grp,name='time/data/#%06d'%stepNo)
+	else:
+          ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
+	  ds[startind:startind+len(chunk),...] = tdat
 	ixp.fileHandle.flush()
 
 	startind += len(chunk)
