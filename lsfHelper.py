@@ -2,6 +2,8 @@ import sys
 import datetime
 import subprocess
 import os
+from toolsVarious import iterfy
+
 preamble  = 'import sys\nimport ixppy\nfrom ixppy.lsfHelper import import_file\n'
 queue = 'psnehq'
 
@@ -52,9 +54,11 @@ def writePyFile(funcs,experiment=None,save=True):
     modnames.append(get_module_name(modFina))
     filestr += 'import_file(\'%s\',globals())\n'%modFina
   if experiment==None:
-    filestr += 'd = eval(\'ixppy.dataset((\\\'%s\\\',%d))\'%(experiment,runno))\n'
+    filestr += 'cachefina = experiment+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_lsfHelper.ixp.h5\'\n'
+    filestr += 'd = eval(\'ixppy.dataset((\\\'%s\\\',%d),ixpFile=%s)\'%(experiment,runno,cachefina))\n'
   else:
-    filestr += 'd = ixppy.dataset((\'%s\',runnos))\n'%experiment
+    filestr += 'cachefina = \'%s\'+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_lsfHelper.ixp.h5\'\n'%experiment
+    filestr += 'd = ixppy.dataset((\'%s\',runnos),ixpFile=cachefina)\n'%experiment
   for func,modname in zip(funcs,modnames):
     funcname = func.__name__
     filestr += modname+'.'+funcname+'(d)\n'
@@ -92,7 +96,10 @@ def applyOnRunlist(input,runnos,experiment,save=True):
     fina = writePyFile(funcs,experiment=experiment,save=save)
   returns = []
   for runno in runnos:
-    returns.append(applyFileOnRun(fina,runno))
+    if len(iterfy(runno))>1:
+      returns.append(applyFileOnRun(fina,runno))
+    else:
+      returns.append(applyFileOnRun(fina,runno))
   return returns
 
 

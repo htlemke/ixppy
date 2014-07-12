@@ -151,6 +151,8 @@ dg1  Camera::FrameV1/CxiDg1.0:Tm6740.0/image  Camera::FrameV1/CxiDg1.0:Tm6740.0/
 dg2  Camera::FrameV1/CxiDg2.0:Tm6740.0/image  Camera::FrameV1/CxiDg2.0:Tm6740.0/time dummy
 dg4  Camera::FrameV1/CxiDg4.0:Tm6740.0/image  Camera::FrameV1/CxiDg2.0:Tm6740.0/time dummy
 opal0  Camera::FrameV1/CxiDsu.0:Opal1000.0/image  Camera::FrameV1/CxiDsu.0:Opal1000.0/image dummy
+cspad1  CsPad*/CxiDs1.0:Cspad.0/data  notused  notused
+cspad2  CsPad*/CxiDs2.0:Cspad.0/data  notused  notused
 
 
 # AMO area detectors, label as #*line, then line of alias, and data, time, and config datasets

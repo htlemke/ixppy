@@ -74,7 +74,10 @@ class dataset(object):
       else:
 	self.config.ixp = Ixp(ixpFile)
     else:
-      self.config.ixp = Ixp(self.config.fileNamesIxp[0])
+      if ixpFile==None:
+        self.config.ixp = Ixp(self.config.fileNamesIxp[0])
+      else:
+        self.config.ixp = Ixp(ixpFile)
 
     self._ixpHandle = self.config.ixp
     self._ixpsaved = []
