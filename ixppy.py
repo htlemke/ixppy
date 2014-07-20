@@ -1728,8 +1728,9 @@ class Evaluate(object):
 	  print stepNo,totshape
           ixp.save([],grp,name='time/data/#%06d'%stepNo)
 	else:
-          ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
-	  ds[startind:startind+len(chunk),...] = tdat
+	  if len(tdat)>0:
+	    ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
+	    ds[startind:startind+len(chunk),...] = tdat
 	ixp.fileHandle.flush()
 
 	startind += len(chunk)
