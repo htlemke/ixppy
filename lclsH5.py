@@ -292,6 +292,8 @@ class detector(object):
         else:
 	  # this might be the tt case
 	  for datapath,timepath in zip(self._paths['data'],self._paths['time']):
+	    datapath = getPath(datapath)
+	    timepath = getPath(timepath)
 	    name = getDetNamefromPath(datapath)
             dat,fields = self._readPointDataGeneral(datapath)
             times = self._readTime(timepath)
@@ -306,6 +308,8 @@ class detector(object):
 	 # this might be the ipm case
 	datapath = self._paths['data'][0]
 	timepath = self._paths['time'][0]
+	datapath = getPath(datapath)
+	timepath = getPath(timepath)
 	dat,fields = self._readPointDataGeneral(datapath)
 	times = self._readTime(timepath)
 
@@ -318,7 +322,7 @@ class detector(object):
 
 
   def _initAreaDet(self):
-    self.time = self._readTime(self._paths['time'][0])
+    self.time = self._readTime(getPath(self._paths['time'][0]))
     self.readData = self._readDataGeneral
     self._numOfScanStepsFile = self._checkNcalib()
     self.readData = self._readDataGeneral
@@ -342,6 +346,7 @@ class detector(object):
     for stepNum in stepSlice:
       fileNum,FstepNum = self._getFileStep(stepNum)
       cpath = path % FstepNum # really beautiful, same for python 3 ?
+      cpath = getPath(cpath)
       data = h5r(self._h5s[fileNum],cpath)
       try:
 	if (shotSlice is None):
@@ -426,6 +431,7 @@ class detector(object):
   def _checkNcalib(self):
     numOfScanStepsFile = []
     path = tools.commonPathPrefix(self._paths["data"])
+    path = getPath(path)
     for h in self._h5s:
       n=0
       while( tH5.datasetExists(h,path % n) ):
@@ -574,6 +580,7 @@ class detector(object):
       if (not self._existsInSelf(addr)) or (len(tools.iterDiff( self._getFromSelf(addr), shotSlice) )==0):
 
 	path = self._paths["data"][0] % FstepNum
+	path = getPath(path)
 	data = h5r(self._h5s[fileNum],path)
 	if (shotSlice is None):
 	  data = data[...]
@@ -605,18 +612,23 @@ class detector(object):
       outS.append(data)
     return outS
 
-
+# hack for linked calib cycles
+def getPath(name):
+  if name[:12] == '/CalibCycle:':
+    return '/Configure:0000/Run:0000'+name
+  else:
+    return name
 
 class scanVar(object):
   def __init__(self,fhandle,name,paths):
     self._h5s = fhandle
-    self._name = name
+    self._name = getPath(name)
     self._paths = paths
     self._checkNcalib()
     self._read()
 
   def _read(self):
-    names = self._h5s[0][self._paths % 0]
+    names = self._h5s[0][getPath(self._paths % 0)]
     if names.shape==():
       return
     names = names['name']
