@@ -167,7 +167,7 @@ def cart2pol(x,y, units='deg'):
     radius= np.hypot(x,y)
     theta= np.arctan2(y,x)
     if units in ['deg', 'degs']:
-        theta=theta*180/pi
+        theta=theta*180/np.pi
     return theta, radius
 
 
