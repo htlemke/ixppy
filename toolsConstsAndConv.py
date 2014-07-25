@@ -54,6 +54,8 @@ def lam2E(lam):
 	return E
 
 
+#constants
+N_avo = 6.0221413e+23
 
 # from utilitiesCalc
 

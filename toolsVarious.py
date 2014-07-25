@@ -48,6 +48,8 @@ def itemgetToIndices(x,size,boolean=False):
     xo = np.arange(*x.indices(size))
   else:
     raise IndexError
+  if len(xo)==0:
+    return []
     
   if (max(xo)>=size):
     raise IndexError
@@ -362,3 +364,14 @@ def dict2class(d):
     for elem in d.keys():
         c.__dict__[elem] = d[elem]
     return c
+
+def corrNonlinGetPar(data,correct,order=2,data_0=0,correct_0=0):
+  p =  np.polyfit(data,correct,order)
+  p[-1] = p[-1]-correct_0
+  return p
+
+def corrNonlin(data,polypar,data_0=0,correct_0=0):
+  m = 1/np.polyval(np.polyder(polypar),data_0)
+  return m*(np.polyval(polypar,data)-correct_0) + data_0
+
+

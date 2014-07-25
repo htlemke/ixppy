@@ -446,7 +446,7 @@ def extractProfiles(Areadet, xrayoff=None, laseroff=None,
   #Areadet['datpump'] = datpump
   #Areadet['datrefIP'] = datrefIP
 
-def extractProfilesCorr(Areadet, xrayoff=None, laseroff=None, dataset_name_traces='TTtraces',dataset_name_traces_raw='TTtraces_raw'):
+def extractProfilesCorr(Areadet, xrayoff=None, laseroff=None, dataset_name_traces='TTtraces',dataset_name_traces_raw='TTtraces_raw',evaluate=False):
   """
     Areadet is the dataset with the camera images
     'refmon' is the incoming intensity monitor (to check for x-ray off)
@@ -470,9 +470,11 @@ def extractProfilesCorr(Areadet, xrayoff=None, laseroff=None, dataset_name_trace
   datrefIP = datref.interpolate(xrayoff.filter(False).time)
   
   Areadet[dataset_name_traces] = (datpump-datrefIP)/datrefIP
+  if evaluate:
+    Areadet[dataset_name_traces].evaluate(force=True)
 
-def extractProfilesOnly(Areadet, profileLimits=None, transpose=False,dataset_name_traces='TTtraces_raw'):
-  """
+def extractProfilesOnly(Areadet, profileLimits=None, transpose=False,dataset_name_traces='TTtraces_raw',force=True):
+  """ 
     Areadet is the dataset with the camera images
     'refmon' is the incoming intensity monitor (to check for x-ray off)
     'refthreshold' threshold to find x-ray off
@@ -492,8 +494,30 @@ def extractProfilesOnly(Areadet, profileLimits=None, transpose=False,dataset_nam
   proflimits,profile = ixppy.getProfileLimits(dat,lims=profileLimits,transpose=transpose)
   
   Areadet[dataset_name_traces] = profile
-  Areadet[dataset_name_traces].evaluate()
+  Areadet[dataset_name_traces].evaluate(force=force)
 
+def extractFromRunList(runlist,exp,datasetname='opal2',profileLimits=None,xrayoffCode=None,laseroffCode=None,filter=None,save=False):
+  for run in runlist:
+    d = ixppy.dataset((exp,run))
+    print "TT extracting from run %d" %run
+    extractFromRun(d,datasetname=datasetname,profileLimits=profileLimits,xrayoffCode=xrayoffCode,laseroffCode=laseroffCode,filter=filter,save=save)
+    print "done!"
+
+    
+
+def extractFromRun(d,datasetname='opal2',profileLimits=None,xrayoffCode=None,laseroffCode=None,filter=None,save=False):
+  dataset = d[datasetname]
+  extractProfilesOnly(dataset,profileLimits)
+  xrayoff = d.eventCode['code_%s'%xrayoffCode]
+  if laseroffCode is not None:
+    laseroff = d.eventCode['code_%s'%laseroffCode]
+  else:
+    laseroff = None
+
+  extractProfilesCorr(dataset,xrayoff=xrayoff,laseroff=laseroff,evaluate=True)
+  applyFilterToAll(dataset)
+  if save:
+    d.save()
 
 def applyFilterToAll(det,filter=None,kind='stepUp'):
   if filter==None:

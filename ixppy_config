@@ -26,7 +26,7 @@ xpp lap /home/marcoc/slac/experiments/TRABS_Oct10/data
 #xpp lap /home/marcoc/ixppy_cache
 #xpp default /reg/neh/home1/lemke/ixppy_cache
 #xpp default /reg/neh/home1/marcoc/ixppy_cache
-xpp default /reg/d/psdm/xpp/xppa1714/scratch/ixppy_cache
+xpp default /reg/neh/home/lemke/ixppy_cache
 
 # Scan step (mnemonic,data)
 #* scan_step
@@ -60,6 +60,8 @@ lom_bpm   IpmFex*/XppMon_Pim0    notused   notused
 lom_diode IpmFex*/XppMon_Pim1    notused   notused 
 encoder   Data*/XppGon.0:Encoder.0 notused notused
 timeTool   TTSPEC  notused notused
+encoder   UsdUsb*/XppEndstation.0:USDUSB.0 notused notused
+#adc       Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0  notused   notused
 #ipm1  Lusi::IpmFexV1/NH2-SB1-IPM-01/data  Lusi::IpmFexV1/NH2-SB1-IPM-01/time  dummy
 #ipm2  Lusi::IpmFexV1/XppSb2_Ipm/data  Lusi::IpmFexV1/XppSb2_Ipm/time  dummy
 #ipm3  Lusi::IpmFexV1/XppSb3_Ipm/data  Lusi::IpmFexV1/XppSb3_Ipm/time  dummy
@@ -96,8 +98,9 @@ timeTool   TTSPEC  notused notused
 # for areaDet you need to specify /data or /image, etc.
 #* areaDet_xpp
 opal2 Camera::Frame*/XppEndstation.0:Opal1000.2/image notused notused
-cspad  CsPad::ElementV2/XppGon.0:Cspad.0/data  CsPad::ElementV2/XppGon.0:Cspad.0/time  /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
-cspad  CsPad::ElementV*/XppGon.0:Cspad.0/data  notused notused
+#cspad  CsPad::ElementV2/XppGon.0:Cspad.0/data  CsPad::ElementV2/XppGon.0:Cspad.0/time  /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
+#cspadold  CsPad::ElementV1*/XppGon.0:Cspad.0/data  notused notused
+cspad  CsPad::ElementV2/XppGon.0:Cspad.0/data  CsPad::ElementV2/XppGon.0:Cspad.0/time  notused
 cspad2x2  CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/data CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/time /Configure:0000/CsPad::ConfigV1/XppGon.0:Cspad.0/config
 cspad2x2 CsPad::ElementV2/XppGon.0:Cspad.0/data CsPad::ElementV2/XppGon.0:Cspad.0/time /Configure:0000/CsPad::ConfigV3/XppGon.0:Cspad.0/config
 cs140  CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/data CsPad2x2::ElementV1/XppGon.0:Cspad2x2.0/time /Configure:0000/CsPad::ConfigV1/XppGon.0:Cspad.0/config
@@ -113,6 +116,10 @@ opal2 Camera::FrameV1/XppEndstation.0:Opal1000.2/image Camera::FrameV1/XppEndsta
 yaglom Camera::FrameV1/XppEndstation.1:Tm6740.1/image Camera::FrameV1/XppEndstation.1:Tm6740.1/time dummy
 yag3m  Camera::FrameV1/XCS-YAG-3m/image Camera::FrameV1/XCS-YAG-3m/time  dummy
 orca Camera::FrameV1/XppEndstation.0:OrcaFl40.0/image Camera::FrameV1/XppEndstation.0:OrcaFl40.0/time dummy
+rayonix Camera::FrameV1/XppSb1Pim.0:Rayonix.0/image  Camera::FrameV1/XppSb1Pim.0:Rayonix.0/time dummy
+rayonix Camera::Frame*/XppEndstation.0:Rayonix.0/image Camera::Frame*/XppEndstation.0:Rayonix.0/image dummy
+cspadAzAv noSrc__azimuthalInt/data noSrc__azimuthalInt/time dummy
+adc	Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0/channelValue  Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0/time notused
 
 # XCS area detectors, label as #*line, then line of alias, and data, time, and config datasets
 #* pointDet_xcs
@@ -144,6 +151,8 @@ dg1  Camera::FrameV1/CxiDg1.0:Tm6740.0/image  Camera::FrameV1/CxiDg1.0:Tm6740.0/
 dg2  Camera::FrameV1/CxiDg2.0:Tm6740.0/image  Camera::FrameV1/CxiDg2.0:Tm6740.0/time dummy
 dg4  Camera::FrameV1/CxiDg4.0:Tm6740.0/image  Camera::FrameV1/CxiDg2.0:Tm6740.0/time dummy
 opal0  Camera::FrameV1/CxiDsu.0:Opal1000.0/image  Camera::FrameV1/CxiDsu.0:Opal1000.0/image dummy
+cspad1  CsPad*/CxiDs1.0:Cspad.0/data  notused  notused
+cspad2  CsPad*/CxiDs2.0:Cspad.0/data  notused  notused
 
 
 # AMO area detectors, label as #*line, then line of alias, and data, time, and config datasets

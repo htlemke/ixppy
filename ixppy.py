@@ -26,27 +26,9 @@ try:
 except:
   psana = None
   print "psana not available on present machine, hdf5 files required."
-#from progressbar import AnimatedMarker, Bar, BouncingBar, Counter, ETA, \
-    #FileTransferSpeed, FormatLabel, Percentage, \
-    #ProgressBar, ReverseBar, RotatingMarker, \
-    #SimpleProgress, Timer
 
 import progressbar as pb
-#import cspad
 
-# Config file format
-# Default instrument
-# Point detectors:
-# Alias, dataset-data, dataset-timestamp, dataset-configuration 1, dataset-configuration 2, isIpmOrSimilarQuaddiode, hasFexCorrection
-# Area detectors
-# Alias, dataset-data, dataset-timestamp, dataset-configuration 1, dataset-configuration 2, slabsize, correctionmethods
-# Directories
-# default data directory (like /red/d/psdm/), main output directory (scratch/or local folder to "take data home").
-
-
-#print os.path.dirname(__file__)
-
-#print os.path.abspath(__file__)
 ############## DATASET ############################
 
 class dataset(object):
@@ -92,11 +74,15 @@ class dataset(object):
       else:
 	self.config.ixp = Ixp(ixpFile)
     else:
-      self.config.ixp = Ixp(self.config.fileNamesIxp[0])
+      if ixpFile==None:
+        self.config.ixp = Ixp(self.config.fileNamesIxp[0])
+      else:
+        self.config.ixp = Ixp(ixpFile)
 
     self._ixpHandle = self.config.ixp
     self._ixpsaved = []
     if 'ixp' in self.config.filestrategy:
+      self.config.ixp.get_cacheFileHandle(reopen=True)
       dat = self.config.ixp.load()
       if 'dataset' in [ixps[0] for ixps in dat._ixpsaved]:
 	names = [tn[0] for tn in dat.dataset._ixpsaved]
@@ -150,9 +136,9 @@ class dataset(object):
       except:
 	pass
 	  
-  def save(self,name=None):
+  def save(self,name=None,force=False):
     #self.config.ixp.save(self,self._ixpHandle,name='dataset')
-    self._ixpHandle.save(self,self._ixpHandle.fileHandle,name='dataset')
+    self._ixpHandle.save(self,self._ixpHandle.fileHandle,name='dataset',force=force)
     #self._checkCalibConsistency()
   # END OF DATASET.__init__
 
@@ -389,8 +375,7 @@ class dataset(object):
     elif not self.config.fileNamesH5 == [] and self.config.fileNamesIxp==[]:
       self.config.filestrategy = ['h5']
 
-def address(fileNum,stepNum,what):
-  return "_file%d.step%d.%s" % (fileNum,stepNum,what)
+############## DATA TYPES #########################
 
 class memdata(object):
   def __init__(self,name=None,input=None,scan=None,grid=None):
@@ -439,7 +424,7 @@ class memdata(object):
 	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
 	self._Nsteps = len(lens)
     dat,stepsz = ravelScanSteps(self._time)
-    return [dat[tf] for tf in self._filter]
+    return [dat[tf] if len(tf)>0 else [] for tf in self._filter]
   time = property(_getFilteredTime)
 
   def __repr__(self):
@@ -485,9 +470,9 @@ class memdata(object):
   def ravel(self):
     return np.hstack(self.data)
 
-  def filter(self,lims=None,inplace=False):
+  def filter(self,lims=None,inplace=False,perc=False):
     dat,stsz = ravelScanSteps(self.data)
-    lims,filt = filter(dat,lims)
+    lims,filt = filter(dat,lims,perc=perc)
     filt = unravelIndexScanSteps(filt.nonzero()[0],stsz)
     if inplace:
       self._filter = filt
@@ -588,12 +573,22 @@ class memdata(object):
 
       #return memdata(input=[[dat[tf] for tf in filt],
                             #[tim[tf] for tf in filt]],scan=scan)
+  def interpolate(self,other,type='mean',Nclosest=5):
+    timenew = other.time
+    o = getClosestEvents(self.time,timenew,Nclosest)
+    sr,stepsz = ravelScanSteps(self.data)
+    if type=='mean':
+      op = np.asarray([np.mean(sr[tools.smartIdx(tsel)]) for tsel in o[0]])
+    odat = unravelScanSteps(op,o[1])
+    return memdata(input=[odat,timenew],scan=other.scan)
+  #return data(time=timenew,input=procObj,scan=self.scan)
+
   def ones(self):
     odat = [np.ones(len(dat)) for dat in self._data]
     return memdata(input=[odat,self.time],scan=self.scan)
   
   def _stepStatFunc(self,func,*args,**kwargs):
-    data = np.asarray([func(d,*args,**kwargs) for d in self._data])
+    data = np.asarray([func(d,*args,**kwargs) for d in self])
     if not self.grid==None:
       data = data.reshape(self.grid.shape)
     return data
@@ -602,7 +597,7 @@ class memdata(object):
     if not weights==None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
-      data =  np.asarray([np.average(d,weights=w) if len(w)>0 else np.nan for d,w in zip(selfdat._data,weights)])
+      data =  np.asarray([np.average(d,weights=w) if len(w)>0 else np.nan for d,w in zip(selfdat,weights)])
       if not self.grid==None:
 	data = data.reshape(self.grid.shape)
       return data
@@ -613,21 +608,21 @@ class memdata(object):
     if not weights==None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
-      return np.asarray([tools.weighted_avg_and_std(d,w)[1] for d,w in zip(selfdat._data,weights)])
+      return np.asarray([tools.weighted_avg_and_std(d,w)[1] for d,w in zip(selfdat,weights)])
     else:
       return self._stepStatFunc(np.std)
   def median(self,weights=None):
     if not weights==None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
-      return np.asarray([tools.weighted_median(d,w) for d,w in zip(selfdat._data,weights)])
+      return np.asarray([tools.weighted_median(d,w) for d,w in zip(selfdat,weights)])
     else:
       return self._stepStatFunc(np.median)
   def mad(self,weights=None):
     if not weights==None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
-      return np.asarray([tools.weighted_mad(d,w) for d,w in zip(selfdat._data,weights)])
+      return np.asarray([tools.weighted_mad(d,w) for d,w in zip(selfdat,weights)])
     else:
       return self._stepStatFunc(tools.mad)
   def sum(self):
@@ -636,14 +631,14 @@ class memdata(object):
     return self._stepStatFunc(len)
   #def sqrt(self):
     #return np.asarray([np.sqrt(d) for d in self._data])
-  def plot(self):
-    i = self.median().ravel()
+  def plot(self,weights=None):
+    i = self.median(weights=weights).ravel()
     if not self.grid==None:
       x,y,im = self.grid.format(i)
       tools.imagesc(x,y,im.T)
 
     else:
-      e = self.mad()/np.sqrt(self.lens)
+      e = self.mad(weights=weights)/np.sqrt(self.lens)
       
       scanfields = self.scan.__dict__.keys()
       scanfields = [tf for tf in scanfields if not tf[0]=='_']
@@ -787,52 +782,6 @@ class memdata(object):
   def __invert__(self):
     return applyDataOperator(operator.invert,self)
 
-def initmemdataraw(data):
-  if data==None:
-    return None,None
-  if type(data) is dict:
-    dk = data.keys()
-    if not (('data' in dk) and ('time' in dk)):
-      print "Raw memdata should be dict with keys data and time of same length"
-      return
-    dat = data['data']
-    tim = data['time']
-  elif type(data) is list:
-    dat = data[0]
-    tim = data[1]
-  if tim==None:
-
-    print "NB: memdata instance without timestamps!"
-  elif not len(dat)==len(tim):
-    print "data and time in raw memdata should have same length"
-    return
-  return dat,tim
-
-class interp(object):
-  def __init__(self,memdinst):
-    self.md = memdinst
-    self._apply_method = None
-  def closest(self):
-    self._apply_method = 'closest'
-  def linear(self):
-    self._apply_method = 'linear'
-  def closestBefore(self):
-    self._apply_method = 'closestBefore'
-  def spline(self):
-    self._apply_method = 'spline'
-  def linearAll(self):
-    self._apply_method = 'linearAll'
-
-  def _linear(self,timeOther):
-    self._apply_method = None
-  def _linearAll(self,timeOther):
-    self._apply_method = None
-  def _closest(self,timeOther):
-    self._apply_method = None
-  def _closestBefore(self,timeOther):
-    self._apply_method = None
-  
-
 class data(object):
   def __init__(self,name=None,time=None,input=None,scan=None,ixpAddressData=None,parent=None,grid=None):
     self.name = name
@@ -884,6 +833,14 @@ class data(object):
     self._Nsteps = len(lens)
     self._lens = lens
     self.evaluate = Evaluate(self)
+    self._cacheLast = False                                                          
+    self._lastCache = None
+    self._showMe = False
+    self._showMeName = None
+
+  def _showme(self,name=None):
+    self._showMe = True
+    self._showMeName = name
 
 
   def _deleteIxp(self,force=False):
@@ -982,6 +939,9 @@ class data(object):
 	    isdatainst = np.asarray([isinstance(targ,data) for targ in args])
 	    if np.sum(isdatainst)>0:
 	      thisstuff = args[isdatainst.nonzero()[0][0]]
+	    elif 'ixppyInput' in thisstuff._procObj.keys():
+	      ixpIP = thisstuff._procObj['ixppyInput'][0][0]
+	      thisstuff = ixpIP
 
 
         self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
@@ -1022,35 +982,17 @@ class data(object):
 	present = tp
 	path = name+'/'+path
     return ixpSeed,path
-  
-  #def evaluate(self,progress=True):
-    #"""Process all data of data instance which will be saved to a ixp hdf5 file. This function could be candidate for parallelization or background processing
-    #"""
-    #ixp,path = self._getIxpHandle()
-    #grp = ixp.fileHandle.require_group(path)
-    #grp['_dtype'] = 'data'
-    #ixp.save(self.time,grp,name='time')
-    #dh = grp.require_group('data')
-    #allchunks = self._memIterate()
-    #eventShape = self._sizeEvt['shape']
-    ## progress bar
-    #widgets = ['Evaluating: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
-    #pbar = pb.ProgressBar(widgets=widgets, maxval=len(allchunks)).start()
-    #for stepNo,step in enumerate(allchunks):
-      #totlen = np.sum([len(x) for x in step])
-      #totshape = tuple([totlen] + list(eventShape))
-      #for chunk in step:
-        #tdat = self[stepNo,np.ix_(chunk)][0]
-        #ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
-        #ds[chunk,...] = tdat
-      #pbar.update(stepNo+1)
-    #pbar.finish()
-    #self._rdStride = self._rdFromIxp
 
-
-    
-
-
+  def get_memdata(self):
+    data = self[:,:]
+    nel = np.shape(data[0])[1]
+    memdat = []
+    for n in range(nel):
+      tmemdat = []
+      for step in data:
+	tmemdat.append(step[:,n])
+      memdat.append(memdata(input=[tmemdat,self.time],scan=self.scan,grid=self.grid))
+    return memdat
 
   #def _copy(self):
   ##data(time=self.time,
@@ -1111,7 +1053,6 @@ class data(object):
 	kwargs=dict(),
 	isCrossEvent=True,
 	nargSelf=0)
-
     return data(time=timenew,input=procObj,scan=self.scan)
 
   def __getitem__(self,x):
@@ -1121,31 +1062,65 @@ class data(object):
     if len(x)==1:
       if n==1:
         stepInd = [0]
+	#if len(x[1])==0:
+	  #return []
         evtInd = [tools.itemgetToIndices(x[0],lens[tind],boolean=True) for tind in stepInd]
       else:
 	raise IndexError('More than one scanstep [scanstep,event] index pair required!')
     elif len(x)==2:
       stepInd = tools.itemgetToIndices(x[0],n)
+      #if len(x[1])==0:
+	#return []
       evtInd = [tools.itemgetToIndices(x[1],lens[tind]) for tind in stepInd]
     #print stepInd,evtInd
     return self._getStepsShots(stepInd,evtInd)
     
 
   def _getStepsShots(self,stepInd,evtInd):
-    lens = [len(tfilt) for tfilt in self._filter]
-    inds = ravelIndexScanSteps(evtInd,lens,stepNo = stepInd)
-    indsdat = np.hstack(self._filter).argsort()[inds]
-    indsdat_sorted = np.sort(indsdat)
-    indsdat_read = unravelIndexScanSteps(indsdat_sorted,self._lens)
-    stepInd_read = [n for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
-    evtInd_read  = [indsdat_read[n] - int(np.sum(self._lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+    if self._showMe:
+      t0 = time.time()
+      print "%s is requested for stepInd %s and evtInd %s"%(self._showMeName,stepInd,evtInd)
+    if self._cacheLast:
+      if self._lastCache is None:
+        readit = True
+      else:
+        if stepInd==self._lastCache['stepInd']\
+            and np.asarray([len(teI)==len(tceI) for teI,tceI in zip(evtInd,self._lastCache['evtInd'])]).all()\
+	    and np.asarray([(teI==tceI).all() for teI,tceI in zip(evtInd,self._lastCache['evtInd'])]).all():
+	  dat = self._lastCache['dat']
+	  readit=False
+	  print "recycle"
+	else:
+	  readit=True
+    else:
+      readit=True
 
-    dat = [self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)]
-    if not dat==[]:
-      dat = np.concatenate(dat)
-      ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
-      ind_resort = [tools.smartIdx(l) for l in ind_resort if len(l)>0]
-      dat = [dat[tind_resort,...] for tind_resort in ind_resort]
+    if readit:
+      lens = [len(tfilt) for tfilt in self._filter]
+      inds = ravelIndexScanSteps(evtInd,lens,stepNo = stepInd)
+      indsdat = np.hstack(self._filter).argsort()[inds]
+      indsdat_sorted = np.sort(indsdat)
+      indsdat_read = unravelIndexScanSteps(indsdat_sorted,self._lens)
+      stepInd_read = [n for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+      evtInd_read  = [indsdat_read[n] - int(np.sum(self._lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+
+      dat = [self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)]
+      if not dat==[]:
+	dat = np.concatenate(dat)
+	ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
+	ind_resort = [tools.smartIdx(l) for l in ind_resort if len(l)>0]
+	#print [tools.smartIdx(l) for l in ind_resort if len(l)>0]
+	dat = [dat[tind_resort,...] for tind_resort in ind_resort]
+	if 0 in lens:
+	  zinds = (np.asarray(lens)==0).nonzero()[0]
+	  for zind in zinds:
+	    if zind in stepInd:
+	      dat.insert(zind,[])
+
+      self._lastCache = dict(dat=dat,stepInd=stepInd,evtInd=evtInd)	
+
+    if self._showMe:
+      print "...this took %4g seconds." %(time.time()-t0)
     return dat
 
     #if len(stepInd)>1:
@@ -1247,9 +1222,451 @@ class data(object):
     return applyDataOperator(operator.gt,self,other)
 
 Data = data
+Memdata = memdata
 
-#def dataInterpolate(source,steplengths,sourceInd,stride):
-  #for 
+########## DATA TYPE OPERATION ###########################
+
+def applyOperator(optr,a,b,isreverse=False):
+  a = tools.iterfy(a)
+  b = tools.iterfy(b)
+
+  res = []
+  if not isreverse:
+    if len(a)==len(b):
+      for ta,tb in zip(a,b):
+          res.append(optr(ta,tb))
+    else:
+      for ta in a:
+        res.append(optr(ta,b))
+  else:
+    if len(a)==len(b):
+      for ta,tb in zip(a,b):
+          res.append(optr(tb,ta))
+    else:
+      for ta in a:
+        res.append(optr(b,ta))
+  return res
+
+def expandMemdata(a,b):
+  aex = a._expand
+  bex = b._expand
+  if aex and bex:
+    raise Exception("Can not expand both ixppy.memdata instances in one operation!")
+  elif not aex and not bex:
+    return a,b
+  else:
+    if aex:
+      pass
+      
+def applyMemdataOperator(optr,a,b,isreverse=False):
+  amem = isinstance(a,memdata) 
+  bmem = isinstance(b,memdata) 
+
+  if amem and bmem:
+    a,b = expandMemdata(a,b)
+    #a,b = interpMemdata(a,b)
+    #a,b = interpStepMemdata(a,b)
+
+    ai,bi = filterTimestamps(a.time,b.time)
+    # TODO: check if ressource expensive
+    ar = np.hstack(a.data)
+    br = np.hstack(b.data)
+    ri,rstepsizes = ravelScanSteps(ai)
+    resdat = optr(ar[ri],br[np.hstack(bi)])
+    restim = np.hstack(a.time)[ri]
+    resdat = unravelScanSteps(resdat,rstepsizes)
+    restim = unravelScanSteps(restim,rstepsizes)
+    scan   = a.scan 
+  elif amem or bmem:
+    if amem:
+      adat = a.data
+      restim = a.time
+      bdat = b
+      scan   = a.scan 
+    elif bmem:
+      bdat = b.data
+      restim = b.time
+      adat = a
+      scan   = a.scan 
+    adat = tools.iterfy(adat)
+    bdat = tools.iterfy(bdat)
+    resdat = []
+    if not isreverse:
+      if len(adat)==len(bdat):
+	for ta,tb in zip(adat,bdat):
+	    resdat.append(optr(ta,tb))
+      else:
+	for ta in adat:
+	  resdat.append(optr(ta,bdat))
+    else:
+      if len(adat)==len(bdat):
+	for ta,tb in zip(adat,bdat):
+	    resdat.append(optr(tb,ta))
+      else:
+	for ta in adat:
+	  resdat.append(optr(bdat,ta))
+  
+  return memdata(input=[resdat,restim],scan=scan)
+      
+def applyDataOperator(optr,a,b=None,isreverse=False):
+  if b==None:
+    args=[a]
+  else:
+    if not isreverse:
+      args = [a,b]
+    else:
+      args = [b,a]
+  return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None)
+
+def _applyFun(func,a):
+  res = ixppyList()
+  for ta in a:
+    res.append(func(ta))
+  return res
+
+def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None, NdataOut=0,NmemdataOut=0, picky=False, isPerEvt=False, stride=None, outputtypes=None, forceCalculation=False):
+  """ rules: 
+  - if data output, no other output possible, as output is not calculated. 
+  - all event dependent arguments have to be passed as memdata or data instances
+  - first arg has timestamp sort priority, kwargs after args, kwargs are inter-
+    preted in "sort- order". This priority order also holds for scanvec data.
+  - When InputDependentOutput is true (default) the output expects:
+    a) one data instance if any data insctance in input
+    b) one memdata instance if memdata instance in input and no data instance
+    otherwise NmemdataOut and NdataOut need to be specified. All other output 
+    comes after ixppy instances if avaiable.
+  """
+  if outputtypes==None:
+    outputtypes = NdataOut*['data'] + NmemdataOut*['memdata']
+  ##### Filter timestampsin order, args first, kwargs after sorted keys
+  allobjects = [(arg,0,argno) for argno,arg in enumerate(ipargs) if (isinstance(arg,data) or isinstance(arg,memdata))]
+  kwkeys = ipkwargs.keys()
+  kwkeys.sort()
+  if KWignore==None:
+    KWignore = []
+  else:
+    KWignore = iterfy(KWignore)
+  for keyno,key in enumerate(kwkeys):
+    if not key in KWignore:
+      if (isinstance(ipkwargs[key],data) or isinstance(ipkwargs[key],memdata)):
+	allobjects.append((ipkwargs[key],1,keyno))
+  if not allobjects==[]:
+    scan = allobjects[0][0].scan
+    grid = allobjects[0][0].grid
+    
+  rtimes = get_common_timestamps([ao[0] for ao in allobjects])
+  # get also other arguments in seperate list for later use in length analysis if needed
+  if not picky and not rtimes==None:
+    # get other input
+    otherargs = [(arg,0,argno) for argno,arg in enumerate(ipargs) if ( not isinstance(arg,data) and not isinstance(arg,memdata))]
+    for keyno,key in enumerate(kwkeys):
+      if ( not isinstance(arg,data) and not isinstance(arg,memdata)):
+	otherargs.append((ipkwargs[key],1,keyno))
+    otherlens = [(len(toa),iskey,argno) for toa,iskey,argno in otherargs if (type(toa) is not str and np.iterable(toa))]
+    if not otherlens==[]:
+      lens,lensiskey,lensargno = zip(*otherlens)
+      #tequallengths = np.logical_and(np.asarray(lens)==len(rtimes),np.logical_not(np.asarray(lens)==1))
+      tequallengths = np.logical_and(np.asarray(lens)==len(rtimes),True)
+      otherip = [otherargs[eqi] for eqi in tequallengths.nonzero()[0]]
+    else:
+      otherip = []
+  else:
+    otherip = []
+
+  ############ generate output ############
+  # case of data instance in input, at the moment seems like data might come out, but this has to be thought about more.
+  if np.asarray([isinstance(to[0],data) for to in allobjects]).any() or forceCalculation:
+    if 'data' in outputtypes and stride==None:
+      # this is the normal case to make an object that will act upon call
+      output = []
+      for nargSelf in (np.asarray(outputtypes)=='data').nonzero()[0]:
+        procObj = dict(func=func,args=ipargs,kwargs=ipkwargs,nargSelf=nargSelf,isPerEvt=isPerEvt)
+        output.append(data(time=rtimes,input=procObj,scan=scan))
+      if len(output)>1:
+	output = tuple(output)
+      else:
+	output = output[0]
+    # case mainly when executes as data procObj
+    elif ('data' in outputtypes and not stride==None) or forceCalculation:
+      # in force case and when stride is not given
+      if (stride == None) and forceCalculation:
+	# find smallest chunk size, will go for that...
+	dataIPchunkings = [o._memIterate() for o,dum,dum in allobjects if isinstance(o,data)]
+	chunksize = np.min([np.min([len(tchunk[1]) for tchunk in tchunks]) for tchunks in dataIPchunkings])
+	# Get step stride and event strides
+	stepstride = range(len(rtimes))
+	eventstrides = []
+	for trtimes in rtimes:
+	  evlst = range(len(trtimes))
+	  eventstrides.append([ evlst[i:i+chunksize] for i in range(0, len(evlst), chunksize) ])
+      else:
+	stepstride = tools.iterfy(stride[0])
+	eventstrides = [stride[1]]*len(stepstride)
+
+      ixppyip = []
+      ixppytype = []
+      for o,iskey,argind in allobjects: 
+	ir,io      = filterTimestamps(rtimes,o.time)
+	
+	if isinstance(o,data):
+	  ixppytype.append('data')
+	  eventstrides_ravel = [np.ravel(tevs) for tevs in eventstrides]
+
+	  io = getStepShotsFromIndsTime(io,o.time,stride=eventstrides_ravel,getIncludedSteps=True)
+	if isinstance(o,memdata):
+	  ixppytype.append('memdata')
+	ixppyip.append(([o,io,iskey,argind]))
+
+      # generate input structures
+      output_list = []
+
+      for stepstrideNo,step in enumerate(stepstride):
+	eventstride = eventstrides[stepstrideNo]
+	if type(eventstride[0]) is list:
+	  print "this chunking doesn't work yet, taking first chunk only"
+	  eventstride = eventstride[0]
+
+	targs   = list(pycopy.copy(ipargs))
+	tkwargs = pycopy.copy(ipkwargs)
+	for o,io,k,i in ixppyip:
+	  if not k:
+	    if isinstance(o,memdata):
+	      odat,stpsz = ravelScanSteps(o.data)
+	      targs[i] = odat[io[step]][eventstride]
+	    else:
+	      
+	      #tmp = o._getStepsShots(io[step][0],io[step][1])[0]
+	      
+	      io,inclsteps = io
+	      tmp = np.concatenate(o._getStepsShots(io[(inclsteps==step).nonzero()[0]][0],io[(inclsteps==step).nonzero()[0]][1]),axis=0)
+	      if not isPerEvt and ('memdata' in ixppytype):
+	        trnspsorder = range(np.rank(tmp))
+                trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
+                tmp         = tmp.transpose(trnspsorder)
+              targs[i] = tmp
+	      #raise NotImplementedError('Use the source, luke!')
+
+	  else:
+	    tkwargs[kwkeys[i]]  = o[step][eventstride]
+	    if isinstance(o,memdata):
+	      odat,stpsz = ravelScanSteps(o.data)
+	      tkwargs[kwkeys[i]] = odat[io[step]][eventstride]
+	    else:
+              tmp = o._getStepsShots(io[step][0],io[step][1])[0]
+	      if not isPerEvt and ('memdata' in ixppytype):
+                trnspsorder = range(np.rank(tmp))
+                trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
+                tmp = tmp.transpose(trnspsorder)
+              tkwargs[kwkeys[i]] = tmp
+	for o,k,i in otherip:
+	  if not k:
+	    targs[i] = o[step]
+	  else:
+	    tkwargs[kwkeys[i]]  = o[step]
+	if isPerEvt:
+	  # TODO: in case func works only for single shot
+	  tret = []
+	  for nevt in range(len(eventstride)):
+            stargs = pycopy.copy(targs)
+            stkwargs = pycopy.copy(tkwargs)
+	    for o,io,k,i in ixppyip:
+	      if not k:
+                stargs[i] = targs[i][nevt]
+	      else:
+                stkwargs[kwkeys[i]] = tkwargs[kwkeys[i]][nevt]
+            stret = func(*stargs,**stkwargs)
+	    if type(stret) is not tuple: 
+              stret = (stret,)
+            tret.append(stret)
+	  tret = tuple(zip(*tret))
+
+
+
+	else:
+
+	  tret = func(*targs,**tkwargs)
+	  if not type(tret) is tuple:
+            tret = (tret,)
+	if not isPerEvt and ('memdata' in ixppytype):
+	  tret = list(tret)
+	  for ono,ttret in enumerate(tret):
+	    rnk = np.rank(ttret)
+	    if rnk>1:
+	      trnspsorder = range(rnk)
+	      trnspsorder = [trnspsorder[-1]]+trnspsorder[:-1]
+	      tret[ono]   = ttret.transpose(trnspsorder)
+	  tret = tuple(tret)
+	output_list.append(tret)
+    ############ interprete output automatically find memdata candidates ###########
+      
+      output_list = zip(*output_list)
+      output_ismemdata = [opNo  for opNo,ao in enumerate(output_list) \
+	  if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
+      for n,top in enumerate(output_list):
+	if n in output_ismemdata:
+	  output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
+	#elif top.count(top[0])==len(top):
+	  #output_list[n] = top[0]
+	#elif len(top)>1:
+        else:
+	  output_list[n] = list(top)
+      if len(output_list)>1:
+	output = tuple(output_list)
+      else:
+	output = output_list[0]
+      
+
+  # "Easy" case where everything fits in memory, no data instance in input.
+  elif np.asarray([isinstance(to[0],memdata) for to in allobjects]).any():
+    ixppyip = []
+    for o,iskey,argind in allobjects: #assuming here that data instances are out!
+      ir,io      = filterTimestamps(rtimes,o.time)
+      odat,stpsz = ravelScanSteps(o.data)
+      ixppyip.append(([odat[tio] for tio in io],iskey,argind))
+    # generate input structures
+    output_list = []
+    for step in range(len(rtimes)):
+      targs   = list(pycopy.copy(ipargs))
+      tkwargs = pycopy.copy(ipkwargs)
+      for o,k,i in ixppyip + otherip:
+	if not k:
+	  targs[i] = o[step]
+	else:
+	  tkwargs[kwkeys[i]]  = o[step]
+      if isPerEvt:
+	# TODO: in case func works only for single shot
+	pass
+      else:
+	tret = func(*targs,**tkwargs)
+      if type(tret) is not tuple: 
+	tret = (tret,)
+      output_list.append(tret)
+  ############ interprete output automatically find memdata candidates ###########
+    output_list = zip(*output_list)
+    # check for equal output and find candidates for data/memdata instances
+    output_ismemdata = [opNo  for opNo,ao in enumerate(output_list) \
+	if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
+    for n,top in enumerate(output_list):
+      if n in output_ismemdata:
+	output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
+      elif top.count(top[0])==len(top):
+	output_list[n] = top[0]
+      elif len(top)>1:
+	output_list[n] = list(top)
+    if len(output_list)>1:
+      output = tuple(output_list)
+    else:
+      output = output_list[0]
+  else:
+    #pass
+    output = func(*ipargs,**ipkwargs)
+  return output
+
+def wrapFunc(func,InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, stride=None):
+  """ rules: 
+  - if data output, no other output possible, as output is not calculated. 
+  - all event dependent arguments have to be passed as memdata or data instances
+  - first arg has timestamp sort priority, kwargs after args, kwargs are inter-
+    preted in "sort- order". This priority order also holds for scanvec data.
+  - When InputDependentOutput is true (default) the output expects:
+    a) one data instance if any data insctance in input
+    b) one memdata instance if memdata instance in input and no data instance
+    otherwise NmemdataOut and NdataOut need to be specified. All other output 
+    comes after ixppy instances if avaiable.
+  """
+
+  @wraps(func,assigned=('__name__', '__doc__'))
+  def wrapper(*args,**kwargs):
+    return applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=NdataOut,NmemdataOut=NmemdataOut, picky=picky, isPerEvt=isPerEvt, stride=None)
+  return wrapper
+    
+def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, stride=None, outputtypes=None):
+  """ important keywords:
+   time: list of timestamps which characterize the event
+   ixppyInput: a list of (ixppytype,coordination) tuples 
+               (ixppytype is memdata or data instance)
+   other args andkwargs are possible. 
+   
+   func takes
+   crossInput: list of elements to calculate stuff 
+
+  """
+  lens = [len(ttime) for ttime in time]
+  inds = []
+  for sNO,tlen in enumerate(lens):
+    inds.append(np.int32(np.arange(tlen)+np.sum(lens[:sNO])))
+
+  if stride is None:
+    stride = [range(len(lens)),'all']
+
+  output = []
+  stepstride = tools.iterfy(stride[0])
+  for step in stepstride:
+    # get the indices from this ixppy type instance and step
+    tstride = stride[1]
+    if tstride=='all':
+      tstride = range(lens[step])
+    nind = [inds[step][tind] for tind in tstride]
+    # Read necessary data
+    package = []
+    for tixpIp in ixppyInput:
+      #unpacking...
+      tdata = tixpIp[0]
+      coo = tixpIp[1]
+      # groups of inds per evt in this step
+      xind = [coo[tnind] for tnind in nind]
+      #translating this into steps and indices in tdata
+      uxind,repack = np.unique(np.hstack(xind),return_inverse=True)
+      tstride = getStepShotsFromIndsTime([uxind],tdata.time)[0]
+      tdataDat = np.concatenate(tdata._getStepsShots(tstride[0],tstride[1]),axis=0)
+      repack = unravelScanSteps(repack, [len(txind) for txind in xind])
+      package.append((tdataDat,repack))
+
+    #unpack single event steps and calculate
+    td = []
+    for iNo,tnind in enumerate(nind):
+      ipdat = []
+      for pack in package:
+	tdataDat,repack = pack
+	ipdat.append(tdataDat[tools.smartIdx(repack[iNo])])
+      
+      td.append(func(ipdat))
+
+    output.append((np.asarray(td),))
+  return output
+
+
+    
+
+
+
+
+
+
+      
+
+
+
+
+
+   
+
+
+  pass
+
+def get_common_timestamps(allobjects):
+  times = None
+  for o in allobjects:
+    if times==None:
+      times = o.time
+    else:
+      ia,io = filterTimestamps(times,o.time)
+      iar,stpsz = ravelScanSteps(ia)
+      times = np.hstack([tt for tt in times if len(tt)>0])[iar]
+      times = unravelScanSteps(times,stpsz)
+  return times
+
+############## HELPER #########################
 class Evaluate(object):
   def __init__(self,datainstance):
     self.data = datainstance
@@ -1269,7 +1686,15 @@ class Evaluate(object):
     """
 
     allchunks = self.data._memIterate(stepSlice,evtSlice)
-    timestamps = [np.concatenate([self.data.time[tstep][tchunk] for tchunk in tstepchunk]) for tstep,tstepchunk in allchunks]
+    timestamps = []
+    for tstep,tstepchunk in allchunks:
+      tts = [self.data.time[tstep][tchunk] for tchunk in tstepchunk if len(tchunk)>0]
+      if len(tts)>0:
+	timestamps.append(np.concatenate(tts))
+      else:
+	timestamps.append([])
+    #timestamps = [np.concatenate([self.data.time[tstep][tchunk] for tchunk in tstepchunk if len(tchunk)>0]) for tstep,tstepchunk in allchunks]
+
     ixp,path = self.data._getIxpHandle()
     if path in ixp.fileHandle and not force:
       deleteit = 'y' == raw_input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path)
@@ -1277,6 +1702,8 @@ class Evaluate(object):
 	del ixp.fileHandle[path]
       else:
 	return
+    elif path in ixp.fileHandle and force:
+      del ixp.fileHandle[path]
 
 
     
@@ -1293,9 +1720,18 @@ class Evaluate(object):
       totshape = tuple([totlen] + list(eventShape))
       startind = 0
       for chunk in step:
-        tdat = self.data[stepNo,np.ix_(chunk)][0]
-        ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
-	ds[startind:startind+len(chunk),...] = tdat
+	if len(chunk)==0:
+	  tdat = []
+	else:
+          tdat = self.data[stepNo,np.ix_(chunk)][0]
+	if totshape[0]==0:
+	  print stepNo,totshape
+          ixp.save([],grp,name='time/data/#%06d'%stepNo)
+	else:
+	  if len(tdat)>0:
+	    ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
+	    ds[startind:startind+len(chunk),...] = tdat
+	ixp.fileHandle.flush()
 
 	startind += len(chunk)
       pbar.update(stepNo+1)
@@ -1305,6 +1741,7 @@ class Evaluate(object):
     #self.data = Data(time=timestamps,ixpAddressData=grp['data'],name=self.data.name)
     self.data._ixpAddressData = grp['data'] 
     self.data._rdStride = self.data._rdFromIxp
+    self.data._procObj = None
     self.data._time = timestamps
     lens = [len(td) for td in self.data._time]
     self.data._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
@@ -1369,14 +1806,38 @@ class scanVar(object):
 
   def __getitem__(self,x):
     return tools.getFromObj(self,self.name)[x]
-  
 
+def address(fileNum,stepNum,what):
+  return "_file%d.step%d.%s" % (fileNum,stepNum,what)
 
-  
+def initmemdataraw(data):
+  if data==None:
+    return None,None
+  if type(data) is dict:
+    dk = data.keys()
+    if not (('data' in dk) and ('time' in dk)):
+      print "Raw memdata should be dict with keys data and time of same length"
+      return
+    dat = data['data']
+    tim = data['time']
+  elif type(data) is list:
+    dat = data[0]
+    tim = data[1]
+  if tim==None:
+
+    print "NB: memdata instance without timestamps!"
+  elif not len(dat)==len(tim):
+    print "data and time in raw memdata should have same length"
+    return
+  return dat,tim
 
 def ravelScanSteps(ip):
   stepsizes = [len(tip) for tip in ip]
-  op = np.hstack(ip)
+  rip = [tip for tip in ip if len(tip)>0]
+  if len(rip)==0:
+    op = []
+  else:
+    op = np.hstack(rip)
   return op,stepsizes
 
 def ravelIndexScanSteps(ip,stepsizes,stepNo=None):
@@ -1421,7 +1882,6 @@ def unravelIndexScanSteps(ip,stepsizes,replacements=None):
     startind += stepsize
   return op
 
-####
 def getStepShotsFromIndsTime(inds,times,stride=None,getIncludedSteps=False):
   """ Takes inds (indices of the ravelled output sorted in lists of steps) as well as the time array of a detector to sort into inds. returns list for each nonempty inds step sontaining array of involved steps and shots in those steps.
   """
@@ -1454,8 +1914,36 @@ def getStepShotsFromIndsTime(inds,times,stride=None,getIncludedSteps=False):
     
   return stepShots
 
+def matchEvents(*args):
+  filt = args[0].ones()
+  for tobj in args[1:]:
+    filt *=tobj.ones()
+  ret = [filt*tobj for tobj in args]
+  return tuple(ret)
 
-####
+def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
+  """finds N closes events in ts0 to ts1. Returns those events (after 
+  ravelling) plus the unravel information (lengths per step in ts0 events).
+  """
+  ts0r,ss0 = ravelScanSteps(ts0)
+  ts1r,ss1 = ravelScanSteps(ts1)
+  ts0r = getTime(ts0r,asTime=True)
+  ts1r = getTime(ts1r,asTime=True)
+  indout = [np.sort(np.abs(ts0r-tts1r).argsort()[:N]) for tts1r in ts1r]
+  return indout,ss0
+
+def getTime(tsi,resolution = 1e-9,asTime=False):
+  """Takes structured second/nanosecond array and returns integer-clipped ms array.
+  """
+  if tsi.dtype.names:
+    nam = tsi.dtype.names
+    if (not asTime) and (('fiducials' in nam) and ('seconds' in nam)):
+      tso = tsi
+    elif ('nanoseconds' in nam) and ('seconds' in nam):
+      tso = np.int64(tsi['seconds'])*int(1/resolution) + tsi['nanoseconds']/int(1e-9/resolution)
+  else:
+    tso = tsi
+  return tso
 
 def filterTimestamps(ts0,ts1,asTime=True):
   """returns 2 list of indices arrays: 
@@ -1477,54 +1965,6 @@ def filterTimestamps(ts0,ts1,asTime=True):
   ss1a = [len(top0) for top0 in op0]
   op1 = unravelScanSteps(sel1ri,ss1a)
   return op0,op1
-
-#def filterTimestamps_new(ts0,ts1):
-  #"""returns 2 list of indices arrays: 
-    #1) ts0 subset that is in ts1 
-    #2) bring ts1 in the order of ts0"""
-  ##raise NotImplementedError('Use the source, luke!')
-  #ts0r,ss0 = ravelScanSteps(ts0)
-  #ts1r,ss1 = ravelScanSteps(ts1)
-  #ts0r = getTime(ts0r)
-  #ts1r = getTime(ts1r)
-  #ts0ru,ts0uind = np.unique(ts0r,return_inverse=True)
-  #ts1ru,ts1uind = np.unique(ts1r,return_inverse=True)
-#
-#
-  #sel0rb = np.in1d(ts0ru,ts1ru)
-  #sel1rb = np.in1d(ts1ru,ts0ru)
-  #sel1ri = sel1rb.nonzero()[0][ts1ru[sel1rb].argsort()[ts0ru[sel0rb].argsort().argsort()]]
-  #sel0rb = ts0uind[sel0rb]
-  #sel1ri = ts1uind[sel1ri]
-  #op0 = unravelIndexScanSteps(sel0rb.nonzero()[0],ss0)
-  #ss1a = [len(top0) for top0 in op0]
-  #op1 = unravelScanSteps(sel1ri,ss1a)
-  #return op0,op1
-
-def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
-  """finds N closes events in ts0 to ts1. Returns those events (after 
-  ravelling) plus the unravel information (lengths per step in ts0 events).
-  """
-  ts0r,ss0 = ravelScanSteps(ts0)
-  ts1r,ss1 = ravelScanSteps(ts1)
-  ts0r = getTime(ts0r,asTime=True)
-  ts1r = getTime(ts1r,asTime=True)
-  indout = [np.abs(ts0r-tts1r).argsort()[:N] for tts1r in ts1r]
-  return indout,ss0
-
-
-def getTime(tsi,resolution = 1e-9,asTime=False):
-  """Takes structured second/nanosecond array and returns integer-clipped ms array.
-  """
-  if tsi.dtype.names:
-    nam = tsi.dtype.names
-    if (not asTime) and (('fiducials' in nam) and ('seconds' in nam)):
-      tso = tsi
-    elif ('nanoseconds' in nam) and ('seconds' in nam):
-      tso = np.int64(tsi['seconds'])*int(1/resolution) + tsi['nanoseconds']/int(1e-9/resolution)
-  else:
-    tso = tsi
-  return tso
 
 def sortTimestampFiducials(a,b,P=300,maxoff=10,remove_duplicates=False,remove_all_doubles=False):
   """ sorting based on timestamps AND fiducials
@@ -1583,7 +2023,6 @@ def sortTimestampFiducials(a,b,P=300,maxoff=10,remove_duplicates=False,remove_al
     Selbri.append(selbri)
   return np.hstack(Sela),np.hstack(Selbri)
 
-
 def removeDuplicates(a,remove_all_doubles=True):
   asrti = a.argsort()
   asrt  = a[asrti]
@@ -1592,302 +2031,154 @@ def removeDuplicates(a,remove_all_doubles=True):
     cleansorted = np.concatenate((cleansorted, [True]))
     cleansorted = np.logical_and(cleansorted[:-1],cleansorted[1:])
   return cleansorted[asrti.argsort()]
-  ## check if timestamps are already read.
-  #for det in self.detectors:
-    #if not hasattr(self.__dict__[det],'time'):
-      #print "reading timestamps of %s" %det
-      #self.rdTimestamps()
-      #break
-    
-  #for det in self.detectors:
-    #self.__dict__[det]._add_saved_datafield('_filt_time',[])
-  #for sNo in range(self.noofsteps):
-    #for det in self.detectors:
-      #try:
-	#tfilt = np.ones(np.shape(self.__dict__[det].time[sNo]),dtype=bool)
-	#ttime = self._timeInMs(self.__dict__[det].time[sNo])
-	#for cdet in np.setdiff1d(self.detectors,[det]):
-	  #ctime = self._timeInMs(self.__dict__[cdet].time[sNo])
-	  #cfilt = np.in1d(ttime,ctime)
-	  ##if sum(np.logical_not(cfilt))>0:
-	    ##de=bug
-	  #tfilt = np.logical_and(tfilt,cfilt)
-	#tfilt = np.logical_not(tfilt)
-	#self.__dict__[det]._filt_time.append(tfilt)
-      #except:
-	#print "Problem in time stamp filtering with %s at step %d." %(det,sNo)
-  #self._initfilter()
 
-
-class singledet(object):
-  def __init__(self,config,det):
-    det = det.split('_bak')[0]
-    self._detector = det
-    for detkind in ['pointDet','areaDet']:
-      if det in config.cnfFile[detkind]:
-        self._detClass = detkind
-        break
-    dets = []
-    for i in config.cnfFile[self._detClass].keys():
-      if det==i.split('_bak')[0]: dets.append(i)
-
-    self._dataset_data = [] 
-    self._dataset_time = []
-    self._dataset_conf = []
-    
-    self._masked_arrays = dict()
-    self._masked_arrays['data'] = []
-
-
-    #self._savelist = ['_savelist','_detector','_detClass','_masked_arrays']
-    self._savelist = ['_savelist','_detector','_detClass']
-
-    for det in dets:
-      self._dataset_data.append(config.cnfFile[self._detClass][det]['dataset_data'])
-      self._dataset_time.append(config.cnfFile[self._detClass][det]['dataset_time'])
-      self._dataset_conf.append(config.cnfFile[self._detClass][det]['dataset_conf'])
-    self.config = config
-    if 'special' in self._dataset_data:
-      self._specialdet = ixppy_specialdet.__dict__[det.split('_bak')[0]](config)
-    else:
-      self._specialdet = []
-
-    #if self._detClass = 'areaDet':
-
-
-  #def _get_h5_dsets(self):
-    #for tdset in self._dataset_data:
-      #dsetstring = self._mkScanStepDataSetString(tdetdset,0)
-      #self.data = self.config.fileHandle[self._dataset
-        #dset = self.config.fileHandle[dsetstring]
-        #data = rdHdf5dataFromDataSet(dset,shotNos)
-        #return data
-
-
-
-
-  def _add_saved_datafield(self,name,data):
-    if not "_savelist" in self.__dict__:
-      self._savelist = ['_savelist']
-    self._savelist.append(name)
-    self._savelist = list(set(self._savelist))
-    self.__dict__[name] = data
-
-  def append_h5_datalist(self,name,data):
-    """Adds data to a datafield (in the detector object)
-    that is a list of hdf5 dataset pointers. Each time this 
-    function is used a dataset with the defined data is 
-    added to the cache file. This should acilitate saving larger 
-    datasets with the data without overflowing memory."""
-    if not "_h5list" in self.__dict__:
-      self._h5list = []
-    if not "_savelist" in self.__dict__:
-      self._savelist = ['_savelist']
-    if not "_h5list" in self._savelist:
-      self._savelist.append('_h5list')
-    if not name in self._h5list:
-      self._h5list.append(name)
-    self._h5list = list(set(self._h5list))
-    if not hasattr(self,name):
-      self.__dict__[name] = []
-    oldlen = len(self.__dict__[name])
-    dsname = '#'+'%06d' %(oldlen)
-    
-    # get filehandle
-    if not self.config.cache_filename:
-      tfina = os.path.split(self.config.filename[0])[-1]
-      tfina = os.path.join(self.config.outputDirectory,tfina) 
-      self.config.cache_filename = tfina
-    fh = self.config.cache.cacheFileHandle
-
-    if self._detector not in fh.keys():
-      fh.require_group(self._detector)
-    if name not in fh[self._detector].keys():
-      gh = fh[self._detector].require_group(name)
-    self.__dict__[name].append(
-      fh[self._detector][name].create_dataset(dsname,data=data))
-
-    
+def getScanVec(instance):
+  leninst = len(instance)
+  scan = instance.scan
+  names = np.asarray(scan._get_keys())
+  lens = np.asarray([len(scan[tname]) for tname in names])
+  isbincenter = np.asarray([tname.split('_')[-1]=='bincenter' for tname in names])
+  if sum(lens==leninst)<1:
+    print "Attention: no suitable scan vector found for %s !" %instance._name
+    #raise Exception
+    return None
+  elif sum(isbincenter)==1:
+    sel_name = names[isbincenter][0]
+    return sel_name, scan[sel_name]
+  elif sum(isbincenter)>1:
+    sel_name = names[isbincenter[0]][0]
+    print "Attention: More than one bincenter array found for %s, will use %s." \
+	%(instance._name,sel_name)
+    return sel_name, scan[sel_name]
+  else:
+    sel_name = names[lens==leninst][0]
+    return sel_name, scan[sel_name]
   
-  def rdAllData(self,force=False):
-    if hasattr(self,'data') and not force:
-      print "%s data exists. Force overwrite with \'force\' option in det.rdAllData." %(self._detector)
-      data = self.data
-    else:
-      if not self._specialdet:
-        data  = self.config.base._rdDetAllData(self._detector)
-      else:
-        data  = self._specialdet.rdAllData()
-    return data
+def digitizeN(*args,**kwargs):
+  """multi-dimensional digitization, used memdata or timestamps to sort data"""
+  target = kwargs.get('target', None)
+  if isinstance(target,memdata):
+    dat,stsz = ravelScanSteps(target.data)
+    tim,stszt = ravelScanSteps(target.time)
+  elif target==None:
+    atarg = args[0].ones()
+    for targ in args[1:]:
+      atarg = atarg*targ.ones()
+    dat,stsz = ravelScanSteps(atarg.data)
+    tim,stsz = ravelScanSteps(atarg.time)
+  else: #assuming now it is timestamps
+    tim,stsz = ravelScanSteps(target)
+    dat = np.ones(np.shape(tim))
+  indmat = np.nan*np.ones((len(tim),len(args)))
+  vecs = []
+  names = []
 
+  for narg,targ in enumerate(args):
+    tname,tvec = getScanVec(targ)
+    vecs.append(tvec)
+    names.append(tname)
+    isused,sortThis = filterTimestamps(targ.time,[tim],asTime=True)
+    for nstep,sortThisStep in enumerate(sortThis):
+      indmat[sortThisStep,narg] = nstep
+  gd = ~np.isnan(indmat).any(axis=1)
+  indmat = indmat[gd,:]
+  #print np.shape(indmat)
+  #from matplotlib import pyplot as plt
+  #plt.clf()
 
-  def rdStepData(self,stepNo=0,shotNos='all'):
-    if not self._specialdet:
-      data  = self.config.base._rdDetStepData(self._detector,stepNo,shotNos)
-    else:
-      data  = self._specialdet.rdStepData(stepNo,shotNos)
-    return data
+  totshape = tuple([len(tvec) for tvec in vecs])
+  indmat = np.asarray(indmat.T,dtype=int)
+  grouping = np.ravel_multi_index(indmat,totshape)
+  groupingall = np.ones(len(tim),dtype=int)
+  groupingall[gd] = grouping
 
-  def _ispointdet(self):
-    if self._detClass is 'pointDet':
-      ispoint = True
-    else:
-      ispoint = False
-    return ispoint
-
-  def _isareadet(self):
-    if self._detClass is 'areaDet':
-      isarea = True
-    else:
-      isarea = False
-    return isarea
+  timout = [ tim[groupingall==i] for i in range(np.prod(totshape))]
   
-  def _compress(self,*args):
-    #print kwargs
-    #print args
-    #data = kwargs['data']
-    #de=bug
-    if len(args) is 1:
-      data = args[0]
-    elif len(args) is 2:
-      data = args[1].data
-    dout = [dat.compressed() for dat in data]
-    return dout
-  
-  def _compress_name(self,*args):
-    #print kwargs
-    #print args
-    #data = kwargs['data']
-    #de=bug
-    if len(args) is 1:
-      data = self.__dict__['_'+args[0]]
-    elif len(args) is 2:
-      data = args[1].__dict__['_'+args[0]]
-    dout = [dat.compressed() for dat in data]
-    dout = ixppyList(dout)
-    return dout
+  datout = [ dat[groupingall==i] for i in range(np.prod(totshape))]
+  scan = tools.dropObject(name='scan')
 
-  def _unwrap_data(self):
-    """get structured array components from detector data and mke them masked arrays for easier use"""
-    data = self.data 
-    if data[0].dtype.names:
-      for fieldname in data[0].dtype.names:
-        if data[0][fieldname].ndim==1:
-          self._masked_arrays['data'].append('_'+fieldname)
-          self.__dict__['_'+fieldname] = ixppyList() 
-          for i in range(len(data)):
-            self.__dict__['_'+fieldname].append(np.ma.MaskedArray(data[i][fieldname].copy()))
-          self.__dict__['__'+fieldname] = partial(self._compress_name,fieldname)
-          setattr(self.__class__,fieldname,property(self.__dict__['__'+fieldname]))
-        elif data[0][fieldname].ndim==2:
-          noofvecs = np.shape(data[0][fieldname])[1]
-          for n in range(noofvecs):
-            strfmt = '%0'+'%dd' %(1+np.floor(np.log10(noofvecs)))
-            tname = fieldname+strfmt %(n)
-            self._masked_arrays['data'].append('_'+tname)
-            self.__dict__['_'+tname] = ixppyList()
+  meshes = tools.ndmesh(*tuple(vecs))
+  for tname,tmesh in zip(names,meshes):
+    scan[tname] = tmesh.ravel()
 
-            for i in range(len(data)):
-              self.__dict__['_'+tname].append(np.ma.MaskedArray(data[i][fieldname][:,n].view()))
-            self.__dict__['__'+tname] = partial(self._compress_name,tname)
-            setattr(self.__class__,tname,property(self.__dict__['__'+tname]))
-
-          
-        else:
-          print "No clue how to unwrap data %d in %s" %(name,det)
-
-  ########### CHUNK STUFF ###################
-  def chunks(self,pointdets=None,Nmax=None,NstepMax=None,steps=None):
-    if not pointdets:
-      pointdets = dict()
-      for det in self.config.pointDetectors:
-        #data = self.config.base.__dict__[det].data 
-
-        #if data[0].dtype.names:
-          #for name in data[0].dtype.names:
-            #tdset = [d for d in self.config.base.__dict__[det].__dict__[name]]
-            #pointdets[det + '_' + name] = tdset
-        if self.config.base.__dict__[det]._masked_arrays['data']:
-          for pdname in self.config.base.__dict__[det]._masked_arrays['data']:
-            tdset = self.config.base.__dict__[det].__dict__['_'+pdname]()
-            pointdets[det + pdname] = tdset
+  grid = Grid(zip(names,vecs))
 
 
-
-    self.config.base._rdScanPar()
-    filter = self.filter
-    indices = []
-    for filt in filter:
-      indices.append(np.nonzero(~filt)[0])
-    
-    timestamps = [ts[fli] for ts,fli in zip(self.time,indices)]
-    pointdets['time'] = timestamps
-
-    allchunks = []
-    if not NstepMax:
-      NstepMax = self.config.base.noofsteps
-    if not steps:
-      steps = range(min(NstepMax,self.config.base.noofsteps))
-    for sNO in steps:
-      # get dataset
-      for tdetdset in self._dataset_data:
-        try:
-          dsetstring = self.config.base._mkScanStepDataSetString(tdetdset,sNO)
-          h5dset = self.config.fileHandle[dsetstring]
-          break
-        except:
-          continue
-      if pointdets: 
-        tpointdets = dict()
-        for tpd in pointdets.keys():
-          tpointdets[tpd] = pointdets[tpd][sNO]
-      else:
-        tpointdets = None
-      memavailable = mem().free/8
-      allchunks.append(self._chunks(h5dset,indices[sNO],memavailable,Nmax,tpointdets))
-
-    return allchunks
+  return memdata(name='%d-dimensional histogram'%(len(totshape)),input=[datout,timout],scan=scan,grid=grid)
       
-  def _chunks(self,dataset,indices,memavailable,maxno,pointdets):
-    if not maxno: maxno=np.nan
-    elementBytes = dataset.dtype.itemsize
-    Nel = min(len(indices),maxno)
-    mxsz = np.floor(memavailable/elementBytes)
-    Nchunks = int(np.ceil(Nel/mxsz))
-    sz = int(np.ceil(1.*Nel/Nchunks))
-    chunkind = []
-    for n in range(Nchunks):
-      chunkind.append(np.arange(n*sz,min((n+1)*sz,Nel)))
+class Grid(object):
+  def __init__(self,definition):
+    self._definition = definition
+    self._ixpsaved = ['_definition']
 
-    chunks = []
-    for cN in range(Nchunks):
-      chunks.append(chunk(dataset,indices,chunkind[cN],pointdets))
-    return chunks
+  def _get_vec(self,sel=None):
+    if sel==None:
+      return tuple([tdef[1] for tdef in self._definition])
+    elif type(sel)==int:
+      return self._definition[sel][1]
+    elif type(sel)==str:
+      ind = (sel==np.asaray(self.names)).nonzero()
+      return self._definition[ind][1]
 
-############ CHUNK #############
-class chunk(object):
-  def __init__(self,dataset,filtindices,chunkind,pointdets=dict()):
-    self.dataset = dataset
-    self.filtindices = filtindices
-    self.chunkind = chunkind
-    if pointdets:
-      for pointdet in pointdets.keys():
-        self.__dict__[pointdet] = pointdets[pointdet][chunkind]
+  def _get_name(self,sel=None):
+    if sel==None:
+      return tuple([tdef[0] for tdef in self._definition])
+    elif type(sel)==int:
+      return self._definition[sel][0]
+  names = property(_get_name)
 
-  def get_data(self):
-    shotNos = self.filtindices[pl.ix_(self.chunkind)]
-    data = rdHdf5dataFromDataSet(self.dataset,shotNos)
-    return data
-  data = property(get_data)
+  def _get_shape(self):
+    vecs = self._get_vec()
+    return tuple([len(tv) for tv in vecs])
+  shape = property(_get_shape)    
+ 
+  def gridshape(self,vec): 
+    if not len(vec)==np.prod(self.shape):
+      raise Exception('length of vec does not match grid size!')
+    else:
+      vec = np.asarray(vec)
+      return np.reshape(vec,self.shape)
 
-  #def get_time(self):
-    #shotNos = self.filtindices[pl.ix_(self.chunkind)]
-    #data = rdHdf5dataFromDataSet(self.dataset,shotNos)
-    #return data
-  #time = property(get_time)
 
-############ CACHE #############
+  def format(self,vec,dims=None,method=np.mean):
+    isSelection = np.iterable(vec[0])
+    vec = self.gridshape(vec)
+    if not dims==None:
+      adims = list(self.shape)
+      for rdim in dims:
+	adims.remove(rdim)
+      trsp  = dims+tuple(adims)
+      vec = vec.transpose(trsp)
+    return self[:]+(vec,)
+ 
+      #if len(adims)>0:
+	#stridestr = '[...'+len(adims)*',:'+']'
+	#if isSelection:
+	  #exec('vec'+stridestr+' = np.concatenate(vec'+stridestr+'.ravel(),axis=0)')
+	#else:
+	  #vec[len(dims)-1] = np.concatenate(vec[len(dims)-1])
 
+
+
+
+
+
+
+
+
+
+  def __len__(self):
+    return len(self._definition)
+
+  def __getitem__(self,x):
+    if type(x)==slice:
+      inds = range(*x.indices(len(self)))
+      return tuple([self._get_vec(sel=ind) for ind in inds])
+    else:
+      return self._get_vec(sel=x)
+
+############ IXP cache file functions #############
+_ixpOpenHandles = []
 class Ixp(object):
   def __init__(self,filename):
     self.fileName = filename
@@ -1896,11 +2187,24 @@ class Ixp(object):
     self._fileHandle = None
     self._forceOverwrite = False
 
-  def get_cacheFileHandle(self):
+  def get_cacheFileHandle(self,reopen=False,mode='a'):
     if self._fileHandle is None:
-      cfh = h5py.File(self.fileName)
+      if reopen:
+	openNames = [th.filename for th in _ixpOpenHandles]
+	if self.fileName in openNames:
+	  exHandle = _ixpOpenHandles[openNames.index(self.fileName)]
+	  exHandle.close()
+	  _ixpOpenHandles.remove(exHandle)
+      cfh = h5py.File(self.fileName,mode)
       self._fileHandle = cfh
+      _ixpOpenHandles.append(cfh)
     else:
+      cfh = self._fileHandle
+      if reopen:
+	if cfh in _ixpOpenHandles:
+	  sfh.close()
+	  _ixpOpenHandles.remove(exHandle)
+          self._fileHandle = h5py.File(self.fileName,mode)
       cfh = self._fileHandle
     return cfh
 
@@ -1954,6 +2258,8 @@ class Ixp(object):
       return
     if force is None:
       force = self._forceOverwrite
+    else:
+      self._forceOverwrite = force
     pH = parenth5handle
     isgr = hasattr(obj,'_ixpsaved')
     if name is None:
@@ -2089,7 +2395,8 @@ class Ixp(object):
 	  else:
 	    grid = None
 	  return memdata(input = [data,time], name=name, scan=scan, grid=grid)
-	except:
+	except Exception,e:
+	  print e
 	  print "reading error with memdata instance %s" %name
 	  return name+"_empty_corrupt"
       if tdtype == 'data':
@@ -2173,10 +2480,24 @@ class Ixp(object):
     else:
       dsd = datagroup.create_dataset('data/#%06d'%step,data=dat,maxshape=(None,)+shp[1:])
       dst = datagroup.create_dataset('time/#%06d'%step,data=tim,maxshape=(None,))
-    
 
+class mem(object):
+  def __init__(self):
+    self.f=open("/proc/meminfo","r")
+    tot = self.f.readline()
+    self.tot = self.stringToBits(tot)
+    self.updatefree()
 
+  def updatefree(self):
+    self.f.seek(0); # rewind
+    tmp = self.f.readline()
+    memfree = self.f.readline()
+    return self.stringToBits(memfree)
 
+  def stringToBits(self,s):
+    return 1024*8*int(s.split()[1])
+
+  free = property(updatefree)
 
 ############ CONFIG FILE #############
 def _rdConfigurationRaw(fina="ixppy_config"):
@@ -2208,7 +2529,6 @@ def _rdConfigurationRaw(fina="ixppy_config"):
       foundlabel = True
       tdat = []
   return filecontent
-
 
 def rdConfiguration(fina="ixppy_config",beamline=None):
   dat = _rdConfigurationRaw(fina)
@@ -2341,7 +2661,136 @@ def getExperimentList(printit=True,sortDates=True):
       print "%s    %s    %s"  %(l['startdate'][n],l['no'][n],l['pi'][n])
   return l
 
+############## UNDER CONSTRUCTION ###############
 
+class interp(object):
+  ''' Under construction, not working'''
+  def __init__(self,memdinst):
+    self.md = memdinst
+    self._apply_method = None
+  def closest(self):
+    self._apply_method = 'closest'
+  def linear(self):
+    self._apply_method = 'linear'
+  def closestBefore(self):
+    self._apply_method = 'closestBefore'
+  def spline(self):
+    self._apply_method = 'spline'
+  def linearAll(self):
+    self._apply_method = 'linearAll'
+
+  def _linear(self,timeOther):
+    self._apply_method = None
+  def _linearAll(self,timeOther):
+    self._apply_method = None
+  def _closest(self,timeOther):
+    self._apply_method = None
+  def _closestBefore(self,timeOther):
+    self._apply_method = None
+#def dataInterpolate(source,steplengths,sourceInd,stride):
+  #for 
+  
+
+############## ixppy 1.0 remains ###############
+
+###### EASY filtering tools ##########
+
+class filtDsetObj(object):
+  def __init__(self,dset):
+    self._dset = dset
+
+  def __getattr__(self,inp):
+    self.__dir__()
+    return self.__getattribute(inp)
+  
+  def __dir__(self):
+    for det in self._dset.detectors:
+      td = self._dset.__dict__[det]
+      if hasattr(td,'_masked_arrays'):
+	if 'data' in td._masked_arrays.keys():
+	  if not td._masked_arrays['data'] == []:
+            self.__dict__[det] = filtDetObj(self._dset,det)
+    return self.__dict__.keys()
+
+class filtDetObj(object):
+  def __init__(self,dset,det):
+    self._dset = dset
+    self._det = det
+    self._channels = self._dset.__dict__[det]._masked_arrays['data']
+  
+  def __getattr__(self,inp):
+    self.__dir__()
+    return self.__getattribute(inp)
+
+  def __dir__(self):
+    for channel in self._channels:
+      channel = channel.strip('_')
+      self.__dict__[channel] = filtChannelObj(self._dset,self._det,channel)
+    return self.__dict__.keys()
+
+class filtChannelObj(object):
+  def __init__(self,dset,det,channel):
+    self._dset = dset
+    self._det = det
+    self._channel = channel
+    def channelfun():
+      self._dset._initfilter()
+      return partial(parameterFilt, self._dset.__dict__[self._det].__dict__['__'+self._channel](),dataset=self._dset)()
+
+
+    self.__dict__['filt'] = channelfun
+    self.__dict__['corr'] = filtchannelcorrobj(self._dset,self._det,self._channel)
+
+class filtchannelcorrobj(object):
+  def __init__(self,dset,det,channel):
+    self._dset = dset
+    self._det = det
+    self._channel = channel
+  def __getattr__(self,inp):
+    self.__dir__()
+    return self.__getattribute(inp)
+
+  def __dir__(self):
+    self.initalldetchannels()
+    return self.__dict__.keys()
+  def initalldetchannels(self):
+    for det in self._dset.detectors:
+      td = self._dset.__dict__[det]
+      if hasattr(td,'_masked_arrays'):
+	if 'data' in td._masked_arrays.keys():
+	  if not td._masked_arrays['data'] == []:
+	    self.__dict__[det] = channelcorrobj(self._dset,self._det,self._channel,det)
+class channelcorrobj(object):
+  def __init__(self,dset,det,channel,corrdet):
+    self._dset = dset
+    self._det = det
+    self._channel = channel
+    self._corrdet = corrdet
+  def __getattr__(self,inp):
+    self.__dir__()
+    return self.__getattribute(inp)
+  def __dir__(self):
+    self._init()
+    return self.__dict__.keys()
+
+    
+
+  def _init(self):
+    corrdet = self._dset.__dict__[self._corrdet]
+    corrchannels = corrdet._masked_arrays['data']
+    for cchannel in corrchannels:
+      cchannel = cchannel.strip('_')
+      def channelfun():
+	self._dset._initfilter()
+	return partial(parameterCorrFilt,
+					  self._dset.__dict__[self._det].__dict__['__'+self._channel](),
+					  self._dset.__dict__[self._corrdet].__dict__['__'+cchannel](),
+					  dataset=self._dset
+					  )()
+
+      self.__dict__[cchannel] = channelfun    
+
+################## data manipulation #################3
 def getProfileLimitsNew(Areadet,step=0,shots=range(10),direction=False,lims=None, dname='profile'):
   if lims==None:
     getLims = True
@@ -2431,523 +2880,6 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, d
     if not direction=='both':
       det[dname] = profile
 
-#class Profile(object):
-  #def __init__(self,type='horizontal',limits=[]):
-    #self.type = 'horizontal'
-  
-  #def extractProfilesFromData(data,profileLimits):
-    #cameraoffset = 32.
-    #if profileLimits["projection"]=="vertical range":
-      #profiles = np.mean(data[:,profileLimits['limits'][0]:profileLimits['limits'][1],:],axis=1)-float(cameraoffset)
-    #return profiles
-
-############ TIMING TOOL #############
-
-def TTextractFromRun(run,opalNo=0,referenceCode=162,refthreshold=True,laseroffCode=67,lmonthreshold=True,outputfile=None,filter='standard'):
-  d = dataset(run)
-  d.config.cache_filename = outputfile
-  try:
-    d.config.cache.delete()
-  except:
-    print "no cache file found"
-  refdat  = getattr(d.eventCode,'code'+str(referenceCode))
-  ldat = getattr(d.eventCode,'code'+str(laseroffCode))     
-  TTextract(d.__dict__['opal'+str(opalNo)],
-            refmon=refdat,lmon=ldat,       
-            refthreshold=refthreshold,
-            lmonthreshold=lmonthreshold,filter=filter)
-  d.save()
-
-def TTstandardfilter():
-  path = os.path.abspath(__file__)
-  pathname = os.path.dirname(path)
-  weights = np.loadtxt(pathname+'/TTfilt_standard.dat')
-  filt = dict()
-  filt['weights']=weights
-  return filt
-
-def TTextract(det,refmon=None,refthreshold=True,lmon=None,lmonthreshold=True,filter='standard',saveoffs=False):
-  ixppy.getProfileLimits(det)
-  profiles = ixppy.TTextractProfiles(det,refmon=refmon,refthreshold=refthreshold,lmon=lmon,lmonthreshold=lmonthreshold,Nmax=30,calibcycles=0,append_to_det=False,saveoffs=saveoffs)
-  if filter=='create':
-    filter = ixppy.TTteachFilter(profiles[0])
-  elif filter=='standard':
-    filter = TTstandardfilter()
-  det._add_saved_datafield('TTfiltsettings',filter)
-
-  ixppy.TTextractProfiles(det,refmon=refmon,refthreshold=refthreshold,lmon=lmon,lmonthreshold=lmonthreshold,saveoffs=saveoffs)
-  ixppy.TTextractFilterPositions(det)
-
-def TTteachFilter(profiles,):
-  from scipy.linalg import toeplitz
-  nfh = tools.nfigure('Digital filter design: Select signal')
-  pl.clf()
-  p = profiles[2,:]
-  pl.plot(p)
-  siglim = np.round(tools.getSpanCoordinates('horizontal'))
-  #print 'Select step position of step'
-  #stepoffs = pl.ginput(1)[0][0]-np.mean(siglim)
-  #pl.axvline(stepoffs+np.mean(siglim),color='r')
-  ys = p[siglim[0]:siglim[1]]
-  ysacl = np.correlate(ys,ys,'same')
-  sacl = ysacl
-
-  nfh = tools.nfigure('Digital filter design: Select noise region')
-  pl.clf()
-  pl.plot(profiles.transpose())
-  print "select lower limit of noise area (NB: has same width as signal range!)"
-  noiselim = pl.ginput(1)
-  noiselim = round(noiselim[0][0])+np.asarray([0,np.diff(np.asarray(siglim))[0]])
-  pl.axvspan(noiselim[0],noiselim[1],facecolor='r',alpha=0.5)
-  pl.axvline(noiselim[0],color='r')
-  pl.axvline(noiselim[1],color='r')
-  print noiselim
-  nacl = []
-  for p in profiles:
-    yn = p[noiselim[0]:noiselim[1]]
-    ynacl = np.correlate(yn,yn,'same')
-    nacl.append(ynacl)
-  nacl = np.mean(np.vstack(nacl),axis=0)
-
-  Ynacl = toeplitz(nacl,r=np.zeros(len(nacl)))
-  R  = np.matrix(Ynacl).I
-  Rs = np.matrix(sacl)
-
-  weights = R*Rs.transpose()
-  weights = np.asarray(weights).ravel()
-  weights = weights-np.median(weights)
-
-
-  filtsettings = dict(weights=np.asarray(weights),
-                      #stepoffs=stepoffs,
-                      noise_limits=noiselim)
-  return filtsettings
-
-def TTapplyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings=None,saveplots=False):
-  weights = np.asarray(filtsettings['weights']).ravel()
-  #stepoffs = filtsettings['stepoffs'] 
-  lf = len(weights)
-  halfrange = round(lf/10)
-  pos = []
-  amp = []
-  fwhm = []
-  runningno = 0
-  if polysettings:
-    poly_pos = []
-    poly_cen = []
-  for d in data:
-    #print runningno
-    #runningno+=1
-    try:
-      if max(abs(d))>5:
-        raise Exception("Strange array!")
-      f0 = np.convolve(np.asarray(weights).ravel(),d,'same')
-      f = f0[lf/2:len(f0)-lf/2-1]
-      mpr = f.argmax()
-    #if True:
-      xd = np.arange(max(0,mpr-halfrange),min(mpr+halfrange,len(f)-1))
-      yd = f[max(0,mpr-halfrange):min(mpr+halfrange,len(f)-1)]
-      p2 = np.polyfit(xd,yd,2)
-      
-      tpos = -p2[1]/2./p2[0]
-      tamp = np.polyval(p2,tpos)
-      try:
-        beloh = (f<tamp/2).nonzero()[0]-mpr
-        tfwhm = abs(beloh[beloh<0][-1]-beloh[beloh>0][0])
-      except:
-        print "FWHM not applied"
-        tfwhm = np.nan
-
-      #tools.nfigure('test')
-      #pl.subplot(211)
-      #pl.plot(d)
-      #pl.hold(True)
-      #pl.axvline(tpos)
-      ##pl.axvline(tpos+lf/2+stepoffs,color='r')
-      #pl.axvline(tpos+lf/2,color='r')
-      #pl.axvline(tpos+lf/2)
-      #pl.axvline(tpos+lf)
-      #pl.hold(False)
-      #pl.subplot(212)
-      #pl.plot(f0)
-      #pl.hold(True)
-      #pl.axvline(tpos)
-      ##pl.axvline(tpos+lf/2+stepoffs,color='r')
-      #pl.axvline(tpos+lf/2,color='r')
-      #pl.axvline(tpos+lf/2)
-      #pl.axvline(tpos+lf)
-      #pl.hold(False)
-      #pl.draw()
-      #pl.waitforbuttonpress()
-
-      if polysettings:
-        tcen = tpos+lf/2
-        rpts = polysettings['rpts']
-        cpts = polysettings['cpts']
-        # make region for polyfit
-        pxd = np.arange(int(tcen-rpts),int(tcen+rpts))
-        pyd = d[int(tcen-rpts):int(tcen+rpts)]
-        #import pdb;pdb.set_trace() 
-        # do the fit to find step on first order
-        p10 = np.polyfit(pxd,pyd,10)
-        dp10= np.polyder(p10)
-        cpxd = pxd[cpts:-cpts]
-        cpyd = pyd[cpts:-cpts]
-        pkpos0_ind = np.polyval(dp10,cpxd).argmax()
-
-        # go for extrema
-        ddp10 = np.polyder(dp10)
-        
-        zs = np.roots(ddp10) - cpxd[pkpos0_ind]
-        zs = zs[np.imag(zs)==0]
-        zs = np.real(zs)
-        pkpos_ind = np.argmin(np.abs(zs))
-        pkpos = zs[pkpos_ind]  + cpxd[pkpos0_ind]
-        #limits for erf fit
-        #print np.roots(dp10) -cpxd[pkpos0_ind]
-        zs = np.roots(dp10) - cpxd[pkpos0_ind]
-        zs = zs[np.imag(zs)==0]
-        zs = np.real(zs)
-        rp = np.min(zs[zs>0]) + cpxd[pkpos0_ind]
-        lp = np.max(zs[zs<0]) + cpxd[pkpos0_ind]
-        tpoly_pos = pkpos
-        tpoly_cen = (rp+lp)/2.
-        #print lp,rp
-        if False:
-          steprad = (rp-lp)/2
-          efx = np.float64( np.arange(int(lp-steprad),int(rp+steprad)))
-          efy = d[int(lp-steprad):int(rp+steprad)]
-          #de=bug
-          startpar = [np.mean(efy[-3:])-np.mean(efy[:3]),
-                                   np.mean(efx),
-                                   (rp-lp)/10.,
-                                   np.mean(efy[:3])]
-          mfh = tools.minuitfit(tools.erfstep,startpar,efx,efy)
-          mfh.migrad()
-          #erffitres = mfh.values
-        # find maximum on finer procedure (should be not necessary in a while)
-
-        #ccpxd = cpxd[pkpos0_ind-5:pkpos0_ind+5]
-        #ccpyd = cpyd[pkpos0_ind-5:pkpos0_ind+5]
-        #pp2 = np.polyfit(ccpxd,ccpyd,2)
-        #tpoly_pos = -pp2[1]/2./pp2[0]
-        #poly_pos.append(tpoly_pos)
-         
-        ### PLOTTING
-        print plotOutput
-        if plotOutput:
-          tools.nfigure('test')
-          mah = pl.subplot(211)
-          pl.plot(d)
-          pl.hold(True)
-          pl.plot(pxd,np.polyval(p10,pxd),'r--')
-          pl.plot(pxd,
-                  np.polyval(dp10,pxd)/np.max(np.abs(np.polyval(dp10,pxd)))*.04,
-                  'm')
-          pl.axvline(tpos,ls='--')
-          #pl.axvline(tpos+lf/2+stepoffs,color='r')
-          pl.axvline(tpos+lf/2,ls='--')
-          pl.axhline(0,color='k')
-
-          pl.axvline(tpos+lf,ls='--')
-          pl.axvline(pkpos,color='c')
-          pl.axvline(lp,color='y')
-          pl.axvline(rp,color='y')
-          #pl.plot(efx,tools.erfstep(par=dict(h=startpar[0],
-                                      #pos=startpar[1],
-                                      #sig=startpar[2],
-                                      #offs=startpar[3]),dat=efx),'r')
-          #pl.plot(efx,efy,'m')
-          pl.hold(False)
-          
-          pl.subplot(212,sharex = mah)
-          pl.plot(f0)
-          pl.hold(True)
-          pl.axvline(tpos)
-          #pl.axvline(tpos+lf/2+stepoffs,color='r')
-          pl.axvline(tpos+lf/2)
-          pl.axvline(pkpos,color='c')
-          pl.axvline(lp,color='y')
-          pl.axvline(rp,color='y')
-          pl.hold(False)
-          pl.draw()
-
-
-
-        ### PLOTTING
-      
-      if plotOutput:
-        tools.nfigure('filter')
-        mah = pl.subplot(211)
-        pl.plot(d)
-        pl.hold(True)
-        pl.axvline(tpos)
-        #pl.axvline(tpos+lf/2+stepoffs,color='r')
-        pl.axvline(tpos+lf/2,color='r')
-        pl.axvline(tpos+lf/2)
-        pl.axvline(tpos+lf)
-        pl.hold(False)
-	pl.ylabel('Rel. transmission change')
-        pl.subplot(212,sharex = mah)
-
-        yf = np.polyval(p2,xd)
-        pl.plot(f,'k')
-        pl.hold(True)
-        pl.plot(xd,yf,'r')
-        pl.axvline(mpr,color='k')
-        pl.axvline(tpos,color='r')
-        pl.axhline(tamp,color='r')
-        pl.axhline(tamp/2,color='k')
-        pl.axhline(0,color='k')
-        pl.axvline(mpr-lf/2,color='g')
-        pl.axvline(mpr+lf/2,color='g')
-        pl.axvline(mpr-lf/4,color='c')
-        pl.axvline(mpr+lf/4,color='c')
-        if not np.isnan(tfwhm):
-          pl.axvline(beloh[beloh<0][-1]+mpr,color='b')
-          pl.axvline(beloh[beloh>0][0]+mpr,color='b')
-        if polysettings:
-          pl.axvline(pkpos-lf/2,color='y')
-          pl.axvline(rp-lf/2,color='y')
-          pl.axvline(lp-lf/2,color='y')
-
-        pl.hold(False)
-	pl.ylabel('Filtered')
-	pl.xlabel('Spectral bin / px')
-        pl.draw()
-	if saveplots:
-	  pl.gcf().savefig('%s_%04d.png'%(saveplots,runningno))
-	else:
-          pl.waitforbuttonpress()
-
-    except Exception, e:
-      print e
-    #else:
-      tpos = 0
-      tamp = 0
-      tfwhm = 0
-      if polysettings:
-        tpoly_pos = 0
-        tpoly_cen = 0
-
-    pos.append(tpos)
-    amp.append(tamp)
-    fwhm.append(tfwhm)
-    if polysettings:
-      poly_pos.append(tpoly_pos)
-      poly_cen.append(tpoly_cen)
-    runningno+=1
-
-  pos = np.asarray(pos)
-  amp = np.asarray(amp)
-  fwhm = np.asarray(fwhm)
-  returntuple = [pos,amp,fwhm]
-  if polysettings:
-    poly_pos = np.asarray(poly_pos)
-    poly_cen = np.asarray(poly_cen)
-    returntuple.append(poly_pos)
-    returntuple.append(poly_cen)
-
-  return tuple(returntuple)
-
-def TTextractFilterPositions(Areadet,filtsettings=None,polysettings=None):
-  if not filtsettings:
-    filtsettings = Areadet.TTfiltsettings
-  #if not polysettings:
-    #polysettings = dict(rpts=100,cpts=20)
-  pos = []
-  amp = []
-  fwhm = []
-  if polysettings:
-    poly_pos = []
-    poly_cen = []
-  ccN = 0
-  for ds in Areadet.TTtraces:
-    print '...extracting from cc %d'%(ccN)
-    data = ds[:]
-    if polysettings:
-      tpos,tamp,tppos,tpcen = TTapplyFilter(data,filtsettings,polysettings=polysettings)
-    else:
-      tpos,tamp,tfwhm = TTapplyFilter(data,filtsettings)
-    pos.append(tpos)
-    amp.append(tamp)
-    fwhm.append(tfwhm)
-    if polysettings:
-      poly_pos.append(tppos)
-      poly_cen.append(tpcen)
-    ccN+=1
-  Areadet._add_saved_datafield('TTfiltPos',pos)
-  Areadet._add_saved_datafield('TTfiltAmp',amp)
-  Areadet._add_saved_datafield('TTfiltFwhm',fwhm)
-  if polysettings:
-    Areadet._add_saved_datafield('TTfiltPolyPos',poly_pos)
-    Areadet._add_saved_datafield('TTfiltPolyCen',poly_cen)
-
-
-
-def TTextractProfiles(Areadet, refmon=None, refthreshold=.1, lmon=None,
-    lmonthreshold=0.05,Nxoff=3, profileLimits=None, profileLimitsRef=None,
-    transpose=False, Nmax=None, steps=None,calibcycles=None,append_to_det=True,
-    saveoffs=False,dataset_name_traces='TTtraces'):
-  """
-    Areadet is the dataset with the camera images
-    'refmon' is the incoming intensity monitor (to check for x-ray off)
-    'refthreshold' threshold to find x-ray off
-    'Nxoff' number of x-ray off images to average around the image to analyze
-    'profileLimits' ROI {'limits': np.array([ 146.,  198.]), 'projection': 'vertical range'} os the kind
-    'profileLimitsRef' same as above for the reference trace
-    'Nmax' limits to Nmax images per calibcycle
-    'steps' analyze only every steps images
-    'calibcycles' which ones to do, if None do all
-  """
-  profiles = []
-  if not profileLimits:
-    profileLimits=Areadet.profileLimits[-1]
-  if (lmon is None):
-    detChunks = Areadet.chunks(pointdets=dict(xI0=refmon),Nmax=Nmax,steps=steps)
-  #elif type(lmon) is tuple:
-    #detChunks = Areadet.chunks(pointdets=dict(xI0=refmon),Nmax=Nmax,steps=steps)
-  else:
-    detChunks = Areadet.chunks(pointdets=dict(xI0=refmon,laser=lmon),Nmax=Nmax,steps=steps)
-  sigindices  = []
-
-  allcctraces = []
-  if (calibcycles is None):
-    calibs = range(len(detChunks))
-  else:
-    calibs = tools.iterfy(calibcycles)
-  Ncalbs = len(clibs)
-  for ccNO in calibs:
-      print 'starting CalibCycle %d of %d' %(ccNO,Ncalibs)
-      cc = detChunks[ccNO]
-      tchunksig    = []
-      tchunkoff    = []
-      tchunktime    = []
-      for ch in cc:
-          print "Started working on a chunk... (%d shots)" % len(ch.xI0)
-          # read all data in chunk
-          tdat = ch.data
-          ttime = ch.time
-
-          # create average images (fallback off image if not off are found ...)
-          profAvAll =  None; # will be calculated later only if needed
-
-          # make profiles of all
-          prof    = extractProfilesFromData(tdat,profileLimits)
-          if (profileLimitsRef is not None):
-              profRef = extractProfilesFromData(tdat,profileLimitsRef)
-
-          # find which shots are reference
-          if type(refthreshold) is bool:
-            xrayoff = ch.xI0==refthreshold
-          else:
-            xrayoff = ch.xI0<refthreshold
-          if (lmon is None):
-            laseroff = np.zeros_like(ch.xI0,dtype=np.bool)
-          else:
-            if type(lmonthreshold) is bool:
-              laseroff = ch.laser==lmonthreshold
-            else:
-              laseroff = ch.laser<lmonthreshold
-          #refind = (xrayoff)&(~laseroff)
-          xoffinds = xrayoff.nonzero()[0]
-          loffinds = laseroff.nonzero()[0]
-          loninds = (~laseroff).nonzero()[0]
-          Nshots   = len(ch.xI0)
-          # find which shots are signal
-          #sigind = (~xrayoff)&(~laseroff)
-          
-          #correct all signal traces for individual reference
-          chsig = []
-          choff = []
-          chtime = []
-          # DIRTY HACK
-          for shot in loninds:
-          #for shot in range(len(loninds)):
-              # find closest Nxoff references and 
-              # average as many xoff images as requested (Nxoff)
-              if (xoffinds.size == 0):
-                  if (profAvAll is None):
-                    # create average images (fallback off image if not off are found ...)
-                    AvAll     = np.asarray([np.mean(tdat,axis=0)])
-                    profAvAll = extractProfilesFromData(AvAll,profileLimits)[0]
-                  poff = profAvAll
-              else:
-                  temp = (shot<xoffinds).argmax()
-                  m=int(temp-float(Nxoff)/2); M = int(temp+float(Nxoff/2))
-                  if (m<0): m=0
-                  if M>Nshots: M=Nshots
-                  # indeces of off images to average
-                  xoffinds_toav  = xoffinds[ m:M ]
-                  # calc signal
-                  poff = np.mean(prof[xoffinds_toav,:],axis=0)
-              p    = prof[shot,:]
-              time_shot = ttime[shot]
-
-              if (profileLimitsRef is None):
-                tsig = (p-poff)/poff
-                toff = poff
-              else:
-                pref    = profRef[shot,:]
-                prefoff = np.mean(profRef[xoffinds_toav,:],axis=0)
-                tsig = (p-poff*pref/prefoff)/poff
-                toff = poff
-              chsig.append(tsig)
-              choff.append(toff)
-              chtime.append(time_shot)
-
-          # make ndarray from all signal traces in chunk and plot it
-          if chsig:
-            chsig = np.vstack(chsig)
-          if choff:
-            choff = np.vstack(choff)
-          if chtime:
-            chtime = np.hstack(chtime)
-          tchunksig.append(chsig)
-          tchunkoff.append(choff)
-          tchunktime.append(chtime)
-
-      if tchunksig:
-        tchunksig = np.vstack(tchunksig)
-        tchunkoff = np.vstack(tchunkoff)
-        tchunktime = np.hstack(tchunktime)
-      #allcctraces.append(tchunksig)
-      if append_to_det:
-        Areadet.append_h5_datalist(dataset_name_traces,tchunksig)
-        Areadet.append_h5_datalist(dataset_name_traces+'_time',tchunktime)
-        if saveoffs:
-          print "off"
-          Areadet.append_h5_datalist('TTofftraces',tchunkoff)
-
-      else:
-        profiles.append(tchunksig)
-
-      print 'ending CalibCycle %d' %(ccNO)
-      #figure(1)
-      #imshow(tchunksig,interpolation='nearest')
-      #axis('normal')
-      #axis('tight')
-      #draw()
-  if not append_to_det:
-    return profiles
-
-  #d.save()
-
-  # Plotting result
-  #allcctraces_stacked = np.vstack(allcctraces) 
-  #pl.imshow(allcctraces_stacked,interpolation='nearest')
-  #pl.axis('normal');pl.axis('tight')
-  #pl.draw()
-
-def TTcalc_weightedRatio(det,mon,TTdet,tvec=None):
-  #if not tvec:
-    #tvec = 
-  timevec = []
-  for tvecS in tvec:
-    timevec.append(tvecS + 1e-12*np.polyval(TTdet.TTpxCalib,TTdet.TTfiltPos))
-  wR = calc_weightedRatio(timevec,det,mon)
-
-#############
 
 def extractProfilesFromData(data,profileLimits,cameraoffset=0):
   if profileLimits["projection"]=="vertical range":
@@ -3027,23 +2959,6 @@ def rdHdf5dataFromDataSet(h5datasethandle,shots='all'):
     #dat=tdat
   return dat
 
-class mem(object):
-  def __init__(self):
-    self.f=open("/proc/meminfo","r")
-    tot = self.f.readline()
-    self.tot = self.stringToBits(tot)
-    self.updatefree()
-
-  def updatefree(self):
-    self.f.seek(0); # rewind
-    tmp = self.f.readline()
-    memfree = self.f.readline()
-    return self.stringToBits(memfree)
-
-  def stringToBits(self,s):
-    return 1024*8*int(s.split()[1])
-
-  free = property(updatefree)
 
 def rdHDFsubset(fina,dataset,idx):
 
@@ -3120,80 +3035,6 @@ def calc_weightedRatio(scanvec,detector,monitor,bins=None,isBinCenter=True):
     for td,tm in zip(detector,monitor):
       wR.append(np.sum(td)/np.sum(tm))
   return wR
-
-
-#def digitizeDataSingle(data,bins,prcentile=.9):
-  #"""Binning data"""
-  #dims = len(bins)
-  #issinglestep = True
-  #if len(data) is not dims:
-    #if dims==1:
-      #data = [data]
-    #else:
-
-      #print "binData: number of data structures does not fit number of bin arrays"
-      #return
-
-  #abins = []
-  #aN = []
-  #for dim in range(dims):
-    #tbins = bins[dim]
-    #if type(tbins)==int or type(tbins)==float:
-      ## automatic binning on basis of all cc data
-      #adata = data[dim]
-
-      #if tbins<0:
-        ## automatic limits
-        #if type(tbins)==int:
-          ## number of bins, smart finding of borders, prcentile as kwarg
-          #pass
-        #elif type(tbins)==float:
-          ## bin size, automatic finding of borders, prcentile as kwarg 
-          #pass
-        
-
-      #elif tbins==0:
-        ## graphical input of bin edges
-        #pass
-      #else:
-        ## tbins>0
-        #if type(tbins) is int:
-        ## number of bins given
-          #cbins = np.linspace(min(adata),max(adata),tbins+1)
-
-        #elif type(tbins) is float:
-        ## bin size given, full range
-          #cbins = np.arang(min(adata),max(adata),tbins)
-        #pass
-
-    #else:
-      ## bin edges given
-        #cbins = tbins
-
-    #abins.append(cbins)
-    #tdata = data[dim]
-    #tN = np.digitize(adata,cbins)
-    #aN.append(tN)
-
-  ## initialize index matrix
-  #stepbinmatshape = [len(bb)+1 for bb in abins]
-  #binmatshape = [len(aN[0])]
-  #binmatshape.extend(stepbinmatshape)
-  #binmat = np.empty(binmatshape,dtype=np.object_)
-  #binmat.fill([])
-  #binmat = np.frompyfunc(list,1,1)(binmat)
-
-  #for evNo in range(len(aN[0])):
-    #tind = [stepNo]
-    #tind.extend([dd[stepNo][evNo] for dd in aN])
-    ##print tind
-    ##raw_input()
-    #binmat[tuple(tind)].append(evNo)
-
-  #if issinglestep:
-    #binmat = binmat[0]
-
-  #return binmat,abins
 
 def digitizeData(data,bins,prcentile=.9):
   """Binning data"""
@@ -3363,114 +3204,9 @@ def statData(data):
   dstd = np.reshape(dstd,shp)
   return dmean,dstd,dmedian,dmad,dsum,dN
 
-
-
-def calc_polyFitPar(scanvec,detector,monitor,binning=None):
-  pass
-
-def calc_weighted_ratio(detector,monitor,binning=None):
-  pass
-
-def plotScan(data, monitorIPM='ipm3', detector='diodeU', detectorfieldname='channel0', monitorFiltLims=None, detectorFiltLims=None, scanvec=[], binning=None,binningFiltLims=1,figName=None, oversampling=1,binningCalib=None,centerbinning=False):
-  """ NB the binning assumes that the size of elements matches the dataset after timestamp cleanup"""
-  #de=bug
-  #if isinstance(data,ixppy.dataset):
-  if type(data) is not str or not tuple:
-    d=data
-  else:
-    datasets = [monitorIPM,detector]
-    if binning:
-      if type(binning) is tuple:
-        datasets.append(binning[0])
-    d = dataset(data,datasets)
-    d.filtTimestamps()
-  M = d.__dict__[monitorIPM].sum
-  I = d.__dict__[detector].__dict__['__'+detectorfieldname]()
-  if binning:
-    if type(binning) is tuple:
-      B = d.__dict__[binning[0]].__dict__['__'+binning[1]]()
-    else:
-      B = binning 
-  if not monitorFiltLims:
-    parameterFilt(M,d,name='Amonitor',figName='plotScan monitor filter')
-  else:
-    parameterFilt(M,d,name='Amonitor',lims=monitorFiltLims)
-
-  if detectorFiltLims:
-    if  detectorFiltLims==1:
-      parameterFilt(I,d,name='Bdetector',figName='plotScan detector filter')
-    elif len(detectorFiltLims)==2:
-      parameterFilt(I,d,name='Bdetector',lims=detectorFiltLims)
-
-  if len(scanvec)==0:
-    scanvec = d.scanVec
-  if binning:
-    if binningFiltLims:
-      if  binningFiltLims==1:
-        binFlt = parameterFilt(B,d,name='Cbinning',figName='plotScan binning filter')
-      elif len(binningFiltLims)==2:
-        parameterFilt(B,d,name='Cbinning',lims=binningFiltLims)
-      B = [ b[~flt] for b,flt in zip(B,d._mergefilters()) ]
-    if binningCalib is not None:
-      B = [np.polyval(binningCalib,b) for b in B]
-    cB = np.mean(np.hstack(B))
-    print cB
-    if centerbinning:
-      Bc = [b-cB for b in B]
-    else:
-      Bc = B
-    binscanvec = [sv+bc for sv,bc in zip(scanvec,Bc)]
-    bins = tools.oversample(scanvec,oversampling)
-    binsz = np.mean(np.diff(bins))
-    edges = np.hstack([bins-binsz/2,bins[-1]+binsz/2])
-    indxs = np.digitize(np.hstack(binscanvec),edges)
-    #de=bug
-
-
-    M = d.__dict__[monitorIPM].sum
-    I = d.__dict__[detector].__dict__['__'+detectorfieldname]()
-    Inorm = np.bincount(indxs,weights=np.hstack(I),minlength=len(edges)+1) / np.bincount(indxs,weights=np.hstack(M),minlength=len(edges)+1)
-    Inorm = Inorm[1:-1]
-    scanvec = bins
-    #de=bug
-
-  else:
-    M = d.__dict__[monitorIPM].sum
-    I = d.__dict__[detector].__dict__['__'+detectorfieldname]()
-    Inorm = []
-    for m,i in zip(M,I):
-      if not len(m)==0 and not len(i)==0:
-        Inorm.append(sum(i)/sum(m))
-      else:
-        Inorm.append(np.nan)
-    Inorm = np.asarray(Inorm)
-  
-  if not figName:
-    figName = 'plotScan figure'
-
-  tools.nfigure(figName)
-  #de=bug
-  try:
-    pl.plot(scanvec,Inorm,'.-')
-  except:
-    pl.plot(scanvec[:-1],Inorm,'.-')
-
-  pl.xlabel(d.scanMot)
-  pl.ylabel('$\sum$'+detector+'.'+detectorfieldname+' / $\sum$'+monitorIPM+'sum')
-  pl.draw()
-  return scanvec,Inorm
-
-
-
-
-
-
-
-
-
 ###### Filtering events ############
 
-def filter(dat,lims=None,graphicalInput=True,figName=None):
+def filter(dat,lims=None,graphicalInput=True,figName=None,perc=False):
 
   if not figName:
     figName = 'Select filter limits'
@@ -3481,6 +3217,9 @@ def filter(dat,lims=None,graphicalInput=True,figName=None):
     N,edg = tools.histogramSmart(dat)
     pl.step(edg[:-1]+np.diff(edg),N,'k')
     lims = tools.getSpanCoordinates()
+  elif perc:
+    lims = np.percentile(dat,lims)
+    
   if type(lims) is bool:
     filt = (dat==lims)
   else:
@@ -3591,152 +3330,6 @@ def digitize_new(dat,bins=None,graphicalInput=True,figName=None):
 
 
   return np.digitize(dat,bins),bins
-
-def getScanVec(instance):
-  leninst = len(instance)
-  scan = instance.scan
-  names = np.asarray(scan._get_keys())
-  lens = np.asarray([len(scan[tname]) for tname in names])
-  isbincenter = np.asarray([tname.split('_')[-1]=='bincenter' for tname in names])
-  if sum(lens==leninst)<1:
-    print "Attention: no suitable scan vector found for %s !" %instance._name
-    #raise Exception
-    return None
-  elif sum(isbincenter)==1:
-    sel_name = names[isbincenter][0]
-    return sel_name, scan[sel_name]
-  elif sum(isbincenter)>1:
-    sel_name = names[isbincenter[0]][0]
-    print "Attention: More than one bincenter array found for %s, will use %s." \
-	%(instance._name,sel_name)
-    return sel_name, scan[sel_name]
-  else:
-    sel_name = names[lens==leninst][0]
-    return sel_name, scan[sel_name]
-
-
-
-  
-def digitizeN(*args,**kwargs):
-  """multi-dimensional digitization, used memdata or timestamps to sort data"""
-  target = kwargs.get('target', None)
-  if isinstance(target,memdata):
-    dat,stsz = ravelScanSteps(target.data)
-    tim,stsz = ravelScanSteps(target.time)
-  elif target==None:
-    atarg = args[0].ones()
-    for targ in args[1:]:
-      atarg = atarg*targ.ones()
-    dat,stsz = ravelScanSteps(atarg.data)
-    tim,stsz = ravelScanSteps(atarg.time)
-    
-
-  else: #assuming now it is timestamps
-    tim,stsz = ravelScanSteps(target)
-    dat = np.ones(np.shape(tim))
-  indmat = np.nan*np.ones((len(tim),len(args)))
-  vecs = []
-  names = []
-
-  for narg,targ in enumerate(args):
-    tname,tvec = getScanVec(targ)
-    vecs.append(tvec)
-    names.append(tname)
-    isused,sortThis = filterTimestamps(targ.time,[tim])
-    for nstep,sortThisStep in enumerate(sortThis):
-      indmat[sortThisStep,narg] = nstep
-  indmat = indmat[~(np.isnan(indmat).any(axis=1)),:]
-  totshape = tuple([len(tvec) for tvec in vecs])
-  indmat = np.asarray(indmat.T,dtype=int)
-  grouping = np.ravel_multi_index(indmat,totshape)
-  timout = [ tim[grouping==i] for i in range(np.prod(totshape))]
-  
-  datout = [ dat[grouping==i] for i in range(np.prod(totshape))]
-  scan = tools.dropObject(name='scan')
-
-  meshes = tools.ndmesh(*tuple(vecs))
-  for tname,tmesh in zip(names,meshes):
-    scan[tname] = tmesh.ravel()
-
-  grid = Grid(zip(names,vecs))
-
-
-  return memdata(name='%d-dimensional histogram'%(len(totshape)),input=[datout,timout],scan=scan,grid=grid)
-
-
-
-
-      
-class Grid(object):
-  def __init__(self,definition):
-    self._definition = definition
-    self._ixpsaved = ['_definition']
-
-  def _get_vec(self,sel=None):
-    if sel==None:
-      return tuple([tdef[1] for tdef in self._definition])
-    elif type(sel)==int:
-      return self._definition[sel][1]
-    elif type(sel)==str:
-      ind = (sel==np.asaray(self.names)).nonzero()
-      return self._definition[ind][1]
-
-  def _get_name(self,sel=None):
-    if sel==None:
-      return tuple([tdef[0] for tdef in self._definition])
-    elif type(sel)==int:
-      return self._definition[sel][0]
-  names = property(_get_name)
-
-  def _get_shape(self):
-    vecs = self._get_vec()
-    return tuple([len(tv) for tv in vecs])
-  shape = property(_get_shape)    
- 
-  def gridshape(self,vec): 
-    if not len(vec)==np.prod(self.shape):
-      raise Exception('length of vec does not match grid size!')
-    else:
-      vec = np.asarray(vec)
-      return np.reshape(vec,self.shape)
-
-
-  def format(self,vec,dims=None,method=np.mean):
-    isSelection = np.iterable(vec[0])
-    vec = self.gridshape(vec)
-    if not dims==None:
-      adims = list(self.shape)
-      for rdim in dims:
-	adims.remove(rdim)
-      trsp  = dims+tuple(adims)
-      vec = vec.transpose(trsp)
-    return self[:]+(vec,)
- 
-      #if len(adims)>0:
-	#stridestr = '[...'+len(adims)*',:'+']'
-	#if isSelection:
-	  #exec('vec'+stridestr+' = np.concatenate(vec'+stridestr+'.ravel(),axis=0)')
-	#else:
-	  #vec[len(dims)-1] = np.concatenate(vec[len(dims)-1])
-
-
-
-
-
-
-
-
-
-
-  def __len__(self):
-    return len(self._definition)
-
-  def __getitem__(self,x):
-    if type(x)==slice:
-      inds = range(*x.indices(len(self)))
-      return tuple([self._get_vec(sel=ind) for ind in inds])
-    else:
-      return self._get_vec(sel=x)
 
 
 
@@ -3981,449 +3574,6 @@ def _getInputDirectory(cnfFile):
       inputDirectory = os.path.join(cnfFile['defaultPath']['default'],cnfFile['beamline'])
     return inputDirectory
 
-def applyOperator(optr,a,b,isreverse=False):
-  a = tools.iterfy(a)
-  b = tools.iterfy(b)
-
-  res = []
-  if not isreverse:
-    if len(a)==len(b):
-      for ta,tb in zip(a,b):
-          res.append(optr(ta,tb))
-    else:
-      for ta in a:
-        res.append(optr(ta,b))
-  else:
-    if len(a)==len(b):
-      for ta,tb in zip(a,b):
-          res.append(optr(tb,ta))
-    else:
-      for ta in a:
-        res.append(optr(b,ta))
-  return res
-
-def expandMemdata(a,b):
-  aex = a._expand
-  bex = b._expand
-  if aex and bex:
-    raise Exception("Can not expand both ixppy.memdata instances in one operation!")
-  elif not aex and not bex:
-    return a,b
-  else:
-    if aex:
-      pass
-      
-
-
-def applyMemdataOperator(optr,a,b,isreverse=False):
-  amem = isinstance(a,memdata) 
-  bmem = isinstance(b,memdata) 
-
-  if amem and bmem:
-    a,b = expandMemdata(a,b)
-    #a,b = interpMemdata(a,b)
-    #a,b = interpStepMemdata(a,b)
-
-    ai,bi = filterTimestamps(a.time,b.time)
-    # TODO: check if ressource expensive
-    ar = np.hstack(a.data)
-    br = np.hstack(b.data)
-    ri,rstepsizes = ravelScanSteps(ai)
-    resdat = optr(ar[ri],br[np.hstack(bi)])
-    restim = np.hstack(a.time)[ri]
-    resdat = unravelScanSteps(resdat,rstepsizes)
-    restim = unravelScanSteps(restim,rstepsizes)
-    scan   = a.scan 
-  elif amem or bmem:
-    if amem:
-      adat = a.data
-      restim = a.time
-      bdat = b
-      scan   = a.scan 
-    elif bmem:
-      bdat = b.data
-      restim = b.time
-      adat = a
-      scan   = a.scan 
-    adat = tools.iterfy(adat)
-    bdat = tools.iterfy(bdat)
-    resdat = []
-    if not isreverse:
-      if len(adat)==len(bdat):
-	for ta,tb in zip(adat,bdat):
-	    resdat.append(optr(ta,tb))
-      else:
-	for ta in adat:
-	  resdat.append(optr(ta,bdat))
-    else:
-      if len(adat)==len(bdat):
-	for ta,tb in zip(adat,bdat):
-	    resdat.append(optr(tb,ta))
-      else:
-	for ta in adat:
-	  resdat.append(optr(bdat,ta))
-  
-  return memdata(input=[resdat,restim],scan=scan)
-      
-    
-def applyDataOperator(optr,a,b=None,isreverse=False):
-  if b==None:
-    args=[a]
-  else:
-    if not isreverse:
-      args = [a,b]
-    else:
-      args = [b,a]
-  return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None)
-
-def _applyFun(func,a):
-  res = ixppyList()
-  for ta in a:
-    res.append(func(ta))
-  return res
-
-
-def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None, NdataOut=0,NmemdataOut=0, picky=False, isPerEvt=False, stride=None, outputtypes=None, forceCalculation=False):
-  """ rules: 
-  - if data output, no other output possible, as output is not calculated. 
-  - all event dependent arguments have to be passed as memdata or data instances
-  - first arg has timestamp sort priority, kwargs after args, kwargs are inter-
-    preted in "sort- order". This priority order also holds for scanvec data.
-  - When InputDependentOutput is true (default) the output expects:
-    a) one data instance if any data insctance in input
-    b) one memdata instance if memdata instance in input and no data instance
-    otherwise NmemdataOut and NdataOut need to be specified. All other output 
-    comes after ixppy instances if avaiable.
-  """
-  if outputtypes==None:
-    outputtypes = NdataOut*['data'] + NmemdataOut*['memdata']
-  ##### Filter timestampsin order, args first, kwargs after sorted keys
-  allobjects = [(arg,0,argno) for argno,arg in enumerate(ipargs) if (isinstance(arg,data) or isinstance(arg,memdata))]
-  kwkeys = ipkwargs.keys()
-  kwkeys.sort()
-  if KWignore==None:
-    KWignore = []
-  else:
-    KWignore = iterfy(KWignore)
-  for keyno,key in enumerate(kwkeys):
-    if not key in KWignore:
-      if (isinstance(ipkwargs[key],data) or isinstance(ipkwargs[key],memdata)):
-	allobjects.append((ipkwargs[key],1,keyno))
-  if not allobjects==[]:
-    scan = allobjects[0][0].scan
-    grid = allobjects[0][0].grid
-    
-  rtimes = get_common_timestamps([ao[0] for ao in allobjects])
-  # get also other arguments in seperate list for later use in length analysis if needed
-  if not picky and not rtimes==None:
-    # get other input
-    otherargs = [(arg,0,argno) for argno,arg in enumerate(ipargs) if ( not isinstance(arg,data) and not isinstance(arg,memdata))]
-    for keyno,key in enumerate(kwkeys):
-      if ( not isinstance(arg,data) and not isinstance(arg,memdata)):
-	otherargs.append((ipkwargs[key],1,keyno))
-    otherlens = [(len(toa),iskey,argno) for toa,iskey,argno in otherargs if (type(toa) is not str and np.iterable(toa))]
-    if not otherlens==[]:
-      lens,lensiskey,lensargno = zip(*otherlens)
-      tequallengths = np.logical_and(np.asarray(lens)==len(rtimes),np.logical_not(np.asarray(lens)==1))
-      otherip = [otherargs[eqi] for eqi in tequallengths.nonzero()[0]]
-    else:
-      otherip = []
-  else:
-    otherip = []
-
-  ############ generate output ############
-  # case of data instance in input, at the moment seems like data might come out, but this has to be thought about more.
-  if np.asarray([isinstance(to[0],data) for to in allobjects]).any() or forceCalculation:
-    if 'data' in outputtypes and stride==None:
-      # this is the normal case to make an object that will act upon call
-      output = []
-      for nargSelf in (np.asarray(outputtypes)=='data').nonzero()[0]:
-        procObj = dict(func=func,args=ipargs,kwargs=ipkwargs,nargSelf=nargSelf,isPerEvt=isPerEvt)
-        output.append(data(time=rtimes,input=procObj,scan=scan))
-      if len(output)>1:
-	output = tuple(output)
-      else:
-	output = output[0]
-    # case mainly when executes as data procObj
-    elif ('data' in outputtypes and not stride==None) or forceCalculation:
-      # in force case and when stride is not given
-      if (stride == None) and forceCalculation:
-	# find smallest chunk size, will go for that...
-	dataIPchunkings = [o._memIterate() for o,dum,dum in allobjects if isinstance(o,data)]
-	chunksize = np.min([np.min([len(tchunk[1]) for tchunk in tchunks]) for tchunks in dataIPchunkings])
-	# Get step stride and event strides
-	stepstride = range(len(rtimes))
-	eventstrides = []
-	for trtimes in rtimes:
-	  evlst = range(len(trtimes))
-	  eventstrides.append([ evlst[i:i+chunksize] for i in range(0, len(evlst), chunksize) ])
-      else:
-	stepstride = tools.iterfy(stride[0])
-	eventstrides = [stride[1]]*len(stepstride)
-
-      ixppyip = []
-      ixppytype = []
-      for o,iskey,argind in allobjects: 
-	ir,io      = filterTimestamps(rtimes,o.time)
-	
-	if isinstance(o,data):
-	  ixppytype.append('data')
-	  eventstrides_ravel = [np.ravel(tevs) for tevs in eventstrides]
-
-	  io = getStepShotsFromIndsTime(io,o.time,stride=eventstrides_ravel,getIncludedSteps=True)
-	if isinstance(o,memdata):
-	  ixppytype.append('memdata')
-	ixppyip.append(([o,io,iskey,argind]))
-
-      # generate input structures
-      output_list = []
-
-      for stepstrideNo,step in enumerate(stepstride):
-	eventstride = eventstrides[stepstrideNo]
-	if type(eventstride[0]) is list:
-	  print "this chunking doesn't work yet, taking first chunk only"
-	  eventstride = eventstride[0]
-
-	targs   = list(pycopy.copy(ipargs))
-	tkwargs = pycopy.copy(ipkwargs)
-	for o,io,k,i in ixppyip:
-	  if not k:
-	    if isinstance(o,memdata):
-	      odat,stpsz = ravelScanSteps(o.data)
-	      targs[i] = odat[io[step]][eventstride]
-	    else:
-	      
-	      #tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      
-	      io,inclsteps = io
-	      tmp = np.concatenate(o._getStepsShots(io[(inclsteps==step).nonzero()[0]][0],io[(inclsteps==step).nonzero()[0]][1]),axis=0)
-	      if not isPerEvt and ('memdata' in ixppytype):
-	        trnspsorder = range(np.rank(tmp))
-                trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
-                tmp         = tmp.transpose(trnspsorder)
-              targs[i] = tmp
-	      #raise NotImplementedError('Use the source, luke!')
-
-	  else:
-	    tkwargs[kwkeys[i]]  = o[step][eventstride]
-	    if isinstance(o,memdata):
-	      odat,stpsz = ravelScanSteps(o.data)
-	      tkwargs[kwkeys[i]] = odat[io[step]][eventstride]
-	    else:
-              tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      if not isPerEvt and ('memdata' in ixppytype):
-                trnspsorder = range(np.rank(tmp))
-                trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
-                tmp = tmp.transpose(trnspsorder)
-              tkwargs[kwkeys[i]] = tmp
-	for o,k,i in otherip:
-	  if not k:
-	    targs[i] = o[step]
-	  else:
-	    tkwargs[kwkeys[i]]  = o[step]
-	if isPerEvt:
-	  # TODO: in case func works only for single shot
-	  tret = []
-	  for nevt in range(len(eventstride)):
-            stargs = pycopy.copy(targs)
-            stkwargs = pycopy.copy(tkwargs)
-	    for o,io,k,i in ixppyip:
-	      if not k:
-                stargs[i] = targs[i][nevt]
-	      else:
-                stkwargs[kwkeys[i]] = tkwargs[kwkeys[i]][nevt]
-            stret = func(*stargs,**stkwargs)
-	    if type(stret) is not tuple: 
-              stret = (stret,)
-            tret.append(stret)
-	  tret = tuple(zip(*tret))
-
-
-
-	else:
-
-	  tret = func(*targs,**tkwargs)
-	  if not type(tret) is tuple:
-            tret = (tret,)
-	if not isPerEvt and ('memdata' in ixppytype):
-	  tret = list(tret)
-	  for ono,ttret in enumerate(tret):
-	    rnk = np.rank(ttret)
-	    if rnk>1:
-	      trnspsorder = range(rnk)
-	      trnspsorder = [trnspsorder[-1]]+trnspsorder[:-1]
-	      tret[ono]   = ttret.transpose(trnspsorder)
-	  tret = tuple(tret)
-	output_list.append(tret)
-    ############ interprete output automatically find memdata candidates ###########
-      
-      output_list = zip(*output_list)
-      output_ismemdata = [opNo  for opNo,ao in enumerate(output_list) \
-	  if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
-      for n,top in enumerate(output_list):
-	if n in output_ismemdata:
-	  output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
-	#elif top.count(top[0])==len(top):
-	  #output_list[n] = top[0]
-	#elif len(top)>1:
-        else:
-	  output_list[n] = list(top)
-      if len(output_list)>1:
-	output = tuple(output_list)
-      else:
-	output = output_list[0]
-      
-
-  # "Easy" case where everything fits in memory, no data instance in input.
-  elif np.asarray([isinstance(to[0],memdata) for to in allobjects]).any():
-    ixppyip = []
-    for o,iskey,argind in allobjects: #assuming here that data instances are out!
-      ir,io      = filterTimestamps(rtimes,o.time)
-      odat,stpsz = ravelScanSteps(o.data)
-      ixppyip.append(([odat[tio] for tio in io],iskey,argind))
-    # generate input structures
-    output_list = []
-    for step in range(len(rtimes)):
-      targs   = list(pycopy.copy(ipargs))
-      tkwargs = pycopy.copy(ipkwargs)
-      for o,k,i in ixppyip + otherip:
-	if not k:
-	  targs[i] = o[step]
-	else:
-	  tkwargs[kwkeys[i]]  = o[step]
-      if isPerEvt:
-	# TODO: in case func works only for single shot
-	pass
-      else:
-	tret = func(*targs,**tkwargs)
-      if type(tret) is not tuple: 
-	tret = (tret,)
-      output_list.append(tret)
-  ############ interprete output automatically find memdata candidates ###########
-    output_list = zip(*output_list)
-    # check for equal output and find candidates for data/memdata instances
-    output_ismemdata = [opNo  for opNo,ao in enumerate(output_list) \
-	if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
-    for n,top in enumerate(output_list):
-      if n in output_ismemdata:
-	output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
-      elif top.count(top[0])==len(top):
-	output_list[n] = top[0]
-      elif len(top)>1:
-	output_list[n] = list(top)
-    if len(output_list)>1:
-      output = tuple(output_list)
-    else:
-      output = output_list[0]
-  else:
-    #pass
-    output = func(*ipargs,**ipkwargs)
-  return output
-
-
-def wrapFunc(func,InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, stride=None):
-  """ rules: 
-  - if data output, no other output possible, as output is not calculated. 
-  - all event dependent arguments have to be passed as memdata or data instances
-  - first arg has timestamp sort priority, kwargs after args, kwargs are inter-
-    preted in "sort- order". This priority order also holds for scanvec data.
-  - When InputDependentOutput is true (default) the output expects:
-    a) one data instance if any data insctance in input
-    b) one memdata instance if memdata instance in input and no data instance
-    otherwise NmemdataOut and NdataOut need to be specified. All other output 
-    comes after ixppy instances if avaiable.
-  """
-
-  @wraps(func)
-  def wrapper(*args,**kwargs):
-    return applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=NdataOut,NmemdataOut=NmemdataOut, picky=picky, isPerEvt=isPerEvt, stride=None)
-  return wrapper
-    
-def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, stride=None, outputtypes=None):
-  """ important keywords:
-   time: list of timestamps which characterize the event
-   ixppyInput: a list of (ixppytype,coordination) tuples 
-               (ixppytype is memdata or data instance)
-   other args andkwargs are possible. 
-   
-   func takes
-   crossInput: list of elements to calculate stuff 
-
-  """
-  lens = [len(ttime) for ttime in time]
-  inds = []
-  for sNO,tlen in enumerate(lens):
-    inds.append(np.int32(np.arange(tlen)+np.sum(lens[:sNO])))
-
-  if stride is None:
-    stride = [range(len(lens)),'all']
-
-  output = []
-  stepstride = tools.iterfy(stride[0])
-  for step in stepstride:
-    # get the indices from this ixppy type instance and step
-    tstride = stride[1]
-    if tstride=='all':
-      tstride = range(lens[step])
-    nind = [inds[step][tind] for tind in tstride]
-    # Read necessary data
-    package = []
-    for tixpIp in ixppyInput:
-      #unpacking...
-      tdata = tixpIp[0]
-      coo = tixpIp[1]
-      # groups of inds per evt in this step
-      xind = [coo[tnind] for tnind in nind]
-      #translating this into steps and indices in tdata
-      uxind,repack = np.unique(np.hstack(xind),return_inverse=True)
-      tstride = getStepShotsFromIndsTime([uxind],tdata.time)[0]
-      tdataDat = np.concatenate(tdata._getStepsShots(tstride[0],tstride[1]),axis=0)
-      repack = unravelScanSteps(repack, [len(txind) for txind in xind])
-      package.append((tdataDat,repack))
-
-    #unpack single event steps and calculate
-    td = []
-    for iNo,tnind in enumerate(nind):
-      ipdat = []
-      for pack in package:
-	tdataDat,repack = pack
-	ipdat.append(tdataDat[np.ix_(repack[iNo])])
-      
-      td.append(func(ipdat))
-
-    output.append((np.asarray(td),))
-  return output
-
-
-    
-
-
-
-
-
-
-      
-
-
-
-
-
-   
-
-
-  pass
-
-def get_common_timestamps(allobjects):
-  times = None
-  for o in allobjects:
-    if times==None:
-      times = o.time
-    else:
-      ia,io = filterTimestamps(times,o.time)
-      iar,stpsz = ravelScanSteps(ia)
-      times = np.hstack(times)[iar]
-      times = unravelScanSteps(times,stpsz)
-  return times
 
 
 def getValidFieldname(name,lowerit=True):
@@ -4438,87 +3588,6 @@ def getValidFieldname(name,lowerit=True):
       #s,e = name.split('_')
       #name = s+e[0].upper()+e[1:]
   return name
-
-
-
-#def get_ts_ind_for_data(timestamps,obj):
-  #ia,io = filterTimestamps(timestamps,obj.time)
-  #ior,stpsz = ravelScanSteps(io)
-  #times = unravelScanSteps(time,stpsz)
-  #return times
-  #o.time
-
-
-#class ixppyList(list):
-  ##self.config = config
-  ###def __new__(self,dset=None):
-    ###self.dset = dset
-    ###return self
-  ##def ravel(self):
-    ##return np.hstack(self)
-  ##R = property(ravel)
-  ###def setDsetFilt(self,**kwargs):
-    ###parameterFilt(self,
-
-  ###self.__dict__['__'+fieldname] = partial(self._compress_name,fieldname)
-  ###setattr(self.__class__,fieldname,property(self.__dict__['__'+fieldname]))
-  ##def __add__(self,other):
-    ##return applyOperator(operator.add,self,other)
-  ##def __radd__(self,other):
-    ##return applyOperator(operator.add,self,other)
-  ##def __mul__(self,other):
-    ##return applyOperator(operator.mul,self,other)
-  ##def __rmul__(self,other):
-    ##return applyOperator(operator.mul,self,other)
-  ##def __div__(self,other):
-    ##return applyOperator(operator.div,self,other)
-  ##def __rdiv__(self,other):
-    ##return applyOperator(operator.div,self,other,isreverse=True)
-  ##def __truediv__(self,other):
-    ##return applyOperator(operator.truediv,self,other)
-  ##def __rtruediv__(self,other):
-    ##return applyOperator(operator.truediv,self,other,isreverse=True)
-  ##def __floordiv__(self,other):
-    ##return applyOperator(operator.floordiv,self,other)
-  ##def __rfloordiv__(self,other):
-    ##return applyOperator(operator.floordiv,self,other,isreverse=True)
-  ##def __mod__(self,other):
-    ##return applyOperator(operator.mod,self,other)
-  ##def __rmod__(self,other):
-    ##return applyOperator(operator.mod,self,other,isreverse=True)
-  ##def __sub__(self,other):
-    ##return applyOperator(operator.sub,self,other)
-  ##def __rsub__(self,other):
-    ##return applyOperator(operator.sub,self,other,isreverse=True)
-  ##def __pow__(self,other):
-    ##return applyOperator(operator.pow,self,other)
-  ##def __rpow__(self,other):
-    ##return applyOperator(operator.pow,self,other,isreverse=True)
-
-  ##def __and__(self,other):
-    ##return applyOperator(operator.and_,self,other)
-  ##def __rand__(self,other):
-    ##return applyOperator(operator.and_,self,other)
-  ##def __or__(self,other):
-    ##return applyOperator(operator.or_,self,other)
-  ##def __ror__(self,other):
-    ##return applyOperator(operator.or_,self,other)
-  ##def __xor__(self,other):
-    ##return applyOperator(operator.xor,self,other)
-  ##def __rxor__(self,other):
-    ##return applyOperator(operator.xor,self,other)
-  ##def __le__(self,other):
-    ##return applyOperator(operator.le,self,other)
-  ##def __lt__(self,other):
-    ##return applyOperator(operator.lt,self,other)
-  ##def __eq__(self,other):
-    ##return applyOperator(operator.eq,self,other)
-  ##def __ne__(self,other):
-    ##return applyOperator(operator.ne,self,other)
-  ##def __ge__(self,other):
-    ##return applyOperator(operator.ge,self,other)
-  ##def __gt__(self,other):
-    ##return applyOperator(operator.gt,self,other)
 
 
 class _Lcls_beamline(object):
@@ -4594,105 +3663,6 @@ class _Run(object):
     #print output
     return output
 
-###### EASY filtering tools ##########
-
-class filtDsetObj(object):
-  def __init__(self,dset):
-    self._dset = dset
-
-  def __getattr__(self,inp):
-    self.__dir__()
-    return self.__getattribute(inp)
-  
-  def __dir__(self):
-    for det in self._dset.detectors:
-      td = self._dset.__dict__[det]
-      if hasattr(td,'_masked_arrays'):
-	if 'data' in td._masked_arrays.keys():
-	  if not td._masked_arrays['data'] == []:
-            self.__dict__[det] = filtDetObj(self._dset,det)
-    return self.__dict__.keys()
-
-class filtDetObj(object):
-  def __init__(self,dset,det):
-    self._dset = dset
-    self._det = det
-    self._channels = self._dset.__dict__[det]._masked_arrays['data']
-  
-  def __getattr__(self,inp):
-    self.__dir__()
-    return self.__getattribute(inp)
-
-  def __dir__(self):
-    for channel in self._channels:
-      channel = channel.strip('_')
-      self.__dict__[channel] = filtChannelObj(self._dset,self._det,channel)
-    return self.__dict__.keys()
-
-class filtChannelObj(object):
-  def __init__(self,dset,det,channel):
-    self._dset = dset
-    self._det = det
-    self._channel = channel
-    def channelfun():
-      self._dset._initfilter()
-      return partial(parameterFilt, self._dset.__dict__[self._det].__dict__['__'+self._channel](),dataset=self._dset)()
-
-
-    self.__dict__['filt'] = channelfun
-    self.__dict__['corr'] = filtchannelcorrobj(self._dset,self._det,self._channel)
-
-
-
-
-class filtchannelcorrobj(object):
-  def __init__(self,dset,det,channel):
-    self._dset = dset
-    self._det = det
-    self._channel = channel
-  def __getattr__(self,inp):
-    self.__dir__()
-    return self.__getattribute(inp)
-
-  def __dir__(self):
-    self.initalldetchannels()
-    return self.__dict__.keys()
-  def initalldetchannels(self):
-    for det in self._dset.detectors:
-      td = self._dset.__dict__[det]
-      if hasattr(td,'_masked_arrays'):
-	if 'data' in td._masked_arrays.keys():
-	  if not td._masked_arrays['data'] == []:
-	    self.__dict__[det] = channelcorrobj(self._dset,self._det,self._channel,det)
-class channelcorrobj(object):
-  def __init__(self,dset,det,channel,corrdet):
-    self._dset = dset
-    self._det = det
-    self._channel = channel
-    self._corrdet = corrdet
-  def __getattr__(self,inp):
-    self.__dir__()
-    return self.__getattribute(inp)
-  def __dir__(self):
-    self._init()
-    return self.__dict__.keys()
-
-    
-
-  def _init(self):
-    corrdet = self._dset.__dict__[self._corrdet]
-    corrchannels = corrdet._masked_arrays['data']
-    for cchannel in corrchannels:
-      cchannel = cchannel.strip('_')
-      def channelfun():
-	self._dset._initfilter()
-	return partial(parameterCorrFilt,
-					  self._dset.__dict__[self._det].__dict__['__'+self._channel](),
-					  self._dset.__dict__[self._corrdet].__dict__['__'+cchannel](),
-					  dataset=self._dset
-					  )()
-
-      self.__dict__[cchannel] = channelfun    
   
 ############## Dataset finder ###############
 
@@ -4756,10 +3726,9 @@ def crawlforDatasets(group,skipEpics = True, skipEvr = True):
         found.extend(crawlforDatasets(group[itemname]))
   return found
 
+###### WRAPPING #######
 
-
-
-
+corrNonlin = wrapFunc(tools.corrNonlin)
 
 ############## GENERAL STUFF ###############
 
@@ -4784,3 +3753,5 @@ point_detectors = cnfFile['pointDet'].keys()
 area_detectors = cnfFile['areaDet'].keys()
 detectors = point_detectors
 detectors.extend(area_detectors)
+
+

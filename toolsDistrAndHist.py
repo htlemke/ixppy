@@ -119,6 +119,8 @@ def weighted_percentiles(data, wt, percentiles):
           return o
 
 def weighted_median(data,wt):
+  if len(data)==0:
+    return np.nan
   return weighted_percentiles(data,wt,[.5])[0]
 
 def weighted_mad(data,wt,c=0.6745):
@@ -405,8 +407,9 @@ def histogram2dSmart(x,y,fac=400,include=-1,remove=0,maxints=500):
 
 def histVec(v,oversample=1):
   v = np.atleast_1d(v)
+  v = np.unique(v)
   vd = np.diff(v)
-  vd = np.hstack([vd,vd[-1]])
+  vd = np.hstack([vd[0],vd])
   #vv = np.hstack([v-vd/2,v[-1]+vd[-1]/2])
   vv = np.hstack([v-vd/2.,v[-1]+vd[-1]/2.])
   if oversample>1:

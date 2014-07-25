@@ -577,22 +577,10 @@ def maskEdges(i,offset=1,maskmid=True):
 
   return np.asarray(tmsk)
   
-
-  
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
+def corrAreadetNonlin_getComponents(areadet,I0,digibins=None):
+  print "finding intensity intervals for component determination"
+  areadet['cnl_I0'] = I0.digitize(digibins)
+  areadet['cnl_I0sorted'] = I0dig.ones()*areadet.data/I0dig
+  areadet.cnl_I0sorted.evaluate[:,:100]
 
 

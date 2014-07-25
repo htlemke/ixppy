@@ -86,6 +86,7 @@ class lclsH5(object):
 
     
 
+    #raise NotImplementedError('Use the source, luke!')
     ret = {}
     ## *** start EpicsPV *** #
     ## look for epics name
@@ -126,7 +127,7 @@ class lclsH5(object):
       detDataset = [x for x in h5names if (re.search(nameData,x) is not None)]
       nameConf = name["conf"].replace("*","\S+")
       detConf    = [x for x in h5confs if (re.search(nameConf,x) is not None)]
-      data = [x for x in detDataset if x[-5:]=="/data" or x[-8:]=="/evrData"]
+      data = [x for x in detDataset if x[-5:]=="/data" or x[-8:]=="/evrData" or x[-13:]=="/channelValue"]
       time = [x for x in detDataset if x[-5:]=="/time"]
       if ( (len(data) != 0) and (len(time) != 0) ):
         ret[mnemonic] = {}
@@ -156,6 +157,7 @@ class lclsH5(object):
       conf = [ ]
       data = [x for x in detDataset if (re.search(name,x) is not None)]
       time = [x for x in detDataset if x[-5:]=="/time"]
+      #raise NotImplementedError('Use the source, luke!')
       if ( (len(data) != 0) and (len(time) !=0) ):
         ret[mnemonic] = {}
         ret[mnemonic]["data"] = [replaceCalibCycleString(tdat) for tdat in data]
@@ -290,6 +292,8 @@ class detector(object):
         else:
 	  # this might be the tt case
 	  for datapath,timepath in zip(self._paths['data'],self._paths['time']):
+	    datapath = getPath(datapath)
+	    timepath = getPath(timepath)
 	    name = getDetNamefromPath(datapath)
             dat,fields = self._readPointDataGeneral(datapath)
             times = self._readTime(timepath)
@@ -304,6 +308,8 @@ class detector(object):
 	 # this might be the ipm case
 	datapath = self._paths['data'][0]
 	timepath = self._paths['time'][0]
+	datapath = getPath(datapath)
+	timepath = getPath(timepath)
 	dat,fields = self._readPointDataGeneral(datapath)
 	times = self._readTime(timepath)
 
@@ -316,7 +322,7 @@ class detector(object):
 
 
   def _initAreaDet(self):
-    self.time = self._readTime(self._paths['time'][0])
+    self.time = self._readTime(getPath(self._paths['time'][0]))
     self.readData = self._readDataGeneral
     self._numOfScanStepsFile = self._checkNcalib()
     self.readData = self._readDataGeneral
@@ -340,6 +346,7 @@ class detector(object):
     for stepNum in stepSlice:
       fileNum,FstepNum = self._getFileStep(stepNum)
       cpath = path % FstepNum # really beautiful, same for python 3 ?
+      cpath = getPath(cpath)
       data = h5r(self._h5s[fileNum],cpath)
       try:
 	if (shotSlice is None):
@@ -424,6 +431,7 @@ class detector(object):
   def _checkNcalib(self):
     numOfScanStepsFile = []
     path = tools.commonPathPrefix(self._paths["data"])
+    path = getPath(path)
     for h in self._h5s:
       n=0
       while( tH5.datasetExists(h,path % n) ):
@@ -492,6 +500,7 @@ class detector(object):
       except:
         time = np.array([])
 
+      #raise NotImplementedError('Use the source, luke!')
       times.append(time)
     return times
 
@@ -571,6 +580,7 @@ class detector(object):
       if (not self._existsInSelf(addr)) or (len(tools.iterDiff( self._getFromSelf(addr), shotSlice) )==0):
 
 	path = self._paths["data"][0] % FstepNum
+	path = getPath(path)
 	data = h5r(self._h5s[fileNum],path)
 	if (shotSlice is None):
 	  data = data[...]
@@ -602,18 +612,23 @@ class detector(object):
       outS.append(data)
     return outS
 
-
+# hack for linked calib cycles
+def getPath(name):
+  if name[:12] == '/CalibCycle:':
+    return '/Configure:0000/Run:0000'+name
+  else:
+    return name
 
 class scanVar(object):
   def __init__(self,fhandle,name,paths):
     self._h5s = fhandle
-    self._name = name
+    self._name = getPath(name)
     self._paths = paths
     self._checkNcalib()
     self._read()
 
   def _read(self):
-    names = self._h5s[0][self._paths % 0]
+    names = self._h5s[0][getPath(self._paths % 0)]
     if names.shape==():
       return
     names = names['name']
@@ -677,7 +692,7 @@ def parseToCnf(fileHandle):
 
 def getDetNamefromPath(path,lowerit=False):
   name = 'data'
-  while name in ['evrData','data','time','image','array']:
+  while name in ['evrData','data','time','image','array','channelValue']:
     path,name = os.path.split(path)
   name = name.lower()
   name = name.replace(':','_')
@@ -716,7 +731,7 @@ def crawlforDatasets(group,skipEpics = True, skipEvr = True):
             dset['dset_time'] =  group['time'].name
             #dset['dset_type'] =  'areadet'
             found.extend([dset])
-      elif u'data' in itemnames:
+      elif u'data' in itemnames or u'channelValue' in itemnames:
         if isinstance(group['data'],h5py.Dataset):
           if group['time'].shape[0] == group['data'].shape[0]:
             dset = dict()
