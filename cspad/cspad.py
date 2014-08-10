@@ -2,6 +2,7 @@ import pylab as pl
 import numpy as np
 import os,sys
 from ixppy import tools,wrapFunc
+import copy
 #from functools import partial
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -13,6 +14,9 @@ from alignment import CalibPars          as calp
 #import CSPadConfigPars    as ccp
 from alignment.CSPADPixCoords import CSPADPixCoords
 import numpy as np
+
+
+g_maskUnbonded = dict()
 
 def getCsPadPixCoordinates(path_calib=alignmentdir+'/calib-xpp-2013-01-29', 
                            rotation=0, 
@@ -576,7 +580,42 @@ def maskEdges(i,offset=1,maskmid=True):
     tmsk = [tmsk for n in xrange(N)]
 
   return np.asarray(tmsk)
-  
+
+
+def createMaskUnbonded(Ntiles=32, maskDirectNeighbors=False):
+  if Ntiles not in g_maskUnbonded:
+    p = np.zeros([185,388],dtype=bool)
+    for i in range(0,185,10):
+      p[i,i] = True
+      p[i,i+194] = True
+      if maskDirectNeighbors:
+        for dx in [-1,1]:
+          p[i,i+dx] = True
+          p[i,i+194+dx] = True
+        for dy in [-1,1]:
+          p[i+dy,i] = True
+          p[i+dy,i+194] = True
+    p = p.reshape(1,185,388)
+    p = np.concatenate([p]*Ntiles,0)
+    globals()["g_maskUnbonded"][Ntiles]  = p
+  return g_maskUnbonded[Ntiles]
+
+def getUnbondedPixelOffset(img):
+  nTiles = img.shape[0]
+  msk    = createMaskUnbonded(nTiles,maskDirectNeighbors=False)
+  dark   = img[msk].reshape( (-1,nTiles ) ).mean(axis=0)
+  return dark
+
+def correctImageUsingUnbondedPixels(img,makeCopy=False):
+  dark = getUnbondedPixelOffset(img)
+  # broadcast
+  dark = dark[:,np.newaxis,np.newaxis]
+  if makeCopy:
+    img = copy.copy(img) - dark
+  else:
+    img -= dark.astype( img.dtype )
+  return img
+
 def corrAreadetNonlin_getComponents(areadet,I0,digibins=None):
   print "finding intensity intervals for component determination"
   areadet['cnl_I0'] = I0.digitize(digibins)

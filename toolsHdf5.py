@@ -135,6 +135,47 @@ def f(arg):
 def f1(dataset,x):
   return dataset[x]
 
+def getItemSize(dataset):
+  # the line below fails for cspad data .... what a pain
+  #size = dataset.size
+  return dataset.dtype.itemsize
+
+def _readDataset(args):
+  """ utility function used by multiprocessing.Pool """
+  dataset,sliceShot = args
+  path = dataset.name
+  filename = dataset.file.filename
+  h=h5py.File(filename,"r")
+  return h[path][sliceShot]
+
+def readDataset(dataset,sliceSel=None,chunksize=300):
+  # the line below fails for cspad data .... what a pain
+  #size = dataset.size
+  itemSize = getItemSize(dataset)
+  n = dataset.shape[0]
+  if (sliceSel is None): sliceSel = slice(0,n,1)
+  dataSize = n*itemSize
+  isMultiProcessUseful = dataSize > (2048*2048)
+  if isMultiProcessUseful:
+    # subdivide indices in chunksize
+    start,stop,step = sliceSel.indices(n)
+    nC = int(float(stop-start)/step/chunksize+0.5)
+    print nC
+    args = []
+    for i in range(nC):
+      s1 = start+i*(chunksize*step)
+      s2 = start+(i+1)*(chunksize*step)
+      print i,s1,s2
+      args.append( (dataset,slice(s1,s2,step) ) )
+    print args
+    raw_input("Not working yet, use chunksize = 1")
+    p = Pool(4); # 16-43 ms overhead
+    res = p.map(_readDataset,args)
+    data = np.concatenate(res)
+  else:
+    data = dataset[sliceSel]
+  return data
+
 
 def datasetToNumpy(dataset,sliceSel=None,chunksize=1):
   size = dataset.size

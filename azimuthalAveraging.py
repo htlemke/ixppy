@@ -348,8 +348,6 @@ def doFolderOrFiles(folderNameOrFileList,
     skipFirst += len(files)-skip
   return az
 
-def test(x):
-  return x,np.random.random(100000)
 
 def _doImages(listOfImgs,azObj):
   nImg=len(listOfImgs)
@@ -453,55 +451,43 @@ def doImages(listOfImgs,
     hchi.close()
   return dataI,dataE,az
 
-def test():
-  mask=np.ones( (2000,2000) )
-  az=azimuthal_averaging(mask,-80,1161,pixelsize=82e-6,d=4.7e-2,tx=0,ty=90-28.,thetabin=1e-1,lam=1,verbose=1)
-  plt.subplot("121")
-  displayimg(np.rad2deg(az.matrix_theta))
-  print az.matrix_theta.min()
-  plt.clim(0,180)
-  plt.colorbar()
-  plt.subplot("122")
-  displayimg(np.rad2deg(az.matrix_phi))
-  print az.matrix_phi.min(),az.matrix_phi.max()
-  plt.colorbar()
-  plt.clim(0,360)
-
-
-
 class azimuthalBinning:
-  def __init__(self,xcen,ycen,mask=None,x=None,y=None,pixelsize=100e-6,d=100e-3,tx=0,ty=0, qbin=5e-3,lam=1,verbose=0,Pplane=1,phibin=0.1,phiBins=1,img=None,report_file="auto"):
-    """ pixelsize = pixel size (in m)
+  def __init__(self,x,y,xcen,ycen,d=100e-3,mask=None,gainImg=None,darkImg=None,tx=0,ty=0, qbin=5e-3,lam=1,\
+        ADU_per_photon = 1.,Pplane=1,phibin=0.1,phiBins=1,img=None,verbose=0,report_file=None):
+    """ 
+        correctedImage = (Image-darkImg)/gainImg/geom_correction/pol_correction
+        x,y      = pixel coordinate (1D array each); note: they should be the center of the pixels
+        xcen,ycen = center beam position
         tx,ty = angle of detector normal with respect to incoming beam (in deg)
                 zeros are for perpendicular configuration
-        x,y   = pixel coordinate (if None automatic calculation)
+        darkImg  = darkImage to subbract
+        ADU_per_photon : used to estimate errors
         qbin = rebinning q 
         phibin = bin in azimuthal angle (used for polar plot
         Pplane = Polarization (1 = horizontal, 0 = vertical)
         d     = distance of center of detector to sample (in m)
         lam   = wavelength in Ang
         img is used only for displaying corrections
-        TODO: Polarization correction
     """
-
+    # save parameters for later use
+    self.gainImg=gainImg
+    self.darkImg=darkImg
+    if mask is not None: mask = np.asarray(mask,dtype=np.bool)
+    self.mask=mask
     self.verbose=verbose
-    mask = np.asarray(mask,dtype=np.bool)
+    self.ADU_per_photon=ADU_per_photon
+
     tx = np.deg2rad(tx)
     ty = np.deg2rad(ty)
     xcen = float(xcen)
     ycen = float(ycen)
     # equations based on J Chem Phys 113, 9140 (2000) [logbook D30580, pag 71]
     (A,B,C) = (-np.sin(ty)*np.cos(tx),-np.sin(tx),-np.cos(ty)*np.cos(tx))
-    (a,b,c) = (xcen+d/pixelsize*np.tan(ty),float(ycen)-d/pixelsize*np.tan(tx),d/pixelsize)
+    (a,b,c) = (xcen+d*np.tan(ty),float(ycen)-d*np.tan(tx),d)
     self.xcen = xcen
     self.ycen = ycen
-    mshape = mask.shape
+    mshape = x.shape
 
-    #for pixel coordinates
-    if (x is None) or (y is None):
-      (x,y)=np.mgrid[0:mshape[0],0:mshape[1]]
-      x += (+0.5)
-      y += (+0.5)
     r  = np.sqrt( (x-a)**2+(y-b)**2+c**2)
     self.r = r
     self.d = d
@@ -528,9 +514,9 @@ class azimuthalBinning:
     Pout   = 1-Pplane
     pol = Pout*(1-(np.sin(matrix_phi)*np.sin(matrix_theta))**2)+\
         Pplane*(1-(np.cos(matrix_phi)*np.sin(matrix_theta))**2)
+
     self.msg("... done")
     self.pol=pol
-    self.mask=mask
     theta_max = np.nanmax(matrix_theta[mask])
     self.msg("calculating digitize")
     self.nphi = phiBins
@@ -541,7 +527,6 @@ class azimuthalBinning:
     self.phiVec = np.linspace(0,2*np.pi+np.spacing(np.min(pbm)),phiBins+1)
 
     self.idxphi = np.digitize(pbm.ravel(),self.phiVec)-1
-    #self.idxphi[self.matrix_phi==0] = 0
     self.matrix_q = 4*np.pi/lam*np.sin(self.matrix_theta/2)
     q_max = np.nanmax(self.matrix_q[mask])
     qbin = np.array(qbin)
@@ -555,27 +540,25 @@ class azimuthalBinning:
     self.idxq  = np.digitize(self.matrix_q.ravel(),self.qbins)-1
     last_idx = self.idxq.max()
     # 2D binning!
-    self.idxs = np.ravel_multi_index((self.idxphi,self.idxq),(self.nphi,self.nq))
-    self.idxs[~mask.ravel()] = 0; # send the masked ones in the first bin
+    self.Cake_idxs = np.ravel_multi_index((self.idxphi,self.idxq),(self.nphi,self.nq))
+    self.Cake_idxs[~mask.ravel()] = 0; # send the masked ones in the first bin
     #print "last index",last_idx
     self.msg("...done")
     self.phi  = np.arange(0,2*np.pi+phibin,phibin)+phibin/2
     # include geometrical corrections
-    self.msg("calculating normalization...",cr=0)
     geom  = (d/r) ; # pixels are not perpendicular to scattered beam
     geom *= (d/r**2); # scattered radiation is proportional to 1/r^2
+    self.msg("calculating normalization...",cr=0)
     self.geom = geom
     self.geom /= self.geom.max()
     self.correction = self.geom*self.pol
-    #norm = n.bincount(self.idxs,self.geom.ravel(),minlength=self.nq)
-    self.Npixel = np.bincount(self.idxs,minlength=self.nq*self.nphi)
-    self.Npixel = self.Npixel[:self.nq*self.nphi]
-    #self.correction1D  =np.bincount(self.idxs,np.ravel(1/self.correction),minlength=self.nq)
+    self.Npixel = np.bincount(self.idxq,minlength=self.nq); self.Npixel = self.Npixel[:self.nq]
+    self.norm   = self.Npixel
+    self.Cake_Npixel = np.bincount(self.Cake_idxs,minlength=self.nq*self.nphi); self.Cake_Npixel = self.Npixel[:self.nq*self.nphi]
+    self.Cake_norm=np.reshape(self.Npixel,(self.nphi,self.nq));#/self.correction1D
     #self.correction1D  =self.correction1D[:self.nq]/self.Npixel
-    self.norm=np.reshape(self.Npixel,(self.nphi,self.nq));#/self.correction1D
     self.header  = "# Parameters for data reduction\n"
-    self.header += "# xcen,ycen = %.2f %.2f\n" % (xcen,ycen)
-    self.header += "# pixel size = %.2g m\n" % (pixelsize)
+    self.header += "# xcen,ycen = %.2f m %.2f m\n" % (xcen,ycen)
     self.header += "# sample det distance = %.4f m\n" % (d)
     self.header += "# wavelength = %.4f Ang\n" % (lam)
     self.header += "# detector angles x,y = %.3f,%.3f deg\n" % (np.rad2deg(tx),np.rad2deg(ty))
@@ -583,29 +566,32 @@ class azimuthalBinning:
     if isinstance(qbin,float):
       self.header += "# q binning : %.3f Ang-1\n" % (qbin)
     return 
-    # prepare report
-    if (img is None): img=np.ones_like(mask)
-    plt.interactive(0)
-    plt.figure(figsize=(8*2, 6*2),dpi=150)
-    plt.subplot("231",title="Polarization")
-    plt.imshow(self.pol)
-    plt.colorbar()
-    plt.subplot("232",title="Geometrical")
-    plt.imshow(self.geom)
-    plt.colorbar()
-    plt.subplot("233",title="Geometrical+Pol")
-    plt.imshow(self.correction)
-    plt.colorbar()
-    plt.subplot("234",title="Raw image")
-    plt.imshow(img*mask)
-    plt.colorbar()
-    plt.subplot("235",title="Corrected image")
-    plt.imshow(img/self.correction*mask)
-    plt.colorbar()
-#    plt.show()
-    if (report_file == "auto"):
-      report_file="azimuthal_averaging_info.png"
-    plt.savefig(report_file)
+    if report_file is None:
+      return
+    else:
+      # prepare report
+      if (img is None): img=np.ones_like(mask)
+      plt.interactive(0)
+      plt.figure(figsize=(8*2, 6*2),dpi=150)
+      plt.subplot("231",title="Polarization")
+      plt.imshow(self.pol)
+      plt.colorbar()
+      plt.subplot("232",title="Geometrical")
+      plt.imshow(self.geom)
+      plt.colorbar()
+      plt.subplot("233",title="Geometrical+Pol")
+      plt.imshow(self.correction)
+      plt.colorbar()
+      plt.subplot("234",title="Raw image")
+      plt.imshow(img*mask)
+      plt.colorbar()
+      plt.subplot("235",title="Corrected image")
+      plt.imshow(img/self.correction*mask)
+      plt.colorbar()
+#      plt.show()
+      if (report_file == "auto"):
+        report_file="azimuthal_averaging_info.png"
+      plt.savefig(report_file)
     self.msg("...done")
 
   def msg(self,s,cr=True):
@@ -616,53 +602,40 @@ class azimuthalBinning:
         print s,
     sys.stdout.flush()
 
-  def displaypolar(self,img,withCorrection=True):
-    self.idxsphi  = np.digitize(self.matrix_phi.ravel(),self.phi)
-    if (withCorrection):
-      ii = img.ravel()/self.correction.ravel()
-    else:
-      ii = img.ravel()
-    t = self.theta
-    p = self.phi
-    v = np.zeros( (len(self.theta),len(self.phi) ) )
-    N = np.zeros( (len(self.theta),len(self.phi) ) )
-    for i in range(len(ii)):
-        try:
-          it = self.idxs[i]
-          ip = self.idxsphi[i]
-          v[it,ip] += ii[i]
-          N[it,ip] += 1
-        except:
-          #print "skipping",i
-          pass
-        if (i%100000==0):
-          print "done %.1f per cent" % (float(i)/len(ii)*100)
-    idx = N>0
-    v[idx] /= N[idx]
-    #plt.imshow(v,extent=[p[0],p[-1],t[0],t[-1]],origin="bottom",interpolation="none")
+  def displayCake(self,img,applyCorrection=True):
+    ii =  self.doCake(img,applyCorrection=applyCorrection)
     plt.subplot("221")
-    plt.imshow(v)
+    plt.imshow(ii)
     plt.axis('tight')
     plt.colorbar()
     plt.subplot("222")
-    plt.plot(self.phi,v[300,:])
+    plt.plot(self.phi,ii[300,:])
     plt.show()
-    return v
+    return ii
 
-  def doAzimuthalAveraging(self,img):
-    #img /= self.correction
-    t0=time.time()
-    I=np.bincount(self.idxs, weights = img.ravel()/self.correction.ravel(), minlength=self.nq*self.nphi)
-    #I=np.bincount(self.idxs, weights = img.ravel(), minlength=self.nq*self.nphi)
-    I=I[:self.nq*self.nphi]
-    I = np.reshape(I,(self.nphi,self.nq))
-    self.sig = np.sqrt(I)/self.norm  # ??? where comes this sqrt from? Ah I see...
-    #I2=n.bincount(self.idxs,n.ravel(img*img),minlength=self.nq)
+  def doAzimuthalAveraging(self,img,applyCorrection=True):
+    if self.darkImg is not None: img-=self.darkImg
+    if self.gainImg is not None: img/=self.gainImg
+    if applyCorrection:
+      I=np.bincount(self.idxq, weights = img.ravel()/self.correction.ravel(), minlength=self.nq); I=I[:self.nq]
+    else:
+      I=np.bincount(self.idxq, weights = img.ravel()                        , minlength=self.nq); I=I[:self.nq]
+    self.sig = np.sqrt(1./self.ADU_per_photon)*np.sqrt(I)/self.norm
     self.I = I/self.norm
-    #self.sig = n.sqrt((I2/self.norm-self.I**2)/self.norm)
-    #idx = self.Npixel>20
-    #self.sig[~idx]=self.sig2[~idx]
     return self.I
+
+
+  def doCake(self,img,applyCorrection=True):
+    if self.darkImg is not None: img-=self.darkImg
+    if self.gainImg is not None: img/=self.gainImg
+    if applyCorrection:
+      I=np.bincount(self.Cake_idxs, weights = img.ravel()/self.correction.ravel(), minlength=self.nq*self.nphi); I=I[:self.nq*self.nphi]
+    else:
+      I=np.bincount(self.Cake_idxs, weights = img.ravel()                        , minlength=self.nq*self.nphi); I=I[:self.nq*self.nphi]
+    I = np.reshape(I,(self.nphi,self.nq))
+    self.sig = 1./np.sqrt(self.ADU_per_photon)*np.sqrt(I)/self.Cake_norm  # ??? where comes this sqrt from? Ah I see...
+    self.Icake = I/self.Cake_norm
+    return self.Icake
 
   def saveChiFile(self,fname):
     header = "q(Ang-1) I sig"
@@ -670,6 +643,26 @@ class azimuthalBinning:
     #n.savetxt(fname,n.vstack((self.q,self.I,self.sig)),header=header)
     np.savetxt(fname,np.transpose(np.vstack((self.q,self.I,self.sig))),
       fmt=["%.3f","%.4f","%.4f"])
+
+
+def test():
+  mask=np.ones( (2000,2000) )
+  az=azimuthal_averaging(mask,-80,1161,pixelsize=82e-6,d=4.7e-2,tx=0,ty=90-28.,thetabin=1e-1,lam=1,verbose=1)
+  plt.subplot("121")
+  displayimg(np.rad2deg(az.matrix_theta))
+  print az.matrix_theta.min()
+  plt.clim(0,180)
+  plt.colorbar()
+  plt.subplot("122")
+  displayimg(np.rad2deg(az.matrix_phi))
+  print az.matrix_phi.min(),az.matrix_phi.max()
+  plt.colorbar()
+  plt.clim(0,360)
+
+
+
+
+
 
 if (__name__=="__main__"):
   test()
