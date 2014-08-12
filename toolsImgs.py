@@ -1,5 +1,5 @@
 import numpy as np
-import Image
+from PIL import Image
 
 def rebin(a, shape):
     sh = shape[0],a.shape[0]//shape[0],shape[1],a.shape[1]//shape[1]

@@ -135,6 +135,31 @@ class dataset(object):
         self[name]._parent = self
       except:
 	pass
+
+  def _getItemsNameList(self,excludeFun=True,excludeConf=True,excludePrivate=True):
+    lst = self.__dict__.keys()
+    if excludePrivate:
+      for l in lst:
+	if l[0]=='_':
+	  lst.remove(l)
+    #if excludeFun:
+      #for l in lst:
+	#if hasattr('__call__',self.):
+	  #lst.remove(l)
+    if excludeConf:
+      if 'config' in lst:
+	lst.remove('config')
+    return lst
+
+  def items(self):
+    names = self._getItemsNameList()
+    op = []
+    for name in names:
+      op.append((name,self[name]))
+    return op
+  
+  def itemNames(self):
+    return self._getItemsNameList()
 	  
   def save(self,name=None,force=False):
     #self.config.ixp.save(self,self._ixpHandle,name='dataset')
