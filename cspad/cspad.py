@@ -3,6 +3,7 @@ import numpy as np
 import os,sys
 from ixppy import tools,wrapFunc
 import copy
+from ixppy.tools import nfigure
 #from functools import partial
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,6 +15,7 @@ from alignment import CalibPars          as calp
 #import CSPadConfigPars    as ccp
 from alignment.CSPADPixCoords import CSPADPixCoords
 import numpy as np
+from matplotlib import pyplot as plt
 
 
 g_maskUnbonded = dict()
@@ -307,6 +309,12 @@ class CspadPattern(object):
         for el in line:
           f.write(' '+str(int(el)))
         f.write('\n')
+  
+  def showTileNumbers(self):
+    x = [np.mean(tx) for tx in self.xpx.ravel()]
+    y = [np.mean(ty) for ty in self.ypx.ravel()]
+    for n,(tx,ty) in enumerate(zip(x,y)):
+      plt.text(tx,ty,str(n))
 
   #def digitizeRadialQspace(i, 
                       #polarization=None, # no correction if None, standard XPP setup correction if True, if float polarization degree.
@@ -621,5 +629,44 @@ def corrAreadetNonlin_getComponents(areadet,I0,digibins=None):
   areadet['cnl_I0'] = I0.digitize(digibins)
   areadet['cnl_I0sorted'] = I0dig.ones()*areadet.data/I0dig
   areadet.cnl_I0sorted.evaluate[:,:100]
+
+def histOverview(data,clearFig=True):
+  Nax = len(data)
+  msk = maskEdge()
+  unb = createMaskUnbonded(1)[0]
+  fig = nfigure('Cspad histogram overview')
+  if clearFig: plt.clf()
+  binvec = np.arange(np.round(np.min(data.ravel())),np.round(np.max(data.ravel())),1)
+  ah = []
+  for n,tdat in enumerate(data):
+    unbpx = tdat[unb]
+    tdat = tdat[~msk]
+    if len(ah)==0:
+      ah.append(plt.subplot(8,4,n))
+    else:
+      ah.append(plt.subplot(8,4,n,sharex=ah[0]))
+    h = np.histogram(tdat,bins=binvec)
+    lh = plt.step(binvec[:-1],h[0],where='pre')
+    lh = lh[0]
+    plt.axvline(np.median(unbpx),color=lh.get_color())
+
+
+def unbAnalysis(datastack,bins = None):
+  
+  msk = maskEdge()
+  unb = createMaskUnbonded(1)[0]
+  out = []
+  for img in datastack:
+    iout = []
+    for tile in img:
+      tunb = np.median(tile[unb])
+      tile = tile[~msk]
+      tint = np.median(tile)
+      iout.append(np.asarray([tunb,tint]))
+    out.append(np.asarray(iout))
+  return np.asarray(out)
+
+
+
 
 

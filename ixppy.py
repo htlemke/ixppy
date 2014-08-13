@@ -1246,6 +1246,26 @@ class data(object):
   def __gt__(self,other):
     return applyDataOperator(operator.gt,self,other)
 
+  def mean(self):
+    allchunks = self._memIterate()
+    out = []
+    # progress bar
+    Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in allchunks])
+    processedevents = 0
+    widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+    pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+    for stepNo,step in allchunks:
+      totlen = np.sum([len(x) for x in step])
+      tout = 0
+      for chunk in step:
+	if len(chunk)>0:
+          tout += np.nansum(self[stepNo,np.ix_(chunk)][0],axis=0)
+        processedevents += len(chunk)
+	pbar.update(processedevents)
+      out.append(tout/totlen)
+    return out
+
+
 Data = data
 Memdata = memdata
 
@@ -1738,8 +1758,10 @@ class Evaluate(object):
     dh = grp.require_group('data')
     eventShape = self.data._sizeEvt['shape']
     # progress bar
+    Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in allchunks])
+    processedevents = 0
     widgets = ['Evaluating: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
-    pbar = pb.ProgressBar(widgets=widgets, maxval=len(allchunks)).start()
+    pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
       totshape = tuple([totlen] + list(eventShape))
@@ -1756,10 +1778,12 @@ class Evaluate(object):
 	  if len(tdat)>0:
 	    ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
 	    ds[startind:startind+len(chunk),...] = tdat
+        processedevents += len(chunk)
+        pbar.update(processedevents)
+
 	ixp.fileHandle.flush()
 
 	startind += len(chunk)
-      pbar.update(stepNo+1)
     pbar.finish()
     
     #raise NotImplementedError('Use the source, luke!')
