@@ -73,11 +73,15 @@ class dataset(object):
 
       else:
 	self.config.ixp = Ixp(ixpFile)
+	if os.path.exists(ixpFile):
+	    self.config.filestrategy.append('ixp')
     else:
       if ixpFile==None:
         self.config.ixp = Ixp(self.config.fileNamesIxp[0])
       else:
         self.config.ixp = Ixp(ixpFile)
+	if os.path.exists(ixpFile):
+	  self.config.filestrategy.append('ixp')
 
     self._ixpHandle = self.config.ixp
     self._ixpsaved = []
@@ -604,13 +608,14 @@ class memdata(object):
     sr,stepsz = ravelScanSteps(self.data)
     if type=='mean':
       op = np.asarray([np.mean(sr[tools.smartIdx(tsel)]) for tsel in o[0]])
+      #de=bug
     odat = unravelScanSteps(op,o[1])
     return memdata(input=[odat,timenew],scan=other.scan)
   #return data(time=timenew,input=procObj,scan=self.scan)
 
   def ones(self):
     odat = [np.ones(len(dat)) for dat in self._data]
-    return memdata(input=[odat,self.time],scan=self.scan)
+    return memdata(input=[odat,self.time],scan=self.scan,grid=self.grid)
   
   def _stepStatFunc(self,func,*args,**kwargs):
     data = np.asarray([func(d,*args,**kwargs) for d in self])
@@ -1263,6 +1268,7 @@ class data(object):
         processedevents += len(chunk)
 	pbar.update(processedevents)
       out.append(tout/totlen)
+    pbar.finish()
     return out
 
 

@@ -3,7 +3,7 @@ import numpy as np
 import os,sys
 from ixppy import tools,wrapFunc
 import copy
-from ixppy.tools import nfigure
+from ixppy.tools import nfigure,filtvec
 #from functools import partial
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +16,7 @@ from alignment import CalibPars          as calp
 from alignment.CSPADPixCoords import CSPADPixCoords
 import numpy as np
 from matplotlib import pyplot as plt
+import progressbar as pb
 
 
 g_maskUnbonded = dict()
@@ -418,10 +419,43 @@ def getNoiseMap(Istack,lims=None):
   if lims==None:
     tools.nfigure('Find noise limits')
     pl.clf()
-    tools.histSmart(noise.ravel()[~np.isnan(noise.ravel())])
+    tools.histSmart(noise.ravel()[~np.isnan(noise.ravel())],fac=200)
+    #pl.gca().set_xscale('log')
+    pl.draw()
     print "Select noise limits"
     lims = tools.getSpanCoordinates()
-  return tools.filtvec(noise,lims)
+  return ~tools.filtvec(noise,lims)
+
+def getDarkNoise(data,maximgs=10,xoff=None,save='',lims=None):
+  if xoff is not None:
+    dark_raw = xoff*data
+  else:
+    dark_raw = data
+  lens = dark_raw.lens()
+  darks = []
+  remaining = maximgs
+  widgets = ['Reading %d dark images: '%maximgs, pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+  pbar = pb.ProgressBar(widgets=widgets, maxval=maximgs).start()
+  for stepNo,tlen in enumerate(lens):
+    darks.append(dark_raw[stepNo,:min(tlen,remaining)][0])
+    remaining -= tlen
+    if remaining<1: break
+    pbar.update(maximgs-remaining)
+  darks = np.concatenate(darks,axis=0)
+  pbar.finish()
+  noisemask = getNoiseMap(darks,lims=lims)
+  dark = np.mean(darks,axis=0)
+  if save is not None:
+    def saveFile(fina,dat):
+      overwrite = True
+      if os.path.exists(fina):
+	ip = raw_input('File %s exists, wanna overwrite? (y/n)'%fina)
+	overwrite = ip=='y'
+      if overwrite:
+	np.save(fina,dat)
+    saveFile('noisemask'+save+'.npy',noisemask)
+    saveFile('dark'+save+'.npy',dark)
+  return dark,noisemask
 
 
 def corrLongPix(I,fillvalues=True,BGcorrect=None):
@@ -446,14 +480,6 @@ def corrLongPix(I,fillvalues=True,BGcorrect=None):
 
 
 
-def getCommonModeFromHist(im,searchoffset=200,COMrad=3):                        
-  bins = np.arange(-100,100) 
-  hist,dum = np.histogram(im.ravel(),bins)
-  aboveoffset = (hist>searchoffset)
-  iao = list(aboveoffset).index(True)
-  imx = iao + list(np.diff(hist[aboveoffset])<0).index(True)
-  CM = (1.*np.sum(hist[imx-COMrad:imx+COMrad+1]*bins[imx-COMrad:imx+COMrad+1])/ np.sum(hist[imx-COMrad:imx+COMrad+1])) 
-  return CM
 
 #class cspad(object):
   #def getCommonModeFromHist(im,searchoffset=200,COMrad=3):                        
@@ -630,25 +656,6 @@ def corrAreadetNonlin_getComponents(areadet,I0,digibins=None):
   areadet['cnl_I0sorted'] = I0dig.ones()*areadet.data/I0dig
   areadet.cnl_I0sorted.evaluate[:,:100]
 
-def histOverview(data,clearFig=True):
-  Nax = len(data)
-  msk = maskEdge()
-  unb = createMaskUnbonded(1)[0]
-  fig = nfigure('Cspad histogram overview')
-  if clearFig: plt.clf()
-  binvec = np.arange(np.round(np.min(data.ravel())),np.round(np.max(data.ravel())),1)
-  ah = []
-  for n,tdat in enumerate(data):
-    unbpx = tdat[unb]
-    tdat = tdat[~msk]
-    if len(ah)==0:
-      ah.append(plt.subplot(8,4,n))
-    else:
-      ah.append(plt.subplot(8,4,n,sharex=ah[0]))
-    h = np.histogram(tdat,bins=binvec)
-    lh = plt.step(binvec[:-1],h[0],where='pre')
-    lh = lh[0]
-    plt.axvline(np.median(unbpx),color=lh.get_color())
 
 
 def unbAnalysis(datastack,bins = None):
@@ -666,7 +673,78 @@ def unbAnalysis(datastack,bins = None):
     out.append(np.asarray(iout))
   return np.asarray(out)
 
+def getCommonModeFromHist(im,gainAv=30,searchRadiusFrac=.4,debug=False):                       
+  im = im.ravel()
+  bins = np.arange(-2*gainAv,3*gainAv)
+  hst,dum = np.histogram(im.ravel(),bins)
+  bins = bins[:-1]+.5
+  rad = np.round(gainAv*searchRadiusFrac)
+  idx = filtvec(bins,[-rad,rad])
+  pk = bins[idx][hst[idx].argmax()]
+  idx = filtvec(bins,[pk-rad,pk+rad])
+  bins = bins[idx]
+  hst = hst[idx]
+  bg = np.sum(bins*hst)/np.sum(hst)
+  if debug:
+    nfigure('debug common mode hist correction')
+    plt.clf()
+    plt.plot(bins,hst)
+    plt.waitforbuttonpress()
+  return bg
 
 
 
+def commonModeCorrectTile(tile,mask=None,gainAv=30,nbSwitchFactor=3,unbPx=None):
+  if unbPx is None:
+    unb = createMaskUnbonded(1)[0]
+  unbV = np.median(tile[unb])
+  if mask is None:
+    mask = np.ones_like(tile,dtype=bool)
+  tdat = tile[mask]
+  med = np.median(tdat)
+  lowexp = (med-unbV) < (nbSwitchFactor*gainAv)
 
+  if lowexp:
+    bg = getCommonModeFromHist(tdat,gainAv=gainAv)
+  else:
+    bg = unbV
+    
+  tile -= bg
+  return tile,bg
+
+
+def commonModeCorrectImg(img,mask=None,gainAv=30,nbSwitchFactor=3,unbPx=None):
+  for tNo,tile in enumerate(img):
+    if mask is None:
+      tmask=None
+    else:
+      tmask = mask[tNo]
+    tile,bg = commonModeCorrectTile(tile,mask=tmask,gainAv=gainAv,nbSwitchFactor=nbSwitchFactor,unbPx=unbPx)
+  return img
+
+commonModeCorrect = wrapFunc(commonModeCorrectImg,isPerEvt=True)
+
+def histOverview(data,clearFig=True):
+  Nax = len(data)
+  msk = maskEdge()
+  unb = createMaskUnbonded(1)[0]
+  fig = nfigure('Cspad histogram overview')
+  if clearFig: plt.clf()
+  binvec = np.arange(np.round(np.min(data.ravel())),np.round(np.max(data.ravel())),1)
+  ah = []
+  for n,tdat in enumerate(data):
+    #tdat = commonModeCorrectTile(tdat)[0]
+    unbpx = tdat[unb]
+    tdat = tdat[~msk]
+    if len(ah)==0:
+      ah.append(plt.subplot(8,4,n+1))
+    else:
+      ah.append(plt.subplot(8,4,n+1,sharex=ah[0]))
+    h = np.histogram(tdat,bins=binvec)
+    lh = plt.step(binvec[:-1],h[0],where='pre')
+    lh = lh[0]
+    plt.axvline(np.median(unbpx),color=lh.get_color())
+    plt.axvline(np.median(tdat),linestyle='--',color=lh.get_color())
+    plt.text(.5,.8,str(n),horizontalalignment='center',transform=ah[-1].transAxes)
+    #plt.title(str(n))
+  fig.subplots_adjust(hspace=0)

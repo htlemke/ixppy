@@ -8,7 +8,8 @@ numpyfuncs = [
     'exp',
     'nansum',
     'average',
-    'apply_over_axes'
+    'apply_over_axes',
+    'polyval'
     ]
 
 for funName in numpyfuncs:

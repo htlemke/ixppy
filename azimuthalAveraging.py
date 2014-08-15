@@ -453,7 +453,7 @@ def doImages(listOfImgs,
 
 class azimuthalBinning:
   def __init__(self,x,y,xcen,ycen,d=100e-3,mask=None,gainImg=None,darkImg=None,tx=0,ty=0, qbin=5e-3,lam=1,\
-        ADU_per_photon = 1.,Pplane=1,phibin=0.1,phiBins=1,img=None,verbose=0,report_file=None):
+        ADU_per_photon = 1.,Pplane=0,phibin=0.1,phiBins=1,img=None,verbose=0,report_file=None):
     """ 
         correctedImage = (Image-darkImg)/gainImg/geom_correction/pol_correction
         x,y      = pixel coordinate (1D array each); note: they should be the center of the pixels
@@ -554,8 +554,9 @@ class azimuthalBinning:
     self.correction = self.geom*self.pol
     self.Npixel = np.bincount(self.idxq,minlength=self.nq); self.Npixel = self.Npixel[:self.nq]
     self.norm   = self.Npixel
-    self.Cake_Npixel = np.bincount(self.Cake_idxs,minlength=self.nq*self.nphi); self.Cake_Npixel = self.Npixel[:self.nq*self.nphi]
-    self.Cake_norm=np.reshape(self.Npixel,(self.nphi,self.nq));#/self.correction1D
+    self.Cake_Npixel = np.bincount(self.Cake_idxs,minlength=self.nq*self.nphi)
+    #self.Cake_Npixel = self.Npixel[:self.nq*self.nphi]
+    self.Cake_norm=np.reshape(self.Cake_Npixel,(self.nphi,self.nq));#/self.correction1D
     #self.correction1D  =self.correction1D[:self.nq]/self.Npixel
     self.header  = "# Parameters for data reduction\n"
     self.header += "# xcen,ycen = %.2f m %.2f m\n" % (xcen,ycen)
