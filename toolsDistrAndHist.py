@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+from scipy.special import factorial
 import numpy.linalg as linalg
 from scipy.special import erf
 import matplotlib
@@ -20,14 +21,19 @@ def iterfy(iterable):
     return iterable
 
 
+#def poiss_prob(x,count):
+	#x = np.asarray(x)
+	#P = np.zeros(x.shape)
+	#i=0
+	#for xx in x:
+		#P[i] = count**xx*np*exp(-count)/sp.factorial(xx)
+		#i=i+1
+	#return P
+
 def poiss_prob(x,count):
-	x = np.asarray(x)
-	P = np.zeros(x.shape)
-	i=0
-	for xx in x:
-		P[i] = count**xx*np*exp(-count)/sp.factorial(xx)
-		i=i+1
-	return P
+  x = np.asarray(x)
+  count = float(count)
+  return count**x*np.exp(-count)/factorial(x)
 
 #def gauss_norm(X,xdat):
 #	ydat = 1./sqrt(2.*pi*X[2]**2)*X[0]*exp(-(xdat-X[1])**2/2/X[2]**2)
@@ -268,9 +274,12 @@ def gauss_amp(X,xdat):
 #	ydat = 1./sqrt(2.*pi*X[2]**2)*X[0]*exp(-(xdat-X[1])**2/2/X[2]**2)
 #	return ydat
 
-def gauss_norm(par=dict(area=1,pos=0,sig=1),xdat=np.linspace(-5,5,100)):
-	ydat = 1./np.sqrt(2.*np.pi*par['sig']**2)*par['area']*np.exp(-(xdat-par['pos'])**2/2/par['sig']**2)
-	return ydat
+def gauss_norm(x,area=1,pos=0,sig=1):
+  ydat = 1./np.sqrt(2.*np.pi*sig**2)*area*np.exp(-(x-pos)**2/2/sig**2)
+  return ydat
+#def gauss_norm(par=dict(area=1,pos=0,sig=1),xdat=np.linspace(-5,5,100)):
+  #ydat = 1./np.sqrt(2.*np.pi*par['sig']**2)*par['area']*np.exp(-(xdat-par['pos'])**2/2/par['sig']**2)
+  #return ydat
 
 
 def errortube():
@@ -425,4 +434,18 @@ def histVecCenter(v):
   v = np.array(v)*1.
   return v[:-1]+np.diff(v)/2.
 
-
+#def binStat(M,axis=-1,certaintylevel = 0.95):
+#
+#
+ # 
+ ## 
+ # 
+  #Mmean = []; Mstd = [];
+#for jj = 1:length(M(1,:))
+    #index = find(~isnan(M(:,jj)));
+    #Mmean(jj) = mean(M(index, jj));
+    #tMstd  = std(M(index,jj));
+    #n = length(index);
+    #fac = tinv(certaintylevel,n-1)./sqrt(n);
+    #Mstd(jj)  = fac*tMstd;
+#end

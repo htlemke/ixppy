@@ -3,7 +3,7 @@ import numpy as np
 import os,sys
 from ixppy import tools,wrapFunc
 import copy
-from ixppy.tools import nfigure,filtvec,polygonmask
+from ixppy.tools import nfigure,filtvec,poiss_prob,gauss_norm
 #from functools import partial
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -733,6 +733,7 @@ def commonModeCorrectImg(img,mask=None,gainAv=30,nbSwitchFactor=3,unbPx=None):
 
 commonModeCorrect = wrapFunc(commonModeCorrectImg,isPerEvt=True)
 
+
 def histOverview(data,clearFig=True):
   Nax = len(data)
   msk = maskEdge()
@@ -757,3 +758,19 @@ def histOverview(data,clearFig=True):
     plt.text(.5,.8,str(n),horizontalalignment='center',transform=ah[-1].transAxes)
     #plt.title(str(n))
   fig.subplots_adjust(hspace=0)
+
+def photdistr(x,areas,sigmas,gain=30.):
+  assert len(areas)==len(sigmas)
+  res = 0
+  for n,(area,sigma) in enumerate(zip(areas,sigmas)):
+    res+=gauss_norm(x,area,n*gain,sigma)
+  return res
+  
+def photdistr_poiss(x,count,sigmas=np.ones(20)*7,gain=30.):
+  if not tools.isIterable(sigmas):
+    sigmas = np.ones(np.round(np.max(x))/gain+5)*sigmas
+  N = len(sigmas)
+  areas = poiss_prob(np.arange(N),count)
+  return photdistr(x,areas,sigmas,gain=gain)
+
+

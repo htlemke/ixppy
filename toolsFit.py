@@ -1,7 +1,7 @@
 import numpy as np
 import scipy as sp
 import numpy.linalg as linalg
-from scipy.special import erf
+from scipy.special import erf,gamma
 from scipy.stats import skew
 from scipy.interpolate import interp1d 
 import matplotlib
@@ -10,11 +10,17 @@ import time
 import types
 import numpy.ma as ma
 import toolsDistrAndHist
+from toolsVarious import iterfy
 try:
   import minuit
 except:
   print "Minuit not found"
 
+
+
+def gaussConvExp(x,x0,sig,tau,amp,y0):
+  fval = amp*.5*(np.exp(((np.sqrt(2)*sig)**2-4*(x-x0)*tau)/(4*tau**2)) *  erf((np.sqrt(2)*sig)/(2*tau)-(x-x0)/(np.sqrt(2)*sig)) + erf((x-x0)/(np.sqrt(2)*   sig)) - np.exp(((np.sqrt(2)*sig)**2-4*(x-x0)*tau)/(4*tau**2))+1)+y0
+  return fval
 
 def polyfitZero(x,y,degree=1):
   x = np.array(x).ravel()
@@ -165,6 +171,7 @@ def minuitfit(function,startpars,xdat,ydat,edat=None,fixedpar=None,stepszpar=Non
 	return m
 
 
+
 def gauss_par(par=dict(A=[],pos=[],sig=[]),dat=[]):
 	res = par['A']*np.exp(-(dat-par['pos'])**2/par['sig']**2/2)
 	return res
@@ -204,6 +211,37 @@ def convolveGauss(x,y,sig):
     o[i] = simps(w*y,x)/simps(w,x)
   return o
 
+def pearsonVIIsplit(xdata,Amp,xc,H,A,mL,mH):
+  #% Usage: [ycalc] = pearsonVIIsplit(X, xdata)
+  #% Split pearson VII peak profile as described in 
+  #% Toraya, H. (1990). "Array-Type Universal Profile 
+  #% Function for Powder Pattern Fitting." 
+  #% Journal of Applied Crystallography 23: 485-491. 
+  #%
+  #% I would be interested in another version where the profile is
+  #% ANALYTICALLY convoluted with a rectangular function of certain width.
+  #% I tried one day, it should work, but I gave up.
+  #% 
+  #% Henrik T. Lemke, March 2009
+  # Amp=height
+  # xc = center
+  # H = FWHM
+  # A = assymetry, symmetric is 1
+  # mL,mH = wings >=1
+
+  xdata = np.asarray(iterfy(xdata))
+
+  ycalc = np.zeros_like(xdata)
+  ycalc[xdata<=xc] = Amp*2.*(1+A)/(np.sqrt(np.pi)*H)\
+      *((A*gamma(mL-.5))/(np.sqrt(2.**(1./mL)-1)*gamma(mL)) \
+	  + gamma(mH-.5)/(np.sqrt(2.**(1./mH)-1)*gamma(mH)))**(-1)\
+	  *(1 + (2.**(1./mL)-1)*((1+A)/A)**2 * ((xdata[xdata<=xc]-xc)/H)**2) **(-mL)
+  A = 1/A
+  ycalc[xdata>xc] = Amp*2.*(1+A)/(np.sqrt(np.pi)*H)\
+      *((A*gamma(mH-.5))/(np.sqrt(2.**(1./mH)-1)*gamma(mH)) \
+	  + gamma(mL-.5)/(np.sqrt(2.**(1./mL)-1)*gamma(mL)))**(-1)\
+	  *(1 + (2.**(1./mH)-1)*((1+A)/A)**2 * ((xdata[xdata>xc]-xc)/H)**2) **(-mH)
+  return ycalc
 
 def peakAna(x,y,nb=3,plotpoints=False):
 	""" nb = number of point (on each side) to use as background"""
