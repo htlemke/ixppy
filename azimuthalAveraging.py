@@ -517,7 +517,7 @@ class azimuthalBinning:
 
     self.msg("... done")
     self.pol=pol
-    theta_max = np.nanmax(matrix_theta[mask])
+    theta_max = np.nanmax(matrix_theta[~mask])
     self.msg("calculating digitize")
     self.nphi = phiBins
     #if phiBins > 1:
@@ -528,7 +528,7 @@ class azimuthalBinning:
 
     self.idxphi = np.digitize(pbm.ravel(),self.phiVec)-1
     self.matrix_q = 4*np.pi/lam*np.sin(self.matrix_theta/2)
-    q_max = np.nanmax(self.matrix_q[mask])
+    q_max = np.nanmax(self.matrix_q[~mask])
     qbin = np.array(qbin)
     if qbin.size==1:
       self.qbins = np.arange(0,q_max+qbin,qbin)
@@ -539,9 +539,11 @@ class azimuthalBinning:
     self.nq = self.q.size
     self.idxq  = np.digitize(self.matrix_q.ravel(),self.qbins)-1
     last_idx = self.idxq.max()
+    self.idxq[mask.ravel()] = 0; # send the masked ones in the first bin
+
     # 2D binning!
     self.Cake_idxs = np.ravel_multi_index((self.idxphi,self.idxq),(self.nphi,self.nq))
-    self.Cake_idxs[~mask.ravel()] = 0; # send the masked ones in the first bin
+    self.Cake_idxs[mask.ravel()] = 0; # send the masked ones in the first bin
     #print "last index",last_idx
     self.msg("...done")
     self.phi  = np.arange(0,2*np.pi+phibin,phibin)+phibin/2

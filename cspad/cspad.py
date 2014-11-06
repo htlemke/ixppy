@@ -3,7 +3,7 @@ import numpy as np
 import os,sys
 from ixppy import tools,wrapFunc
 import copy
-from ixppy.tools import nfigure,filtvec
+from ixppy.tools import nfigure,filtvec,polygonmask
 #from functools import partial
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -413,9 +413,18 @@ class CspadPattern(object):
 def noiseMap(Istack):
   return np.std(np.asfarray(Istack)/sum(Istack),axis=0)
 
-def getNoiseMap(Istack,lims=None):
+def getNoiseMap(Istack,lims_perc=None,lims=None):
   noise = noiseMap(Istack)
   #np.shape(noise)
+  if lims_perc is not None:
+    lims = np.percentile(noise,lims_perc)
+    tools.nfigure('Selected noise limits')
+    pl.clf()
+    tools.histSmart(noise.ravel()[~np.isnan(noise.ravel())],fac=200)
+    pp = plt.axhspan(*lims)
+    plt.gca().add_patch(pp)
+    plt.draw()
+
   if lims==None:
     tools.nfigure('Find noise limits')
     pl.clf()
