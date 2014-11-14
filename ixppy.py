@@ -976,11 +976,11 @@ class data(object):
         self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
       Nread = np.floor(self._mem.free/8/self._sizeEvt['bytes']*memFrac)
       print "Event size (bytes):",self._sizeEvt['bytes']
-      print "Event size (MB):   ",self._sizeEvt['bytes']/1024/1024
+      print "Event size (MB):   ",self._sizeEvt['bytes']/1024./1024
       mm = self._mem.free
       print "Available memory (free+cached+buffer, bytes):",mm/8
-      print "Available memory (free+cached+buffer, MB):",mm/8./1024/1024
-      print "Memory to use (%.2f of available, MB):    ",mm*memFrac/8./1024/1024
+      print "Available memory (free+cached+buffer, MB): %.2f"%(mm/8./1024/1024)
+      print "Memory to use (%.2f of available, MB): %.2f" % (memFrac,mm*memFrac/8./1024/1024)
       while nextEvtNo<tlen:
         stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)])
         nextEvtNo+=Nread
