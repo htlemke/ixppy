@@ -10,6 +10,7 @@ from toolsDetectors       import *
 from toolsReciprocalSpace import *
 from toolsImgs            import *
 from toolsBeamline        import *
+from toolsMemory          import *
 #from toolsExternalWrapped import *
 import toolsVarious       
 import toolsConstsAndConv   
@@ -23,5 +24,6 @@ import toolsDetectors
 import toolsReciprocalSpace 
 import toolsImgs            
 import toolsBeamline
+import toolsMemory
 #import toolsExternalWrapped
 #import ixppy.wrapped
