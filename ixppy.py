@@ -164,6 +164,11 @@ class dataset(object):
   
   def itemNames(self):
     return self._getItemsNameList()
+
+  def get(self,name):
+    """ returns the memdata or data object
+    usage: d.get("ipm2.sum") would return d.ipm2.sum"""
+    return eval( "self.%s" % name )
 	  
   def save(self,name=None,force=False):
     #self.config.ixp.save(self,self._ixpHandle,name='dataset')
