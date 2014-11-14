@@ -3,7 +3,7 @@ import numpy as np
 import os,sys
 from ixppy import tools,wrapFunc
 import copy
-from ixppy.tools import nfigure,filtvec,poiss_prob,gauss_norm
+from ixppy.tools import nfigure,filtvec,poiss_prob,gauss_norm,polygonmask
 #from functools import partial
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -433,9 +433,9 @@ def getNoiseMap(Istack,lims_perc=None,lims=None):
     pl.draw()
     print "Select noise limits"
     lims = tools.getSpanCoordinates()
-  return ~tools.filtvec(noise,lims)
+  return ~tools.filtvec(noise,lims),noise
 
-def getDarkNoise(data,maximgs=10,xoff=None,save='',lims=None):
+def getDarkNoise(data,maximgs=10,xoff=None,save='',lims_perc=None,lims=None):
   if xoff is not None:
     dark_raw = xoff*data
   else:
@@ -452,7 +452,7 @@ def getDarkNoise(data,maximgs=10,xoff=None,save='',lims=None):
     pbar.update(maximgs-remaining)
   darks = np.concatenate(darks,axis=0)
   pbar.finish()
-  noisemask = getNoiseMap(darks,lims=lims)
+  noisemask,noise = getNoiseMap(darks,lims_perc=lims_perc,lims=lims)
   dark = np.mean(darks,axis=0)
   if save is not None:
     def saveFile(fina,dat):
@@ -463,6 +463,7 @@ def getDarkNoise(data,maximgs=10,xoff=None,save='',lims=None):
       if overwrite:
 	np.save(fina,dat)
     saveFile('noisemask'+save+'.npy',noisemask)
+    saveFile('noise'+save+'.npy',noise)
     saveFile('dark'+save+'.npy',dark)
   return dark,noisemask
 
@@ -612,7 +613,10 @@ def maskEdge(shape=(185,388),offset=1,maskmid=True):
   return msk
     
 def maskEdges(i,offset=1,maskmid=True):
-  shp = np.shape(i)
+  if type(i) is int:
+    shp = (i,185,388)
+  else:
+    shp = np.shape(i)
   shpTile = shp[-2:]
   shpdet  = shp[:-2]
   mskTile = maskEdge(shape=shpTile,offset=offset,maskmid=maskmid)
@@ -706,6 +710,8 @@ def getCommonModeFromHist(im,gainAv=30,searchRadiusFrac=.4,debug=False):
 def commonModeCorrectTile(tile,mask=None,gainAv=30,nbSwitchFactor=3,unbPx=None):
   if unbPx is None:
     unb = createMaskUnbonded(1)[0]
+  else:
+    unb = unbPx
   unbV = np.median(tile[unb])
   if mask is None:
     mask = np.ones_like(tile,dtype=bool)
@@ -733,6 +739,25 @@ def commonModeCorrectImg(img,mask=None,gainAv=30,nbSwitchFactor=3,unbPx=None):
 
 commonModeCorrect = wrapFunc(commonModeCorrectImg,isPerEvt=True)
 
+def _nanify(i,mask):
+  i[mask] = np.nan
+  return i
+
+nanify = wrapFunc(_nanify,isPerEvt=True)
+
+def correct(data,dark=None,mask=None,NpxEdgeMask=1,gainAv=30,nbSwitchFactor=3,Ntiles=32):
+  if dark is not None:
+    darkcorrect = data-dark
+  maskub = createMaskUnbonded(Ntiles)
+  maskedg = maskEdges(Ntiles,offset=NpxEdgeMask)
+  maskcomb = np.logical_or(mask,maskub)
+  maskcomb = np.logical_or(mask,maskedg)
+  corr0 = commonModeCorrect(darkcorrect,mask=maskcomb,gainAv=gainAv,nbSwitchFactor=3,unbPx=maskub[0])
+  corr0 = nanify(corr0,maskcomb)
+  return corr0
+
+
+  
 
 def histOverview(data,clearFig=True):
   Nax = len(data)
@@ -758,19 +783,3 @@ def histOverview(data,clearFig=True):
     plt.text(.5,.8,str(n),horizontalalignment='center',transform=ah[-1].transAxes)
     #plt.title(str(n))
   fig.subplots_adjust(hspace=0)
-
-def photdistr(x,areas,sigmas,gain=30.):
-  assert len(areas)==len(sigmas)
-  res = 0
-  for n,(area,sigma) in enumerate(zip(areas,sigmas)):
-    res+=gauss_norm(x,area,n*gain,sigma)
-  return res
-  
-def photdistr_poiss(x,count,sigmas=np.ones(20)*7,gain=30.):
-  if not tools.isIterable(sigmas):
-    sigmas = np.ones(np.round(np.max(x))/gain+5)*sigmas
-  N = len(sigmas)
-  areas = poiss_prob(np.arange(N),count)
-  return photdistr(x,areas,sigmas,gain=gain)
-
-

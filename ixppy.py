@@ -1030,7 +1030,10 @@ class data(object):
     for n in range(nel):
       tmemdat = []
       for step in data:
-	tmemdat.append(step[:,n])
+	if len(step)>0:
+	  tmemdat.append(step[:,n])
+	else:
+	  tmemdat.append([])
       memdat.append(memdata(input=[tmemdat,self.time],scan=self.scan,grid=self.grid))
     return memdat
 

@@ -60,6 +60,7 @@ diodeU1   IpmFex*/XppEndstation  notused   notused
 lom_bpm   IpmFex*/XppMon_Pim0    notused   notused 
 lom_diode IpmFex*/XppMon_Pim1    notused   notused 
 encoder   Data*/XppGon.0:Encoder.0 notused notused
+timeTool   TIMETOOL  notused notused
 timeTool   TTSPEC  notused notused
 encoder   UsdUsb*/XppEndstation.0:USDUSB.0 notused notused
 #adc       Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0  notused   notused
