@@ -942,7 +942,7 @@ class data(object):
     evts = [tools.itemgetToIndices(evts,len(self._filter[step])) for step in steps]
     sizeEvt = None
     if not hasattr(self,'_mem'):
-      self._mem = mem()
+      self._mem = tools.mem()
     indchunks = []
     for stepNo,step in enumerate(steps):
       tevts = evts[stepNo]
@@ -961,7 +961,6 @@ class data(object):
 	    thisshape = np.shape(tdat[0][0])
 	    gotshape = True
 	  usedmem += tdat[0].nbytes
-	  print usedmem
 	  if thisstuff._procObj==None:
 	    done = True
 	  else:
@@ -975,7 +974,13 @@ class data(object):
 
 
         self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
-      Nread = np.floor(self._mem.updatefree()/8/self._sizeEvt['bytes']*memFrac)
+      Nread = np.floor(self._mem.free/8/self._sizeEvt['bytes']*memFrac)
+      print "Event size (bytes):",self._sizeEvt['bytes']
+      print "Event size (MB):   ",self._sizeEvt['bytes']/1024/1024
+      mm = self._mem.free
+      print "Available memory (free+cached+buffer, bytes):",mm/8
+      print "Available memory (free+cached+buffer, MB):",mm/8./1024/1024
+      print "Memory to use (%.2f of available, MB):    ",mm*memFrac/8./1024/1024
       while nextEvtNo<tlen:
         stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)])
         nextEvtNo+=Nread
@@ -2535,24 +2540,6 @@ class Ixp(object):
     else:
       dsd = datagroup.create_dataset('data/#%06d'%step,data=dat,maxshape=(None,)+shp[1:])
       dst = datagroup.create_dataset('time/#%06d'%step,data=tim,maxshape=(None,))
-
-class mem(object):
-  def __init__(self):
-    self.f=open("/proc/meminfo","r")
-    tot = self.f.readline()
-    self.tot = self.stringToBits(tot)
-    self.updatefree()
-
-  def updatefree(self):
-    self.f.seek(0); # rewind
-    tmp = self.f.readline()
-    memfree = self.f.readline()
-    return self.stringToBits(memfree)
-
-  def stringToBits(self,s):
-    return 1024*8*int(s.split()[1])
-
-  free = property(updatefree)
 
 ############ CONFIG FILE #############
 def _rdConfigurationRaw(fina="ixppy_config"):
