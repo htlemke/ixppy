@@ -335,7 +335,7 @@ def imagesc(*args,**kwargs):
   h = axes.imshow(I,interpolation=interpolation,
               extent=[xmn,xmx,ymn,ymx],origin='bottom',*kwargs)
   h.axes.format_coord=_format_coord
-  pl.axis('tight')
+  axes.axis('tight')
   
   slider=False
   if slider:
