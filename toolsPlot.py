@@ -286,6 +286,8 @@ def histSmart(x,linespec='k',label='histSmart',fac=20.,**kwargs):
 def imagesc(*args,**kwargs):
   slider = kwargs.get('slider',False)
   handle = kwargs.get('handle',[])
+  axes   = kwargs.get('axes',pl)
+  if ("axes" in kwargs): del kwargs["axes"]
   if slider and handle==[]:
     pl.clf()
   interpolation = 'nearest'
@@ -330,7 +332,7 @@ def imagesc(*args,**kwargs):
       return 'x=%1.4f, y=%1.4f, z=%1.4f'%(x, y, z)
     except IndexError:
       return 'x=%1.4f, y=%1.4f'%(x, y)
-  h = pl.imshow(I,interpolation=interpolation,
+  h = axes.imshow(I,interpolation=interpolation,
               extent=[xmn,xmx,ymn,ymx],origin='bottom',*kwargs)
   h.axes.format_coord=_format_coord
   pl.axis('tight')
