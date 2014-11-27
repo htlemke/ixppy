@@ -104,6 +104,44 @@ class AverageProfile(object):
         #sout[i] /= np.sqrt(nout[i])
     return (self.xout,yout,sout,nout)
 
+class smartAverage(object):
+  """ Average several curves (xi,yi) where the xi might be different """
+  def __init__(self,xbins_edges):
+    self.xedges = xbins_edges
+    self.x    = (self.xedges[1:] + self.xedges[:-1])/2.
+    self._w   = np.zeros_like(self.x)
+    self._n   = np.zeros_like(self.x,dtype=np.uint)
+    self.y    = np.zeros_like(self.x)
+    self.err  = np.zeros_like(self.x)*np.nan
+    self.ncurves = 0
+
+  def add(self,x,y,sigma=None):
+    """ sigma (if given are use to weight the average, as 1/sig) """
+    self.ncurves += 1
+    y = y.astype(np.float)
+    idx = np.digitize(x,self.xedges)-1
+    if sigma is None:
+      for i,bin in enumerate(idx):
+        self.y[bin]  = (self.y[bin]*self._w[bin] + y[i])/ (self._w[bin]+1)
+        self._w[bin] += 1
+        self._n[bin] += 1
+    else:
+      for i,bin in enumerate(idx):
+        w = 1./sigma[i]**2
+        self.y[bin]  = (self.y[bin]*self._w[bin] + w*y[i])/ (self._w[bin]+w)
+        self._w[bin] += w
+        self._n[bin] += 1
+    idx = self._n>=1
+    self.err[idx] = np.sqrt( 1./self._w[idx] )
+
+  def getValidIdx(self):
+    """ return index of booleans, True for bins with at least one value """
+    return self._n>=1
+
+  def getFiniteIdx(self):
+    """ return index of booleans, True for bins with at least one value and finite err and y"""
+    return self.getValidIdx() & np.isfinite(self.y) & np.isfinite(self.err)
+
 
 def rotmat3D(v,ang):
   """3D rotation matrix around axis v about angle ang"""
