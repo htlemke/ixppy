@@ -120,17 +120,13 @@ class smartAverage(object):
     self.ncurves += 1
     y = y.astype(np.float)
     idx = np.digitize(x,self.xedges)-1
-    if sigma is None:
-      for i,bin in enumerate(idx):
-        self.y[bin]  = (self.y[bin]*self._w[bin] + y[i])/ (self._w[bin]+1)
-        self._w[bin] += 1
-        self._n[bin] += 1
-    else:
-      for i,bin in enumerate(idx):
-        w = 1./sigma[i]**2
-        self.y[bin]  = (self.y[bin]*self._w[bin] + w*y[i])/ (self._w[bin]+w)
-        self._w[bin] += w
-        self._n[bin] += 1
+    if sigma is None: sigma = np.ones_like(x)
+    for i,bin in enumerate(idx):
+      if (bin>=len(self.y)): continue
+      w = 1./sigma[i]**2
+      self.y[bin]  = (self.y[bin]*self._w[bin] + w*y[i])/ (self._w[bin]+w)
+      self._w[bin] += w
+      self._n[bin] += 1
     idx = self._n>=1
     self.err[idx] = np.sqrt( 1./self._w[idx] )
 
