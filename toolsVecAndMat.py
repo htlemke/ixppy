@@ -372,3 +372,17 @@ def polyFit(i0,Imat,order=3, removeOrders=[]):
     comps = np.insert(comps,order-remo,0,axis=0)                                
   return comps
 
+
+def unmaskData(data,mask,fillValue=np.nan):
+  """
+  puts data back into its original length gven a mask of that original length.
+  mask must have as many False values as the length of data.
+  Works on stacks of data. Masked entries (marked by True in mask) will be 
+  filled with fillValue (default is np.nan).
+  """
+  re = np.ones((len(data),len(mask)))*fillValue
+  msk = mask.nonzero()
+  for n,dat in enumerate(data):
+    re[n].put(msk,dat)
+  #return re.reshape([len(data),32,185,388])
+  return re
