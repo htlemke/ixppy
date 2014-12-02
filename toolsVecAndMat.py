@@ -340,3 +340,35 @@ def rebin(a, *args):
              ['/factor[%d]'%i for i in range(lenShape)]
     print ''.join(evList)
     return eval(''.join(evList))
+
+def polyVal(comps,i0):                                                          
+  i0 = np.asarray(tools.iterfy(i0))                                             
+  pol = np.vander(i0,np.shape(comps)[0])                                        
+  return np.asarray(np.matrix(pol)*np.matrix(comps))                            
+                                                                                
+def polyDer(comps,m=1):                                                         
+  n = len(comps) - 1                                                            
+  y = comps[:-1,:] * np.expand_dims(np.arange(n, 0, -1),1)                      
+  if m == 0:                                                                    
+    val = comps                                                                 
+  else:                                                                         
+    val = polyDer(y, m - 1)                                                          
+  return val 
+
+def polyFit(i0,Imat,order=3, removeOrders=[]):                                       
+  pol = np.vander(i0,order+1)                                                   
+  removeOrders = tools.iterfy(removeOrders)                                     
+  removeOrders = np.sort(removeOrders)[-1::-1]                                  
+  for remo in removeOrders:                                                     
+    print remo                                                                  
+    pol = np.delete(pol,-(remo+1),axis=1)                                       
+  lhs = copy.copy(pol)                                                          
+  scale = np.sqrt((lhs*lhs).sum(axis=0))                                        
+  lhs /= scale                                                                  
+  comps,resid,rnk,singv = linalg.lstsq(lhs,Imat)                                
+  comps = (comps.T/scale).T                                                     
+                                                                                
+  for remo in removeOrders:                                                     
+    comps = np.insert(comps,order-remo,0,axis=0)                                
+  return comps
+
