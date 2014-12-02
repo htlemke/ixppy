@@ -1146,7 +1146,6 @@ class data(object):
       indsdat_read = unravelIndexScanSteps(indsdat_sorted,self._lens)
       stepInd_read = [n for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
       evtInd_read  = [indsdat_read[n] - int(np.sum(self._lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
-
       dat = [self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)]
       if not dat==[]:
 	dat = np.concatenate(dat)

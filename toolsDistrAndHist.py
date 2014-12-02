@@ -449,3 +449,35 @@ def histVecCenter(v):
     #fac = tinv(certaintylevel,n-1)./sqrt(n);
     #Mstd(jj)  = fac*tMstd;
 #end
+
+def getEdges(v,desc):
+  assert type(desc) is dict, "Expecting dictionary with named parameters"
+  if 'lims' in desc.keys():
+    lims = np.sort(desc['lims'])
+  elif 'limsPerc' in desc.keys():
+    limsperc = desc['limsPerc']
+    if not np.iterable(limsperc):
+      limsperc = [limsperc,100-limsperc]
+    else:
+      np.sort(limsperc)
+    lims = np.percentile(v,limsperc)
+  else:
+    lims = [np.min(v),np.max(v)]
+
+  if 'Nbins' in desc.keys():
+    Nbins = desc['Nbins']
+    if 'ispercbins' in desc.keys():
+      ispercbins = desc['ispercbins']
+      assert type(ispercbins) is bool, 'key ispercbins needs to be of type bool'
+    else:
+      ispercbins = False
+    if ispercbins:
+      edges = np.percentile(v,list(np.linspace(limsperc[0],limsperc[1],Nbins+1)))
+    else:
+      edges = np.linspace(lims[0],lims[1],Nbins+1)
+
+  elif 'interval' in desc.keys():
+    interval = desc['interval']
+    edges = np.arange(lims[0],lims[1],interval)
+
+  return edges
