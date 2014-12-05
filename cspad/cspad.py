@@ -1,7 +1,7 @@
 import pylab as pl
 import numpy as np
 import os,sys
-from ixppy import tools,wrapFunc
+from ixppy import tools,wrapFunc,Ixp
 import copy
 from ixppy.tools import nfigure,filtvec,poiss_prob,gauss_norm,polygonmask
 #from functools import partial
@@ -17,7 +17,8 @@ from alignment.CSPADPixCoords import CSPADPixCoords
 import numpy as np
 from matplotlib import pyplot as plt
 import progressbar as pb
-
+from toolsExternalWrapped import nansum
+import datetime
 
 g_maskUnbonded = dict()
 
@@ -783,3 +784,39 @@ def histOverview(data,clearFig=True):
     plt.text(.5,.8,str(n),horizontalalignment='center',transform=ah[-1].transAxes)
     #plt.title(str(n))
   fig.subplots_adjust(hspace=0)
+
+
+class corrNonLin(object):
+  def __init__(self,data):
+    self.data = data
+    self.refDataFilter = 1
+
+  def getRefdataMask(self,*args):
+    flt = 1
+    if 'step' in args:
+      flt *= (self.data.ones()*self.data.scan[0]).filter().ones()
+    self.refDataFilter = flt
+
+  def _getRefdata(self):
+    return self.refDataFilter*self.data
+  refData = property(_getRefdata)
+
+  def getRefIntensity(self,imagemask=None):
+    self.Iref = self.refDataFilter * nansum(self.data)
+    fina = 'tmp_getRefIntensity_' \
+	+ datetime.datetime.now().isoformat() + '.ixp.h5'
+    print fina
+    self.Iref.setFile(fina)
+    self.Iref.evaluate()
+    self.Iref = self.Iref.get_memdata()[0]
+    os.remove(fina)
+
+    
+
+
+
+
+
+
+
+

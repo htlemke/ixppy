@@ -941,6 +941,11 @@ class data(object):
     #return tools.existsInObj(self,what)
   #def _addToSelf(self,what,value,overWrite=True):
     #return tools.addToObj(self,what,value,overWrite=overWrite)
+  def setFile(self,fina,name='noname'):
+    parent = tools.dropObject()
+    parent._ixpHandle = Ixp(fina)
+    parent[name] = self
+
 
   def _memIterate(self,steps=slice(None),evts=slice(None),memFrac=0.1):
     steps = tools.itemgetToIndices(steps,len(self._filter))
@@ -955,41 +960,44 @@ class data(object):
       tlen  = len(tevts)
       nextEvtNo = 0
       stepChunks = []
-      if not hasattr(self,'_sizeEvt') or (self._sizeEvt is None):
-	usedmem=0
-	thisstuff = self
-	done = False
-	gotshape = False
-	while not done:
-          tdat = thisstuff[step,tevts[0]]
-	  if not gotshape:
-	    thisshape = np.shape(tdat[0][0])
-	    gotshape = True
-	  usedmem += tdat[0].nbytes
-	  if thisstuff._procObj==None:
-	    done = True
-	  else:
-	    args = thisstuff._procObj['args']
-	    isdatainst = np.asarray([isinstance(targ,data) for targ in args])
-	    if np.sum(isdatainst)>0:
-	      thisstuff = args[isdatainst.nonzero()[0][0]]
-	    elif 'ixppyInput' in thisstuff._procObj.keys():
-	      ixpIP = thisstuff._procObj['ixppyInput'][0][0]
-	      thisstuff = ixpIP
+      if tlen>0:
+	if not hasattr(self,'_sizeEvt') or (self._sizeEvt is None):
+	  usedmem=0
+	  thisstuff = self
+	  done = False
+	  gotshape = False
+	  while not done:
+	    tdat = thisstuff[step,tevts[0]]
+	    if not gotshape:
+	      thisshape = np.shape(tdat[0][0])
+	      gotshape = True
+	    usedmem += tdat[0].nbytes
+	    if thisstuff._procObj==None:
+	      done = True
+	    else:
+	      args = thisstuff._procObj['args']
+	      isdatainst = np.asarray([isinstance(targ,data) for targ in args])
+	      if np.sum(isdatainst)>0:
+		thisstuff = args[isdatainst.nonzero()[0][0]]
+	      elif 'ixppyInput' in thisstuff._procObj.keys():
+		ixpIP = thisstuff._procObj['ixppyInput'][0][0]
+		thisstuff = ixpIP
 
 
-        self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
-      Nread = np.floor(self._mem.free/8/self._sizeEvt['bytes']*memFrac)
-      print "Event size (bytes):",self._sizeEvt['bytes']
-      print "Event size (MB):   ",self._sizeEvt['bytes']/1024./1024
-      mm = self._mem.free
-      print "Available memory (free+cached+buffer, bytes):",mm/8
-      print "Available memory (free+cached+buffer, MB): %.2f"%(mm/8./1024/1024)
-      print "Memory to use (%.2f of available, MB): %.2f" % (memFrac,mm*memFrac/8./1024/1024)
-      while nextEvtNo<tlen:
-        stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)])
-        nextEvtNo+=Nread
+	  self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
+	Nread = np.floor(self._mem.free/8/self._sizeEvt['bytes']*memFrac)
+	print "Event size (bytes):",self._sizeEvt['bytes']
+	print "Event size (MB):   ",self._sizeEvt['bytes']/1024./1024
+	mm = self._mem.free
+	print "Available memory (free+cached+buffer, bytes):",mm/8
+	print "Available memory (free+cached+buffer, MB): %.2f"%(mm/8./1024/1024)
+	print "Memory to use (%.2f of available, MB): %.2f" % (memFrac,mm*memFrac/8./1024/1024)
+	while nextEvtNo<tlen:
+	  #stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)]) #this was the old state of memiterate
+	  stepChunks.append(tevts[nextEvtNo:min(tlen,nextEvtNo+Nread)])
+	  nextEvtNo+=Nread
       indchunks.append((stepNo,stepChunks))
+    #print indchunks
     return indchunks
   
   def chunks(self,steps=slice(None),evts=slice(None),memFrac=0.1):
@@ -1025,7 +1033,8 @@ class data(object):
 
   def get_memdata(self):
     data = self[:,:]
-    nel = np.shape(data[0])[1]
+    maxlen = np.argmax([len(tdata) for tdata in data])
+    nel = np.shape(data[maxlen])[1]
     memdat = []
     for n in range(nel):
       tmemdat = []
@@ -1036,6 +1045,7 @@ class data(object):
 	  tmemdat.append([])
       memdat.append(memdata(input=[tmemdat,self.time],scan=self.scan,grid=self.grid))
     return memdat
+
 
   #def _copy(self):
   ##data(time=self.time,
@@ -1872,7 +1882,12 @@ class scanVar(object):
     return self._numOfScanSteps
 
   def __getitem__(self,x):
-    return tools.getFromObj(self,self.name)[x]
+    try:
+      return tools.getFromObj(self,self.name)[x]
+    except:
+      return tools.getFromObj(self,self._get_keys()[x])
+
+    
 
 def address(fileNum,stepNum,what):
   return "_file%d.step%d.%s" % (fileNum,stepNum,what)

@@ -26,7 +26,10 @@ class dropObject(object):
   def __repr__(self):
     return "dropObject with fields: "+str(self.__dict__.keys())
   def __getitem__(self,x):
-    return self.__dict__[x]
+    try:
+      return self.__dict__[x]
+    except:
+      return self.__dict__[self._get_keys()[x]]
   def __setitem__(self,name,var,setParent=True):
     self._add(name,var)
     if setParent:
