@@ -391,7 +391,7 @@ class detector(object):
 	  for tindex in indices:
 	    strfmt = '%0' + '%dd' %(1+np.floor(np.log10(noofvecs)))
 	    tname = tfield + strfmt %(tindex)
-	    ret.append([sd[:,tindex] for sd in tret])
+	    ret.append([sd[:,tindex] if np.rank(sd)==2 else np.asarray([]) for sd in tret ])
 	    retfields.append(tname)
 	else:
 	  ret.append(tret)
