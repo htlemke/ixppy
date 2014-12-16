@@ -1149,17 +1149,38 @@ class data(object):
       readit=True
 
     if readit:
-      lens = [len(tfilt) for tfilt in self._filter]
+      lens = self.lens()
       inds = ravelIndexScanSteps(evtInd,lens,stepNo = stepInd)
       indsdat = np.hstack(self._filter).argsort()[inds]
-      indsdat_sorted = np.sort(indsdat)
-      indsdat_read = unravelIndexScanSteps(indsdat_sorted,self._lens)
+      indsdat_unique,indsdat_resort = np.unique(indsdat,return_inverse=True)
+      sortind = indsdat_unique.argsort()
+      indsdat_resort = sortind.argsort()[indsdat_resort]
+      indsdat_sorted = indsdat_unique[sortind]
+      indsdat_read = unravelIndexScanSteps(indsdat_sorted,lens)
       stepInd_read = [n for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
-      evtInd_read  = [indsdat_read[n] - int(np.sum(self._lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
-      dat = [self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)]
+      evtInd_read  = [indsdat_read[n] - int(np.sum(lens[:n])) for n in range(len(indsdat_read)) if len(indsdat_read[n])>0]
+      dat = []
+      eventsRead = 0
+      for step,tevtInd in zip(stepInd_read,evtInd_read):
+        if not dat:
+	  tdat = self._rdStride(step,tevtInd)[0]
+	  if len(stepInd_read)>1:
+	    dat = np.zeros([len(indsdat_sorted)]+list(np.shape(tdat)[1:]))
+	    dat[:len(tdat)]=tdat
+            eventsRead +=len(tdat)
+	  else:
+	    dat = tdat
+	else:
+	  dat[eventsRead:eventsRead+len(tevtRead)] = self._rdStride(step,tevtInd)[0]
+	  eventsRead += len(tevtRead)
+
+
+
+
+      #dat = [self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)]
       if not dat==[]:
-	dat = np.concatenate(dat)
-	ind_resort = unravelIndexScanSteps(inds[inds.argsort()],lens,replacements=inds.argsort())
+	#dat = np.concatenate(dat)
+	ind_resort = unravelIndexScanSteps(inds,lens,replacements=indsdat_resort)
 	ind_resort = [tools.smartIdx(l) for l in ind_resort if len(l)>0]
 	#print [tools.smartIdx(l) for l in ind_resort if len(l)>0]
 	dat = [dat[tind_resort,...] for tind_resort in ind_resort]
@@ -1951,6 +1972,7 @@ def unravelScanSteps(ip,stepsizes):
   return op
 
 def unravelIndexScanSteps(ip,stepsizes,replacements=None):
+  ip = np.asarray(ip)
   op = []
   startind = 0
   stopind = 0
