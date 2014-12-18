@@ -37,7 +37,7 @@ def get_module_name(full_path_to_module):
         print e
         raise ImportError
 
-def writePyFile(funcs,experiment=None,save=True):
+def writePyFile(funcs,experiment=None,save=True,identifier=''):
   timestr = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
   filename = 'lsf_autocall_'+timestr+'.py'
   filestr = preamble
@@ -54,10 +54,10 @@ def writePyFile(funcs,experiment=None,save=True):
     modnames.append(get_module_name(modFina))
     filestr += 'import_file(\'%s\',globals())\n'%modFina
   if experiment==None:
-    filestr += 'cachefina = experiment+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_lsfHelper.ixp.h5\'\n'
+    filestr += 'cachefina = experiment+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_%s_lsfHelper.ixp.h5\'\n' %identifier
     filestr += 'd = eval(\'ixppy.dataset((\\\'%s\\\',%d),ixpFile=%s)\'%(experiment,runno,cachefina))\n'
   else:
-    filestr += 'cachefina = \'%s\'+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_lsfHelper.ixp.h5\'\n'%experiment
+    filestr += 'cachefina = \'%s\'+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_%s_lsfHelper.ixp.h5\'\n'%(experiment,identifier)
     filestr += 'd = ixppy.dataset((\'%s\',runnos),ixpFile=cachefina)\n'%experiment
   for func,modname in zip(funcs,modnames):
     funcname = func.__name__
@@ -88,12 +88,12 @@ def applyFileOnRun(fina,runno,experiment=None):
   #os.system(execstr)
   return result
 
-def applyOnRunlist(input,runnos,experiment,save=True):
+def applyOnRunlist(input,runnos,experiment,save=True,identifier=''):
   if type(input) is str:
     fina = input
   elif type(input) is list:
     funcs = input
-    fina = writePyFile(funcs,experiment=experiment,save=save)
+    fina = writePyFile(funcs,experiment=experiment,save=save,identifier=identifier)
   returns = []
   for runno in runnos:
     if len(iterfy(runno))>1:

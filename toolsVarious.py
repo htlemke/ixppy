@@ -47,8 +47,10 @@ def itemgetToIndices(x,size,boolean=False):
     xo = np.array([x])
   elif (type(x) is tuple) and isinstance(x[0],np.ndarray):
     xo = x[0]
-  elif (type(x) is tuple) and type(x[0]) is list:
-    xo = x[0]
+  elif type(x) is list:
+    xo = np.asarray(x)
+  elif isinstance(x,np.ndarray):
+    xo = x
   elif isinstance(x,slice):
     xo = np.arange(*x.indices(size))
   else:

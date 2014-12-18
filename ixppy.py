@@ -1016,6 +1016,7 @@ class data(object):
       out.append(stepd)
     return out
 
+
   def _getIxpHandle(self):
     ixpSeed = None
     path = ''
@@ -1573,6 +1574,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
               stret = (stret,)
             tret.append(stret)
 	  tret = tuple(zip(*tret))
+	  tret = tuple([np.asarray(ttret) for ttret in tret])
 
 
 
@@ -2280,6 +2282,69 @@ class Grid(object):
       return tuple([self._get_vec(sel=ind) for ind in inds])
     else:
       return self._get_vec(sel=x)
+
+class memIterate:
+  def __init__(self,*args,**kwargs):
+    steps = kwargs.get('steps',slice(None))
+    evts = kwargs.get('evts',slice(None))
+    memFrac = kwargs.get('memFrac',0.1)
+    self._matched_all = matchEvents(*args)
+    self.indchunks = self._matched_all[0]._memIterate(steps,evts,memFrac)
+    self._len = len(self.indchunks)
+    self._nextStep = 0
+    self._pbar = None
+    self._processedevents = 0
+
+
+  def __iter__(self):
+    return self
+
+  def next(self):
+    if self._nextStep >=self._len:
+      raise StopIteration
+    else:
+      if not self._pbar:
+        Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in self.indchunks])
+	widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+        self._pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+      out = _stepIter(self,self._nextStep)
+      self._nextStep += 1
+      return out
+
+
+
+class _stepIter:
+  def __init__(self,memIterate_obj,stepNo):
+    self._memIterate_obj = memIterate_obj
+    self._stepNo = stepNo
+    self._nexttouse = 0
+    self._startind = np.sum(self._memIterate_obj._matched_all[0].lens()[:stepNo])
+
+
+  def __iter__(self):
+    return self
+
+  def next(self):
+    if self._nexttouse >= len(self._memIterate_obj.indchunks[self._stepNo][1]):
+      raise StopIteration
+    else:
+      ind = np.asarray(self._memIterate_obj.indchunks[self._stepNo][1][self._nexttouse])
+      out = []
+      for obj in self._memIterate_obj._matched_all:
+        if isinstance(obj,Data):
+	  out.append(obj[self._stepNo,ind][0])
+        elif isinstance(obj,Memdata):
+	  out.append(obj[self._stepNo][ind])
+      self._nexttouse += 1
+      self._memIterate_obj._processedevents += len(ind)
+      self._memIterate_obj._pbar.update(self._memIterate_obj._processedevents)
+      if self._memIterate_obj._processedevents>=self._memIterate_obj._pbar.maxval:
+	self._memIterate_obj._pbar.finish()
+
+    return out
+
+
+
 
 ############ IXP cache file functions #############
 _ixpOpenHandles = []
