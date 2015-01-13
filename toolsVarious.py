@@ -382,3 +382,20 @@ def corrNonlin(data,polypar,data_0=0,correct_0=0):
   return m*(np.polyval(polypar,data)-correct_0) + data_0
 
 
+def applyPeriodically(func,x,x0,dx,period,including=[True,False],nrep_kw=None,startpar_kw=None,**kwargs):
+  out = np.zeros_like(x)
+  xmx = np.max(x)
+  xmn = np.min(x)
+  ns = np.arange((xmn-x0)//period,(xmx-x0)//period+1)
+  x0s = ns*period + x0
+  print ns
+  print x0s
+  incld = [[gt,gt][int(including[0])] , [lt,le][int(including[1])]]
+  for n,tx0 in zip(ns,x0s):
+    ind = np.logical_and( incld[0](x,max(xmn,tx0)), incld[1](x,tx0+dx))
+    if nrep_kw is not None:
+      kwargs[nrep_kw] = n
+    if startpar_kw is not None:
+      kwargs[startpar_kw] = tx0
+    out[ind] = func(x[ind]-tx0,**kwargs)
+  return out
