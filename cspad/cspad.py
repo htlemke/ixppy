@@ -169,6 +169,14 @@ class CspadPattern(object):
     indout = np.reshape(indout,self.shp)
     return indout
 
+  def getRawdataIndex(self,coo):
+    coo = np.asarray(coo)
+    xdist = np.abs(self.xpx.ravel() - coo[0] - np.min(self.xpx.ravel()))
+    ydist = np.abs(self.ypx.ravel() - coo[1] - np.min(self.ypx.ravel()))
+    dist = np.sqrt(xdist**2+ydist**2)
+    ind = np.argmin(dist)
+    return np.unravel_index(ind,self.shp)
+
   def polygonmask(self,polygon):
     return polygonmask(polygon,self.xpx,self.ypx)
 

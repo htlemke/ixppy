@@ -116,7 +116,7 @@ opal0 Camera::FrameV1/XppEndstation.0:Opal1000.0/image Camera::FrameV1/XppEndsta
 opal1 Camera::FrameV1/XppEndstation.0:Opal1000.1/image Camera::FrameV1/XppEndstation.0:Opal1000.1/time dummy
 opal2 Camera::FrameV1/XppEndstation.0:Opal1000.2/image Camera::FrameV1/XppEndstation.0:Opal1000.2/time dummy
 yaglom Camera::FrameV1/XppEndstation.1:Tm6740.1/image Camera::FrameV1/XppEndstation.1:Tm6740.1/time dummy
-yag3m  Camera::FrameV1/XCS-YAG-3m/image Camera::FrameV1/XCS-YAG-3m/time  dummy
+#yag3m  Camera::FrameV1/XCS-YAG-3m/image Camera::FrameV1/XCS-YAG-3m/time  dummy
 orca Camera::FrameV1/XppEndstation.0:OrcaFl40.0/image Camera::FrameV1/XppEndstation.0:OrcaFl40.0/time dummy
 rayonix Camera::FrameV1/XppSb1Pim.0:Rayonix.0/image  Camera::FrameV1/XppSb1Pim.0:Rayonix.0/time dummy
 rayonix Camera::Frame*/XppEndstation.0:Rayonix.0/image Camera::Frame*/XppEndstation.0:Rayonix.0/image dummy
@@ -203,3 +203,6 @@ ebeam  Bld::BldDataEBeamV1/Ebeam/data  Bld::BldDataEBeamV1/Ebeam/time  dummy
 
 #* areaDet_common
 xtcav Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/image Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/time dummy
+yagH2 Camera::FrameV1/XrayTransportDiagnostic.30:Tm6740.0/image Camera::FrameV1/XrayTransportDiagnostic.30:Tm6740.0/time  dummy
+yag3m Camera::FrameV1/XrayTransportDiagnostic.4:Tm6740.3/image Camera::FrameV1/XrayTransportDiagnostic.4:Tm6740.3/time dummy
+

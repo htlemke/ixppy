@@ -5,7 +5,8 @@ import types
 import numpy.ma as ma
 from toolsLog import logbook
 from scipy import percentile
-import toolsDistrAndHist
+import toolsDistrAndHist,tools
+import copy
 
 def smartIdx(idx,forceContigous=False):
   """ Try to interpret an array of bool as slice;

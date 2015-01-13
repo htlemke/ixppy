@@ -1163,7 +1163,7 @@ class data(object):
       dat = []
       eventsRead = 0
       for step,tevtInd in zip(stepInd_read,evtInd_read):
-        if not dat:
+        if len(dat)==0:
 	  tdat = self._rdStride(step,tevtInd)[0]
 	  if len(stepInd_read)>1:
 	    dat = np.zeros([len(indsdat_sorted)]+list(np.shape(tdat)[1:]))
@@ -1172,8 +1172,8 @@ class data(object):
 	  else:
 	    dat = tdat
 	else:
-	  dat[eventsRead:eventsRead+len(tevtRead)] = self._rdStride(step,tevtInd)[0]
-	  eventsRead += len(tevtRead)
+	  dat[eventsRead:eventsRead+len(tevtInd)] = self._rdStride(step,tevtInd)[0]
+	  eventsRead += len(tevtInd)
 
 
 

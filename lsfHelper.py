@@ -4,7 +4,7 @@ import subprocess
 import os
 from toolsVarious import iterfy
 
-preamble  = 'import sys\nimport ixppy\nfrom ixppy.lsfHelper import import_file\n'
+preamble  = 'import sys\nimport ixppy\nfrom ixppy.lsfHelper import import_file\nimport os\n'
 queue = 'psnehq'
 
 def import_file(full_path_to_module,glb):
@@ -37,7 +37,7 @@ def get_module_name(full_path_to_module):
         print e
         raise ImportError
 
-def writePyFile(funcs,experiment=None,save=True,identifier=''):
+def writePyFile(funcs,experiment=None,save=True,cacheDir='',identifier=''):
   timestr = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
   filename = 'lsf_autocall_'+timestr+'.py'
   filestr = preamble
@@ -54,10 +54,10 @@ def writePyFile(funcs,experiment=None,save=True,identifier=''):
     modnames.append(get_module_name(modFina))
     filestr += 'import_file(\'%s\',globals())\n'%modFina
   if experiment==None:
-    filestr += 'cachefina = experiment+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_%s_lsfHelper.ixp.h5\'\n' %identifier
+    filestr += 'cachefina = os.path.join(\'%s\',experiment+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_%s_lsfHelper.ixp.h5\')\n' %(cacheDir,identifier)
     filestr += 'd = eval(\'ixppy.dataset((\\\'%s\\\',%d),ixpFile=%s)\'%(experiment,runno,cachefina))\n'
   else:
-    filestr += 'cachefina = \'%s\'+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_%s_lsfHelper.ixp.h5\'\n'%(experiment,identifier)
+    filestr += 'cachefina = os.path.join(\'%s\'\'%s\'+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_%s_lsfHelper.ixp.h5\')\n'%(cacheDir,experiment,identifier)
     filestr += 'd = ixppy.dataset((\'%s\',runnos),ixpFile=cachefina)\n'%experiment
   for func,modname in zip(funcs,modnames):
     funcname = func.__name__
@@ -88,18 +88,18 @@ def applyFileOnRun(fina,runno,experiment=None):
   #os.system(execstr)
   return result
 
-def applyOnRunlist(input,runnos,experiment,save=True,identifier=''):
+def applyOnRunlist(input,runnos,experiment,save=True,cacheDir='',identifier=''):
   if type(input) is str:
     fina = input
   elif type(input) is list:
     funcs = input
-    fina = writePyFile(funcs,experiment=experiment,save=save,identifier=identifier)
+    fina = writePyFile(funcs,experiment=experiment,save=save,identifier=identifier,cacheDir=cacheDir)
   returns = []
   for runno in runnos:
     if len(iterfy(runno))>1:
       returns.append(applyFileOnRun(fina,runno))
     else:
-      returns.append(applyFileOnRun(fina,runno))
+      returns.append(applyFileOnRun(fina,[runno]))
   return returns
 
 

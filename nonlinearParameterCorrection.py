@@ -3,6 +3,8 @@ import pylab as plt
 import numpy as np
 from scipy import linalg,io
 import copy
+from toolsExternalWrapped import nansum
+import datetime,os
 
 
 
@@ -61,6 +63,48 @@ def getCorrectionFunc(order=5,i0=None,Imat=None,i0_wp=1e6,fraclims_dc=[.9,1.1]):
   def corrFunc(i,D):
     return (i*cprimeic.T + dcorr_const.T + ((D-c(i))*cprimeic/c_prime(i)).T).T
   return corrFunc
+
+
+
+class corrNonLin(object):
+  def __init__(self,data):
+    self.data = data
+    self.refDataFilter = 1
+
+  def getRefdataMask(self,*args):
+    flt = 1
+    if 'step' in args:
+      flt *= (self.data.ones()*self.data.scan[0]).filter().ones()
+    self.refDataFilter = flt
+
+  def _getRefdata(self):
+    return self.refDataFilter*self.data
+  refData = property(_getRefdata)
+
+  def getRefIntensity(self,imagemask=None):
+    self.Iref = self.refDataFilter * nansum(self.data)
+    fina = 'tmp_getRefIntensity_' \
+	+ datetime.datetime.now().isoformat() + '.ixp.h5'
+    print fina
+    self.Iref.setFile(fina)
+    self.Iref.evaluate()
+    self.Iref = self.Iref.get_memdata()[0]
+    os.remove(fina)
+
+  def getI0Imat(self,bins=None,evaluate=False):
+    digi = (self.refDataFilter*self.Iref).digitize(bins=bins)
+    self.I0 = digi.scan.bincenters
+    self.Imat = 1/digi*self.data*self.I0
+    if evaluate:
+      fina = 'tmp_getImat_' \
+	  + datetime.datetime.now().isoformat() + '.ixp.h5'
+      print fina
+      self.Imat.setFile(fina)
+      self.Imat.evaluate()
+      self.Imat = np.asarray(self.Imat.mean())
+      os.remove(fina)
+    else:
+      self.Imat = np.asarray(self.Imat.mean())
 
 
 
