@@ -1,4 +1,4 @@
-from ixppy import tools
+from ixppy import tools,wrapFunc
 import pylab as plt
 import numpy as np
 from scipy import linalg,io
@@ -31,7 +31,7 @@ def corrNonlinGetpars(expar,Imat,order=3,exparWP=0,Iwp=None):
   
 
 
-def getCorrectionFunc(order=5,i0=None,Imat=None,i0_wp=1e6,fraclims_dc=[.9,1.1]):
+def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=1e6,fraclims_dc=[.9,1.1],wrapit=True):
   """ 
   Getting nonlinear correction factors form a calibration dataset consiting of:
     i0     	array of intensity/parameter values the calibration has been made for
@@ -60,9 +60,23 @@ def getCorrectionFunc(order=5,i0=None,Imat=None,i0_wp=1e6,fraclims_dc=[.9,1.1]):
   
   cprimeic = c_prime(i0_wp)
   dcorr_const = -cprimeic*i0_wp + c(i0_wp) - t(0) 
-  def corrFunc(i,D):
-    return (i*cprimeic.T + dcorr_const.T + ((D-c(i))*cprimeic/c_prime(i)).T).T
-  return corrFunc
+  def corrFunc(D,i):
+    i = i.ravel()
+    return i*cprimeic.T + dcorr_const.T + ((D.T-c(i))*cprimeic/c_prime(i)).T
+
+  if wrapit:
+    corrFunc = wrapFunc(corrFunc)
+    def corrFuncWrap(D,i=None):
+      if i is not None:
+	Df = D*i.filter([np.min(i0),np.max(i0)]).ones()
+      else:
+	Df = D
+      return corrFunc(Df,i)
+    return corrFuncWrap
+  else:
+    return corrFunc
+  #return corrFunc
+
 
 
 
