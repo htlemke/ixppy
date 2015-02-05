@@ -1,4 +1,4 @@
-from ixppy import tools,wrapFunc
+from ixppy import tools,wrapFunc,dataset
 import pylab as plt
 import numpy as np
 from scipy import linalg,io
@@ -50,7 +50,7 @@ def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=1e6,fraclims_dc=[.9,1.1],w
   """
 
   msk = tools.filtvec(i0,i0_wp*np.asarray(fraclims_dc))
-  p0 = tools.polyFit(i0[msk],Imat[msk,:],2)
+  p0 = tools.polyFit(i0[msk],Imat[msk,...],2)
   dc = tools.polyVal(p0,i0_wp)
   comps = tools.polyFit(i0-i0_wp,Imat-dc,order,removeOrders=[0])
   compsder = tools.polyDer(comps)
@@ -62,10 +62,12 @@ def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=1e6,fraclims_dc=[.9,1.1],w
   dcorr_const = -cprimeic*i0_wp + c(i0_wp) - t(0) 
   def corrFunc(D,i):
     i = i.ravel()
-    return i*cprimeic.T + dcorr_const.T + ((D.T-c(i))*cprimeic/c_prime(i)).T
+    return (i*cprimeic.swapaxes(0,-1)).swapaxes(0,-1) + dcorr_const + ((D-c(i))*cprimeic/c_prime(i))
 
   if wrapit:
-    corrFunc = wrapFunc(corrFunc)
+    def corrFuncTransposed(D,i):
+      return corrFunc(D.swapaxes(0,-1),i).swapaxes(0,-1)
+    corrFunc = wrapFunc(corrFuncTransposed)
     def corrFuncWrap(D,i=None):
       if i is not None:
 	Df = D*i.filter([np.min(i0),np.max(i0)]).ones()
@@ -80,10 +82,23 @@ def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=1e6,fraclims_dc=[.9,1.1],w
 
 
 
-class corrNonLin(object):
-  def __init__(self,data):
+class CorrNonLin(object):
+  def __init__(self,data=None,I0=None,Imat=None,fina=None):
     self.data = data
     self.refDataFilter = 1
+    if fina is not None:
+      assert fina[-7:]=='.ixp.h5', "File name has to be of extension ... .ixp.h5"
+      self.dataset = dataset(fina)
+      if 'corrNonLin_I0' in self.dataset.__dict__:
+	self.I0 = self.dataset['corrNonLin_I0']
+      else:
+	self.I0 = None
+      if 'corrNonLin_Imat' in self.dataset.__dict__:
+	self.Imat = self.dataset['corrNonLin_Imat']
+      else:
+	self.Imat = None
+    else:
+      self.dataset = None
 
   def getRefdataMask(self,*args):
     flt = 1
@@ -119,6 +134,14 @@ class corrNonLin(object):
       os.remove(fina)
     else:
       self.Imat = np.asarray(self.Imat.mean())
+      if self.dataset is not None:
+	self.dataset['corrNonLin_Imat'] = self.Imat
+	self.dataset['corrNonLin_I0'] = self.I0
+	self.dataset.save()
+  def getCorrFunc(self,order=5,i0_wp=1e6,fraclims_dc=[.9,1.1], wrapit=True):
+    if not ((self.Imat is None) and (self.I0 is None)):
+      self.correct = getCorrectionFunc(order=order,Imat=self.Imat,i0=self.I0,i0_wp=i0_wp,fraclims_dc=fraclims_dc, wrapit=wrapit)
+
 
 
 

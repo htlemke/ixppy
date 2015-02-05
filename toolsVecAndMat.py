@@ -344,19 +344,21 @@ def rebin(a, *args):
 
 def polyVal(comps,i0):                                                          
   i0 = np.asarray(tools.iterfy(i0))                                             
-  pol = np.vander(i0,np.shape(comps)[0])                                        
-  return np.asarray(np.matrix(pol)*np.matrix(comps))                            
+  pol = np.vander(i0,len(comps))                                        
+  return np.asarray(np.matrix(pol)*np.matrix(comps.reshape((len(comps),-1)))).reshape((len(i0),)+np.shape(comps)[1:])                            
                                                                                 
 def polyDer(comps,m=1):                                                         
   n = len(comps) - 1                                                            
-  y = comps[:-1,:] * np.expand_dims(np.arange(n, 0, -1),1)                      
+  y = comps.reshape((n+1,-1))[:-1] * np.expand_dims(np.arange(n, 0, -1),1)                      
   if m == 0:                                                                    
-    val = comps                                                                 
+    val = comps
+    return val
   else:                                                                         
     val = polyDer(y, m - 1)                                                          
-  return val 
+    return val.reshape((n,)+np.shape(comps)[1:])
 
-def polyFit(i0,Imat,order=3, removeOrders=[]):                                       
+def polyFit(i0,Imat,order=3, removeOrders=[]):
+  Imatf = Imat.reshape((len(Imat),-1))
   pol = np.vander(i0,order+1)                                                   
   removeOrders = tools.iterfy(removeOrders)                                     
   removeOrders = np.sort(removeOrders)[-1::-1]                                  
@@ -366,12 +368,12 @@ def polyFit(i0,Imat,order=3, removeOrders=[]):
   lhs = copy.copy(pol)                                                          
   scale = np.sqrt((lhs*lhs).sum(axis=0))                                        
   lhs /= scale                                                                  
-  comps,resid,rnk,singv = linalg.lstsq(lhs,Imat)                                
+  comps,resid,rnk,singv = linalg.lstsq(lhs,Imatf)                                
   comps = (comps.T/scale).T                                                     
                                                                                 
   for remo in removeOrders:                                                     
     comps = np.insert(comps,order-remo,0,axis=0)                                
-  return comps
+  return comps.reshape((order+1,)+np.shape(Imat)[1:])
 
 
 def unmaskData(data,mask,fillValue=np.nan):

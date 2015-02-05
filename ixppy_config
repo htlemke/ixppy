@@ -195,6 +195,7 @@ ebeam  Bld::BldDataEBeamV3/EBeam/data  Bld::BldDataEBeamV3/EBeam/time  dummy
 ebeam  Bld::BldDataEBeamV1/EBeam/data  Bld::BldDataEBeamV1/EBeam/time  dummy
 ebeam  Bld::BldDataEBeamV1/NoDetector.0:NoDevice.0/data  Bld::BldDataEBeamV1/NoDetector.0:NoDevice.0/time  dummy
 ebeam  Bld::BldDataEBeamV1/Ebeam/data  Bld::BldDataEBeamV1/Ebeam/time  dummy
+daqFilter  L3T::DataV*/Event  dummy  dummy
 #phasec  Bld::BldDataPhaseCavity/PhaseCavity/data  Bld::BldDataPhaseCavity/PhaseCavity/time dummy
 #phasec  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/data  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/time dummy
 #evr  EvrData::DataV3/NoDetector.0:Evr.0/evrData  EvrData::DataV3/NoDetector.0:Evr.0/time  dummy
