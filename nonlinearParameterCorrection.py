@@ -62,7 +62,7 @@ def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=1e6,fraclims_dc=[.9,1.1],w
   dcorr_const = -cprimeic*i0_wp + c(i0_wp) - t(0) 
   def corrFunc(D,i):
     i = i.ravel()
-    return (i*cprimeic.swapaxes(0,-1)).swapaxes(0,-1) + dcorr_const + ((D-c(i))*cprimeic/c_prime(i))
+    return cprimeic * ( i + ((D-c(i))/c_prime(i)).swapaxes(0,-1) ).swapaxes(0,-1)
 
   if wrapit:
     def corrFuncTransposed(D,i):

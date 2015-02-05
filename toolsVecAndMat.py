@@ -348,13 +348,14 @@ def polyVal(comps,i0):
   return np.asarray(np.matrix(pol)*np.matrix(comps.reshape((len(comps),-1)))).reshape((len(i0),)+np.shape(comps)[1:])                            
                                                                                 
 def polyDer(comps,m=1):                                                         
-  n = len(comps) - 1                                                            
-  y = comps.reshape((n+1,-1))[:-1] * np.expand_dims(np.arange(n, 0, -1),1)                      
+  compsf = comps.reshape((len(comps),-1))
+  n = len(compsf) - 1                                                            
+  y = compsf.reshape((n+1,-1))[:-1] * np.expand_dims(np.arange(n, 0, -1),1)                      
   if m == 0:                                                                    
     val = comps
     return val
   else:                                                                         
-    val = polyDer(y, m - 1)                                                          
+    val = polyDer(y, m - 1) 
     return val.reshape((n,)+np.shape(comps)[1:])
 
 def polyFit(i0,Imat,order=3, removeOrders=[]):
@@ -363,7 +364,7 @@ def polyFit(i0,Imat,order=3, removeOrders=[]):
   removeOrders = tools.iterfy(removeOrders)                                     
   removeOrders = np.sort(removeOrders)[-1::-1]                                  
   for remo in removeOrders:                                                     
-    print remo                                                                  
+    #print remo                                                                  
     pol = np.delete(pol,-(remo+1),axis=1)                                       
   lhs = copy.copy(pol)                                                          
   scale = np.sqrt((lhs*lhs).sum(axis=0))                                        
