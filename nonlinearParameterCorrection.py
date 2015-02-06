@@ -65,15 +65,24 @@ def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=1e6,fraclims_dc=[.9,1.1],w
     return cprimeic * ( i + ((D-c(i))/c_prime(i)).swapaxes(0,-1) ).swapaxes(0,-1)
 
   if wrapit:
-    def corrFuncTransposed(D,i):
-      return corrFunc(D.swapaxes(0,-1),i).swapaxes(0,-1)
-    corrFunc = wrapFunc(corrFuncTransposed)
-    def corrFuncWrap(D,i=None):
+    def corrFuncTransposed(D,i=None,normalize=False,fillValue=np.nan):
+      if i is None:
+	i = np.apply_over_axes(np.nansum,D,range(np.rank(D)-1)).ravel()
+      cr = corrFunc(D.swapaxes(0,-1),i).swapaxes(0,-1)
+      if normalize:
+	cr/=i
+      cr[:,~np.logical_and(i>np.min(i0),i<np.max(i0))] *= fillValue
+      return cr
+    #else: 
+	#return corrFunc(D.swapaxes(0,-1),i).swapaxes(0,-1)
+
+    corrFuncWrapped = wrapFunc(corrFuncTransposed,transposeStack=True)
+    def corrFuncWrap(D,i=None,normalize=False,fillValue=np.nan):
       if i is not None:
 	Df = D*i.filter([np.min(i0),np.max(i0)]).ones()
       else:
 	Df = D
-      return corrFunc(Df,i)
+      return corrFuncWrapped(Df,i=i,normalize=normalize,fillValue=fillValue)
     return corrFuncWrap
   else:
     return corrFunc

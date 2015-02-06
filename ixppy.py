@@ -1419,7 +1419,7 @@ def _applyFun(func,a):
     res.append(func(ta))
   return res
 
-def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None, NdataOut=0,NmemdataOut=0, picky=False, isPerEvt=False, stride=None, outputtypes=None, forceCalculation=False):
+def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None, NdataOut=0,NmemdataOut=0, picky=False, isPerEvt=False, transposeStack=True, stride=None, outputtypes=None, forceCalculation=False):
   """ rules: 
   - if data output, no other output possible, as output is not calculated. 
   - all event dependent arguments have to be passed as memdata or data instances
@@ -1534,10 +1534,8 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	      
 	      io,inclsteps = io
 	      tmp = np.concatenate(o._getStepsShots(io[(inclsteps==step).nonzero()[0]][0],io[(inclsteps==step).nonzero()[0]][1]),axis=0)
-	      if not isPerEvt and ('memdata' in ixppytype):
-	        trnspsorder = range(np.rank(tmp))
-                trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
-                tmp         = tmp.transpose(trnspsorder)
+	      if not isPerEvt and transposeStack:
+                tmp         = tmp.swapaxes(0,-1)
               targs[i] = tmp
 	      #raise NotImplementedError('Use the source, luke!')
 
@@ -1548,10 +1546,8 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	      tkwargs[kwkeys[i]] = odat[io[step]][eventstride]
 	    else:
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      if not isPerEvt and ('memdata' in ixppytype):
-                trnspsorder = range(np.rank(tmp))
-                trnspsorder = trnspsorder[1:]+[trnspsorder[0]]
-                tmp = tmp.transpose(trnspsorder)
+	      if not isPerEvt and transposeStack:
+                tmp = tmp.swapaxes(0,-1)
               tkwargs[kwkeys[i]] = tmp
 	for o,k,i in otherip:
 	  if not k:
@@ -1583,14 +1579,12 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	  tret = func(*targs,**tkwargs)
 	  if not type(tret) is tuple:
             tret = (tret,)
-	if not isPerEvt and ('memdata' in ixppytype):
+	if not isPerEvt and transposeStack:
 	  tret = list(tret)
 	  for ono,ttret in enumerate(tret):
 	    rnk = np.rank(ttret)
 	    if rnk>1:
-	      trnspsorder = range(rnk)
-	      trnspsorder = [trnspsorder[-1]]+trnspsorder[:-1]
-	      tret[ono]   = ttret.transpose(trnspsorder)
+	      tret[ono]   = ttret.swapaxes(0,-1)
 	  tret = tuple(tret)
 	output_list.append(tret)
     ############ interprete output automatically find memdata candidates ###########
@@ -1658,7 +1652,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
     output = func(*ipargs,**ipkwargs)
   return output
 
-def wrapFunc(func,InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, stride=None):
+def wrapFunc(func,InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, transposeStack=True, stride=None):
   """ rules: 
   - if data output, no other output possible, as output is not calculated. 
   - all event dependent arguments have to be passed as memdata or data instances
@@ -1673,7 +1667,7 @@ def wrapFunc(func,InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=Fal
 
   @wraps(func,assigned=('__name__', '__doc__'))
   def wrapper(*args,**kwargs):
-    return applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=NdataOut,NmemdataOut=NmemdataOut, picky=picky, isPerEvt=isPerEvt, stride=None)
+    return applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=NdataOut,NmemdataOut=NmemdataOut, picky=picky, isPerEvt=isPerEvt, transposeStack=transposeStack, stride=None)
   return wrapper
     
 def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, stride=None, outputtypes=None):
