@@ -648,6 +648,13 @@ class azimuthalBinning:
       fmt=["%.3f","%.4f","%.4f"])
 
 
+def sepS0S2(D,azi):
+  p2 = 0.5*(3.*cos(azi)**2-1)
+  res = polyFit(p2,D,order=1)
+  res[0] *=-1
+  return res
+
+
 def test():
   mask=np.ones( (2000,2000) )
   az=azimuthal_averaging(mask,-80,1161,pixelsize=82e-6,d=4.7e-2,tx=0,ty=90-28.,thetabin=1e-1,lam=1,verbose=1)
