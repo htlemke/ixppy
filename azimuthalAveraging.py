@@ -7,6 +7,7 @@ import time
 import h5py
 from scipy.interpolate import griddata
 import utilities as util
+from toolsVecAndMat import polyFit
 g_az = None
 
 def displayimg(img,**kwargs):
@@ -646,6 +647,13 @@ class azimuthalBinning:
     #n.savetxt(fname,n.vstack((self.q,self.I,self.sig)),header=header)
     np.savetxt(fname,np.transpose(np.vstack((self.q,self.I,self.sig))),
       fmt=["%.3f","%.4f","%.4f"])
+
+
+def sepS0S2(D,azi):
+  p2 = 0.5*(3.*cos(azi)**2-1)
+  res = polyFit(p2,D,order=1)
+  res[0] *=-1
+  return res
 
 
 def test():
