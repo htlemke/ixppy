@@ -31,7 +31,7 @@ def corrNonlinGetpars(expar,Imat,order=3,exparWP=0,Iwp=None):
   
 
 
-def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=1e6,fraclims_dc=[.9,1.1],wrapit=True):
+def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=None,fraclims_dc=[.9,1.1],wrapit=True):
   """ 
   Getting nonlinear correction factors form a calibration dataset consiting of:
     i0     	array of intensity/parameter values the calibration has been made for
@@ -48,7 +48,8 @@ def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=1e6,fraclims_dc=[.9,1.1],w
 		the correction is to be applied on (rows in D are again corresponding
 		to each intensity in i).
   """
-
+  if i0_wp is None:
+    i0_wp = np.mean(i0)
   msk = tools.filtvec(i0,i0_wp*np.asarray(fraclims_dc))
   p0 = tools.polyFit(i0[msk],Imat[msk,...],2)
   dc = tools.polyVal(p0,i0_wp)
@@ -147,9 +148,10 @@ class CorrNonLin(object):
 	self.dataset['corrNonLin_Imat'] = self.Imat
 	self.dataset['corrNonLin_I0'] = self.I0
 	self.dataset.save()
-  def getCorrFunc(self,order=5,i0_wp=1e6,fraclims_dc=[.9,1.1], wrapit=True):
+  def getCorrFunc(self,order=5,i0_wp=None,fraclims_dc=[.9,1.1], wrapit=True):
     if not ((self.Imat is None) and (self.I0 is None)):
       self.correct = getCorrectionFunc(order=order,Imat=self.Imat,i0=self.I0,i0_wp=i0_wp,fraclims_dc=fraclims_dc, wrapit=wrapit)
+      return self.correct
 
 
 

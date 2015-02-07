@@ -21,7 +21,7 @@ def Nansum(data):
   return np.atleast_2d(o).T
 
 
-nansum = wrapFunc(Nansum)
+nansum = wrapFunc(Nansum,transposeStack=False)
 
 
 def MaskNan(data,mask):

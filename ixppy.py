@@ -3522,6 +3522,7 @@ def parameterFilt(par,dataset=None,name=None,lims=None,graphicalInput=True,scans
 def corrFilt(par0,par1,lims=None,graphicalInput=True,scanstep=None,figName=None,ratio=False):
   
  
+  par0,par1 = matchEvents(par0,par1)
 
   if not figName:
     figName = 'Select filter limits'
