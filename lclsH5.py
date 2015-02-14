@@ -622,8 +622,8 @@ def getPath(name):
 class scanVar(object):
   def __init__(self,fhandle,name,paths):
     self._h5s = fhandle
-    self._name = getPath(name)
-    self._paths = paths
+    self._name = name
+    self._paths = getPath(paths)
     self._checkNcalib()
     self._read()
 
@@ -641,7 +641,7 @@ class scanVar(object):
         val = h[self._paths % c]["value"]
         v.append(val)
     self.data = v
-
+    #BUGME
     #for n in names:
       #dhelp = memdata(self,n,0)
       #self.__dict__[n,dhelp]
