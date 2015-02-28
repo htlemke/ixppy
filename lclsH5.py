@@ -252,7 +252,7 @@ class lclsH5(object):
   
   
 class detector(object):
-  
+   
   #def __dir__(self):
     #self.__init__heavy()
     #return self.__dict__.keys()
@@ -749,7 +749,7 @@ pluginNames = ['epics','eventCode']
 #pluginNames = []
 
 class detector_epics(detector):
-  def _initPointDet(self):
+  def _initPointDet(self): 
 
     for datapath,timepath in zip(self._paths['data'],self._paths['time']):
       name = getDetNamefromPath(datapath)
@@ -778,6 +778,24 @@ class detector_epics(detector):
     return [outD,outT]
 
 class detector_eventCode(detector):
+  def _initPointDet(self):
+    detector._initPointDet(self)
+    h=self._h5s[0]
+    codes = h[self._paths["conf"]][...]["code"]
+    self._addToSelf("codes",codes)
+    self._getCodeFields()
+    #if (EvrFound):
+
+  def _getCodeFields(self):
+    dat = self.fields['fifoEvents'][0]
+    tim = self.fields['fifoEvents'][1]
+    dat = [[evt['eventCode'] for evt in step] for step in dat]
+    for code in self.codes:
+      name = 'code_'+str(code)
+      cd = [np.array([True if code in evt else False for evt in step]) for step in dat]
+      self.fields[name] = [cd,tim] 
+
+class detector_evts(detector):
   def _initPointDet(self):
     detector._initPointDet(self)
     h=self._h5s[0]

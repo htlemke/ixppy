@@ -45,6 +45,7 @@ epics   EpicsArch.0:NoDevice.0
 epics     EpicsArch.0:NoDevice.0 notused   notused
 eventCode EvrData                notused   EvrData*eventcodes
 eventCode EvrData*DataV3         notused   EvrData*eventcodes
+events    EvrData::DataV4/NoDetector.0:Evr.0/present  dummy  dummy
 ipm1      IpmFex*/NH2-SB1-IPM-01 notused   notused 
 ipm2      IpmFex*/XppSb2_Ipm     notused   notused 
 ipm2      IpmFex*/XppSb2Ipm      notused   notused 
@@ -121,6 +122,7 @@ orca Camera::FrameV1/XppEndstation.0:OrcaFl40.0/image Camera::FrameV1/XppEndstat
 rayonix Camera::FrameV1/XppSb1Pim.0:Rayonix.0/image  Camera::FrameV1/XppSb1Pim.0:Rayonix.0/time dummy
 rayonix Camera::Frame*/XppEndstation.0:Rayonix.0/image Camera::Frame*/XppEndstation.0:Rayonix.0/image dummy
 cspadAzAv noSrc__azimuthalInt/data noSrc__azimuthalInt/time dummy
+cspadAzAv XppGon.0:Cspad.0__azimuthalInt/data   XppGon.0:Cspad.0__azimuthalInt/time   dummy
 adc	Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0/channelValue  Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0/time notused
 
 # XCS area detectors, label as #*line, then line of alias, and data, time, and config datasets
@@ -206,4 +208,4 @@ daqFilter  L3T::DataV*/Event  dummy  dummy
 xtcav Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/image Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/time dummy
 yagH2 Camera::FrameV1/XrayTransportDiagnostic.30:Tm6740.0/image Camera::FrameV1/XrayTransportDiagnostic.30:Tm6740.0/time  dummy
 yag3m Camera::FrameV1/XrayTransportDiagnostic.4:Tm6740.3/image Camera::FrameV1/XrayTransportDiagnostic.4:Tm6740.3/time dummy
-
+evrBool  EvrData::DataV4/NoDetector.0:Evr.0/present  dummy  dummy
