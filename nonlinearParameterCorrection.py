@@ -153,6 +153,29 @@ class CorrNonLin(object):
       self.correct = getCorrectionFunc(order=order,Imat=self.Imat,i0=self.I0,i0_wp=i0_wp,fraclims_dc=fraclims_dc, wrapit=wrapit)
       return self.correct
 
+  def testCorrfunc(self,order=5,ic=None):
+    fig = tools.nfigure('test_correction_func_order_%d'%order)
+    plt.clf()
+    fig,ax = plt.subplots(1,2,num=fig.number)
+    plt.axes(ax[0])
+    it = (self.Imat.T/self.I0).T
+    tools.imagesc(np.arange(np.shape(self.Imat)[1]),self.I0,(it/np.mean(it,0))-1)
+    tools.clim_std(2)
+    plt.colorbar()
+    plt.draw()
+    cf = self.getCorrFunc(order=order,i0_wp=ic,wrapit=False)
+    Icorr = cf(self.Imat,self.I0)
+    plt.axes(ax[1])
+    it = (Icorr.T/self.I0).T
+    tools.imagesc((it/np.mean(it,0))-1)
+    tools.clim_std(2)
+    plt.colorbar()
+
+
+
+
+
+
 
 
 

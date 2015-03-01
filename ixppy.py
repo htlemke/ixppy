@@ -1217,6 +1217,7 @@ class data(object):
 			   self._procObj['kwargs'],
 			   stride = [step,evtInd],
 			   isPerEvt = self._procObj['isPerEvt'],
+			   transposeStack = self._procObj['transposeStack'],
 			   InputDependentOutput=True,
 			   NdataOut=1,NmemdataOut=0, picky=False)
       if type(ret) is not tuple:
@@ -1475,7 +1476,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
       # this is the normal case to make an object that will act upon call
       output = []
       for nargSelf in (np.asarray(outputtypes)=='data').nonzero()[0]:
-        procObj = dict(func=func,args=ipargs,kwargs=ipkwargs,nargSelf=nargSelf,isPerEvt=isPerEvt)
+        procObj = dict(func=func,args=ipargs,kwargs=ipkwargs,nargSelf=nargSelf,isPerEvt=isPerEvt,transposeStack=transposeStack)
         output.append(data(time=rtimes,input=procObj,scan=scan))
       if len(output)>1:
 	output = tuple(output)
@@ -1534,7 +1535,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	      
 	      io,inclsteps = io
 	      tmp = np.concatenate(o._getStepsShots(io[(inclsteps==step).nonzero()[0]][0],io[(inclsteps==step).nonzero()[0]][1]),axis=0)
-	      if not isPerEvt and transposeStack:
+	      if (not isPerEvt) and transposeStack:
                 tmp         = tmp.swapaxes(0,-1)
               targs[i] = tmp
 	      #raise NotImplementedError('Use the source, luke!')
@@ -1546,7 +1547,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	      tkwargs[kwkeys[i]] = odat[io[step]][eventstride]
 	    else:
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      if not isPerEvt and transposeStack:
+	      if (not isPerEvt) and transposeStack:
                 tmp = tmp.swapaxes(0,-1)
               tkwargs[kwkeys[i]] = tmp
 	for o,k,i in otherip:
@@ -1572,14 +1573,12 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	  tret = tuple(zip(*tret))
 	  tret = tuple([np.asarray(ttret) for ttret in tret])
 
-
-
 	else:
-
+          
 	  tret = func(*targs,**tkwargs)
 	  if not type(tret) is tuple:
             tret = (tret,)
-	if not isPerEvt and transposeStack:
+	if (not isPerEvt) and transposeStack:
 	  tret = list(tret)
 	  for ono,ttret in enumerate(tret):
 	    rnk = np.rank(ttret)
@@ -1664,7 +1663,6 @@ def wrapFunc(func,InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=Fal
     otherwise NmemdataOut and NdataOut need to be specified. All other output 
     comes after ixppy instances if avaiable.
   """
-
   @wraps(func,assigned=('__name__', '__doc__'))
   def wrapper(*args,**kwargs):
     return applyFunction(func,args,kwargs,InputDependentOutput=True, NdataOut=NdataOut,NmemdataOut=NmemdataOut, picky=picky, isPerEvt=isPerEvt, transposeStack=transposeStack, stride=None)
