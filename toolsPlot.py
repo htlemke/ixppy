@@ -15,6 +15,7 @@ from matplotlib.widgets import Widget
 from copy import copy 
 from matplotlib import pyplot as plt
 from distutils.version import LooseVersion
+from matplotlib.ticker import MaxNLocator
 
 if LooseVersion(matplotlib.__version__)<'1.2':
   from matplotlib.nxutils import points_inside_poly
@@ -52,7 +53,8 @@ def nfigure(name="noname",figsize=None,**figprops):
 			fig = pl.figure(**figprops)
 		else:
 			fig = pl.figure(figsize=figsize,**figprops)
-		fig.canvas.set_window_title(name)
+		if name is not None:
+		  fig.canvas.set_window_title(name)
 #	figure(fig.number)
 	return fig
 
@@ -333,7 +335,7 @@ def imagesc(*args,**kwargs):
     except IndexError:
       return 'x=%1.4f, y=%1.4f'%(x, y)
   h = axes.imshow(I,interpolation=interpolation,
-              extent=[xmn,xmx,ymn,ymx],origin='bottom',*kwargs)
+              extent=[xmn,xmx,ymn,ymx],origin='bottom',**kwargs)
   h.axes.format_coord=_format_coord
   axes.axis('tight')
   
@@ -360,7 +362,7 @@ def imagesc(*args,**kwargs):
   return h
 
 def imagesc2(*args,**kwargs):
-  slider = kwargs.get('slider',False)
+  slider  = kwargs.get('slider',False)
   handle = kwargs.get('handle',[])
   if slider and handle==[]:
     pl.clf()
@@ -396,7 +398,7 @@ def imagesc2(*args,**kwargs):
     xmx = max(x)+dx/(nx-1)/2
     ymn = min(y)-dy/(ny-1)/2
     ymx = max(y)+dy/(ny-1)/2
-    h = pl.imshow(I,interpolation=interpolation,origin='bottom',*kwargs)
+    h = pl.imshow(I,interpolation=interpolation,origin='bottom',**kwargs)
     (loc,lab) = pl.xticks()
     idx = (loc>=0) & (loc<nx)
     loc = loc[idx]
@@ -431,6 +433,35 @@ def imagesc2(*args,**kwargs):
     smax.on_changed(updatemax)
 
   return h
+
+def adjustYlabels(axes):
+  pass
+
+
+def subplots(*args,**kwargs):
+  figname = kwargs.pop('figname',None)
+  hspacemin = kwargs.pop('hspacemin',0.05)
+  hspace = kwargs.pop('hspace',None)
+  top = kwargs.pop('top',None)
+  bottom = kwargs.pop('bottom',None)
+  left = kwargs.pop('left',None)
+  right = kwargs.pop('right',None)
+  wspace = kwargs.pop('wspace',None)
+  sharex = kwargs.get('sharex',False)
+  if figname is not None:
+    kwargs['num']=nfigure(figname).number
+  fig,ax = plt.subplots(*args,**kwargs)
+  plt.subplots_adjust(hspace=hspace,bottom=bottom,left=left,right=right,top=top,wspace=wspace)
+  if (fig.subplotpars.hspace < hspacemin) and sharex:
+    print 'YES'
+    #for tax in ax[:-1]:
+      #tax.set_xticklabels([])
+      #xticklabels += tax.get_xticklabels()
+    #plt.setp(xticklabels, visible=False)
+    nbins = len(ax[0].get_xticklabels()) # added 
+    for tax in ax[1:]:
+      tax.yaxis.set_major_locator(MaxNLocator(nbins=nbins, prune='upper')) # added 
+  return fig,ax
 
 
 def addPngMetadata(fname,dictionary):
