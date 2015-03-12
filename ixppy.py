@@ -682,6 +682,8 @@ class memdata(object):
       pl.errorbar(x,i,yerr=e,fmt='.-')
       pl.xlabel(scanfields[0])
 
+  def getTime(self,resolution = 1e-9,asTime=False):
+    return [getTime(ttime,resolution=resolution,asTime=asTime) for ttime in self.time]
 
   def corrFilter(self,other,ratio=False):
     filt,lims = corrFilt(self,other,ratio=ratio)
@@ -1412,7 +1414,7 @@ def applyDataOperator(optr,a,b=None,isreverse=False):
       args = [a,b]
     else:
       args = [b,a]
-  return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None)
+  return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None, transposeStack=True)
 
 def _applyFun(func,a):
   res = ixppyList()
@@ -1553,8 +1555,12 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	for o,k,i in otherip:
 	  if not k:
 	    targs[i] = o[step]
+	    if np.rank(targs[i])>0 and not len(targs[i])==1:
+	      targs[i] = targs[i][...,np.newaxis]
 	  else:
 	    tkwargs[kwkeys[i]]  = o[step]
+	    if np.rank(tkwargs[kwkeys[i]])>0 and not len(tkwargs[kwkeys[i]])==1:
+	      tkwargs[kwkeys[i]] = tkwargs[kwkeys[i]][...,np.newaxis]
 	if isPerEvt:
 	  # TODO: in case func works only for single shot
 	  tret = []

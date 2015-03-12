@@ -16,6 +16,7 @@ from copy import copy
 from matplotlib import pyplot as plt
 from distutils.version import LooseVersion
 
+
 if LooseVersion(matplotlib.__version__)<'1.2':
   from matplotlib.nxutils import points_inside_poly
 else:
@@ -113,7 +114,7 @@ def clim_std(stdfac=1,axh=None):
 
 #TODO section
 
-def getSpanCoordinates(direction='horizontal',axh=None,fig=None):
+def getSpanCoordinates(direction='horizontal',axh=None,fig=None,data=None):
   """Tool for selecting a span, functionality similar to ginput. Finish with right mouse button."""
   if not axh:
     axh = pl.gca()
@@ -133,8 +134,14 @@ def getSpanCoordinates(direction='horizontal',axh=None,fig=None):
         self.boxh.remove()
       if self.direction is 'horizontal':
         self.boxh = pl.axvspan(tmin,tmax,facecolor='r',alpha=0.5)
+	delta = tmaz-tmin
+	axh.set_xlim([tmin-0.2*deltai, tmax+0.2*delta])
+	if data is not None:
+	  dat = data[1]
+
       if self.direction is 'vertical':
         self.boxh = pl.axhspan(tmin,tmax,facecolor='r',alpha=0.5)
+	axh.set_ylim([tmin-0.2*delta, tmax+0.2*delta])
       fig.canvas.draw()
     
     def button_press_callback(self,event):
@@ -896,4 +903,23 @@ def colormaps():
 
   plt.register_cmap(name='BlueRed3', data=cdict3) # optional lut kwarg
   plt.register_cmap(name='BlueRedAlpha', data=cdict4)
+
+
+def showRealTimeDevelopment(*args,**kwargs):
+  figname = kwargs.get('figname','realtime_development')
+  resolution = kwargs.get('resolution',1e-9)
+  plotIt = kwargs.get('plotIt',True)
+  N = len(args)
+  if plotIt:
+    fig = nfigure(figname)
+    fig,ax = plt.subplots(N,1,sharex=True,num=fig.number)
+  opdata = []
+  for tax,var in zip(ax,args):
+    t = np.hstack(var.getTime(resolution=resolution,asTime=True))
+    if plotIt:
+      tax.plot(t,var.R,'.k',ms=1)
+    opdata.append([t,var.R])
+  return opdata
+
+
 
