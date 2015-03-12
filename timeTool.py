@@ -523,7 +523,7 @@ def applyFilterToAll(det,filter=None,kind='stepUp'):
   if filter==None:
     filter = standardfilter()
   traces = det.TTtraces
-  o = ixppy.applyFunction(applyFilter,[traces,filter],dict(kind=kind),outputtypes=['memdata']*3,forceCalculation=True)
+  o = ixppy.applyFunction(applyFilter,[traces,filter],dict(kind=kind),outputtypes=['memdata']*3,forceCalculation=True,transposeStack=False)
   det['TTpos'] = o[0]
   det['TTamp'] = o[1]
   det['TTfwhm'] = o[2]
