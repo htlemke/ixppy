@@ -1324,6 +1324,30 @@ class data(object):
       out.append(tout/totlen)
     pbar.finish()
     return out
+  
+  def median(self):
+    allchunks = self._memIterate()
+    out = []
+    # progress bar
+    Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in allchunks])
+    processedevents = 0
+    widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+    pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+    for stepNo,step in allchunks:
+      totlen = np.sum([len(x) for x in step])
+      tout = []
+      for chunk in step:
+	if len(chunk)>0:
+          tout += [(len(chunk),np.median(self[stepNo,np.ix_(chunk)][0],axis=0))]
+        processedevents += len(chunk)
+	pbar.update(processedevents)
+      if tout > 1:
+	print "Cant't calc real median, will use weighted mean of medians instead."
+	out.append(np.average(np.asarray([ttout[1] for ttout in tout]),weights=np.asarray([ttout[0] for ttout in tout]),axis=0))
+      else:
+        out.append(tout[1])
+    pbar.finish()
+    return out
 
 
 Data = data

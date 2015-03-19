@@ -268,12 +268,12 @@ class CorrNonLinDep(object):
     if fina is not None:
       assert fina[-7:]=='.ixp.h5', "File name has to be of extension ... .ixp.h5"
       self.dataset = dataset(fina)
-      if 'corrNonLin_I0' in self.dataset.__dict__:
-	self.I0 = self.dataset['corrNonLin_I0']
+      if 'corrNonLinRem_I0' in self.dataset.__dict__:
+	self.I0 = self.dataset['corrNonLinRem_I0']
       else:
 	self.I0 = None
-      if 'corrNonLin_Imat' in self.dataset.__dict__:
-	self.Imat = self.dataset['corrNonLin_Imat']
+      if 'corrNonLinRem_Imat' in self.dataset.__dict__:
+	self.Imat = self.dataset['corrNonLinRem_Imat']
       else:
 	self.Imat = None
     else:
@@ -302,7 +302,7 @@ class CorrNonLinDep(object):
   def getI0Imat(self,bins=None,evaluate=False):
     digi = (self.refDataFilter*self.Iref).digitize(bins=bins)
     self.I0 = digi.scan.bincenters
-    self.Imat = 1/digi*self.data*self.I0
+    self.Imat = digi.ones()*self.data
     if evaluate:
       fina = 'tmp_getImat_' \
 	  + datetime.datetime.now().isoformat() + '.ixp.h5'
@@ -314,13 +314,13 @@ class CorrNonLinDep(object):
     else:
       self.Imat = np.asarray(self.Imat.mean())
       if self.dataset is not None:
-	self.dataset['corrNonLin_Imat'] = self.Imat
-	self.dataset['corrNonLin_I0'] = self.I0
+	self.dataset['corrNonLinRem_Imat'] = self.Imat
+	self.dataset['corrNonLinRem_I0'] = self.I0
 	self.dataset.save()
 
   def getCorrFunc(self,order=5,ic=None,search_dc_limits=None, wrapit=True):
     if not ((self.Imat is None) and (self.I0 is None)):
-      self.correct = getCorrectionFunc(order=order,dmat=self.Imat,i=self.I0,ic=ic,search_dc_limits=search_dc_limits, wrapit=wrapit)
+      self.correct = getCorrectionFunc(order=order,dmat=self.Imat,i=self.I0,ic=ic,search_dc_limits=search_dc_limits, wrapit=wrapit, corrtype='removeDep' )
       return self.correct
 
   def testCorrfunc(self,order=5,ic=None):
