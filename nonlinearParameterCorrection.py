@@ -31,7 +31,7 @@ def corrNonlinGetpars(expar,Imat,order=3,exparWP=0,Iwp=None):
   
 
 #################3
-def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=None,wrapit=True):
+def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=None,corrtype='corrNonLin',wrapit=True):
   """ 
   Create nonlinear correction function from a calibration dataset consiting of:
     i     	array of intensity values (floats) of the calibration
@@ -63,20 +63,30 @@ def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=
     p0 = tools.polyFit(i[msk],dmat[msk,...],2)
     dc = tools.polyVal(p0,i0_wp)
     pc = tools.polyFit(i-ic,Imat-dc,order,removeOrders=[0])
-    pcprime = tools.polyDer(pc)
+    if corrtype is 'corrNonLin':
+      pcprime = tools.polyDer(pc)
     c = lambda(i): polyVal(pc,i-ic) + dc
   else:
     pc = tools.polyFit(i-ic,dmat,order,removeOrders=[])
-    pcprime = tools.polyDer(pc)
     c = lambda(i): tools.polyVal(pc,i-ic)
     dc = c(ic)
-  c_prime = lambda(i): tools.polyVal(pcprime,i-ic)
-  cprimeic = c_prime(ic)
-  if sc is None:
-    sc = c(ic)
-  def corrFunc(Dm,im):
-    im = np.asarray(im).ravel()
-    return (sc.T/ic*im).T + cprimeic/c_prime(im)* sc/dc * (Dm-c(im))
+    if corrtype is 'corrNonLin':
+      pcprime = tools.polyDer(pc)
+  if corrtype is 'corrNonLin':
+    pcprime = tools.polyDer(pc)
+    c_prime = lambda(i): tools.polyVal(pcprime,i-ic)
+    cprimeic = c_prime(ic)
+    if sc is None:
+      sc = c(ic)
+    def corrFunc(Dm,im):
+      im = np.asarray(im).ravel()
+      return (sc.T/ic*im).T + cprimeic/c_prime(im)* sc/dc * (Dm-c(im))
+  elif corrtype is 'removeDep':
+    def corrFunc(Dm,im):
+      im = np.asarray(im).ravel()
+      return Dm-c(im)+dc
+
+
   #return corrFunc
   if wrapit:
     def corrFuncTransposed(Dm,im=None,normalize=False,fillValue=np.nan):
@@ -222,7 +232,7 @@ class CorrNonLin(object):
 	self.dataset.save()
   def getCorrFunc(self,order=5,ic=None,search_dc_limits=None, wrapit=True):
     if not ((self.Imat is None) and (self.I0 is None)):
-      self.correct = getCorrectionFunc(order=order,dmat=self.Imat,i=self.I0,ic=ic,search_dc_limits=search_dc_limits, wrapit=wrapit)
+      self.correct = getCorrectionFunc(order=order,dmat=self.Imat,i=self.I0,ic=ic,search_dc_limits=search_dc_limits, wrapit=wrapit, corrtype='corrNonLin')
       return self.correct
 
   def testCorrfunc(self,order=5,ic=None):
@@ -250,4 +260,84 @@ class CorrNonLin(object):
 
 
 
+class CorrNonLinDep(object):
+  def __init__(self,data=None,Iref=None,I0=None,Imat=None,fina=None):
+    self.data = data
+    self.refDataFilter = 1
+    self.Iref = Iref
+    if fina is not None:
+      assert fina[-7:]=='.ixp.h5', "File name has to be of extension ... .ixp.h5"
+      self.dataset = dataset(fina)
+      if 'corrNonLin_I0' in self.dataset.__dict__:
+	self.I0 = self.dataset['corrNonLin_I0']
+      else:
+	self.I0 = None
+      if 'corrNonLin_Imat' in self.dataset.__dict__:
+	self.Imat = self.dataset['corrNonLin_Imat']
+      else:
+	self.Imat = None
+    else:
+      self.dataset = None
+
+  def getRefdataMask(self,*args):
+    flt = 1
+    if 'step' in args:
+      flt *= (self.data.ones()*self.data.scan[0]).filter().ones()
+    self.refDataFilter = flt
+
+  def _getRefdata(self):
+    return self.refDataFilter*self.data
+  refData = property(_getRefdata)
+
+  def getRefIntensity(self,imagemask=None):
+    self.Iref = self.refDataFilter * nansum(self.data)
+    fina = 'tmp_getRefIntensity_' \
+	+ datetime.datetime.now().isoformat() + '.ixp.h5'
+    print fina
+    self.Iref.setFile(fina)
+    self.Iref.evaluate()
+    self.Iref = self.Iref.get_memdata()[0]
+    os.remove(fina)
+
+  def getI0Imat(self,bins=None,evaluate=False):
+    digi = (self.refDataFilter*self.Iref).digitize(bins=bins)
+    self.I0 = digi.scan.bincenters
+    self.Imat = 1/digi*self.data*self.I0
+    if evaluate:
+      fina = 'tmp_getImat_' \
+	  + datetime.datetime.now().isoformat() + '.ixp.h5'
+      print fina
+      self.Imat.setFile(fina)
+      self.Imat.evaluate()
+      self.Imat = np.asarray(self.Imat.mean())
+      os.remove(fina)
+    else:
+      self.Imat = np.asarray(self.Imat.mean())
+      if self.dataset is not None:
+	self.dataset['corrNonLin_Imat'] = self.Imat
+	self.dataset['corrNonLin_I0'] = self.I0
+	self.dataset.save()
+
+  def getCorrFunc(self,order=5,ic=None,search_dc_limits=None, wrapit=True):
+    if not ((self.Imat is None) and (self.I0 is None)):
+      self.correct = getCorrectionFunc(order=order,dmat=self.Imat,i=self.I0,ic=ic,search_dc_limits=search_dc_limits, wrapit=wrapit)
+      return self.correct
+
+  def testCorrfunc(self,order=5,ic=None):
+    fig = tools.nfigure('test_correction_func_order_%d'%order)
+    plt.clf()
+    fig,ax = plt.subplots(1,2,num=fig.number)
+    plt.axes(ax[0])
+    it = (self.Imat.T/self.I0).T
+    tools.imagesc(np.arange(np.shape(self.Imat)[1]),self.I0,(it/np.mean(it,0))-1)
+    tools.clim_std(2)
+    plt.colorbar()
+    plt.draw()
+    cf = self.getCorrFunc(order=order,ic=ic,wrapit=False)
+    Icorr = cf(self.Imat,self.I0)
+    plt.axes(ax[1])
+    it = (Icorr.T/self.I0).T
+    tools.imagesc((it/np.mean(it,0))-1)
+    tools.clim_std(2)
+    plt.colorbar()
 

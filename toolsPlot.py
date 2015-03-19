@@ -136,8 +136,8 @@ def getSpanCoordinates(direction='horizontal',axh=None,fig=None,data=None):
         self.boxh.remove()
       if self.direction is 'horizontal':
         self.boxh = pl.axvspan(tmin,tmax,facecolor='r',alpha=0.5)
-	delta = tmaz-tmin
-	axh.set_xlim([tmin-0.2*deltai, tmax+0.2*delta])
+	delta = tmax-tmin
+	axh.set_xlim([tmin-0.2*delta, tmax+0.2*delta])
 	if data is not None:
 	  dat = data[1]
 
