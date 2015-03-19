@@ -518,6 +518,13 @@ class memdata(object):
   
   def digitize(self,bins=None,inplace = False):
     dat,stsz = ravelScanSteps(self.data)
+    if bins is not None:
+      if not np.iterable(bins):
+	med = self.median()
+        if type(bins) is int:
+	  bins = np.linspace(np.min(med),np.max(med),bins+1)
+        elif type(bins) is float:
+	  bins = np.arange(np.min(med)-bins/2,np.max(med)+bins*1.5,bins)
     inds,bins = digitize(dat,bins)
     binrange = range(1,len(bins))
 

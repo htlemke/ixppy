@@ -163,6 +163,11 @@ def nanmedian(arr, **kwargs):
     """
     return ma.median( ma.masked_where(arr!=arr, arr), **kwargs )
 
+def com(mat,axis=0):
+  #TODO
+  pass
+
+
 def COM(Img, xv=[], yv=[], firstOnly=True):
   sz = np.shape(Img)
   if not xv:

@@ -30,8 +30,80 @@ def corrNonlinGetpars(expar,Imat,order=3,exparWP=0,Iwp=None):
     #np.delete(pol,-1,1)
   
 
+#################3
+def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=None,wrapit=True):
+  """ 
+  Create nonlinear correction function from a calibration dataset consiting of:
+    i     	array of intensity values (floats) of the calibration
+    dmat   	ND array of the reference patterns corresponding to values of i,
+                The first dimension corresponds to the calibration intensity 
+		values and has the same length as i.
+    ic		A working point around which a polynomial correction will be
+  		developed for each pixel.
+    order	the polynomial order up to which the correction will be 
+                deveoped.
+    sc		optional: calibration image at ic. default is the image at ic
+    search_dc_limits	absolute limits around ic which are used to determine the 
+    		calibration value of ic as linear approximation of a short interval. 
+		optional, can sometimes help to avoid strong deviations of the 
+		polynomial approximatiuon from the real measured points.
+  
+  Returns corrFunc(D,i), a function that takes an ND array input for correction
+                (1st dimension corresponds to the different intensity values) 
+		as well as the intensity array i.
+  """
+  if ic is None:
+    ic = np.mean(i)
+  if search_dc_limits is not None:
+    search_dc_limits = iterfy(search_dc_limits)
+    if len(search_dc_limits)==1:
+      msk = (i>i-np.abs(search_dc_limits)) & (i<i+np.abs(search_dc_limits))
+    elif len(search_dc_limits)==2:
+      msk = (i>i-np.min(search_dc_limits)) & (i<i+np.max(search_dc_limits))
+    p0 = tools.polyFit(i[msk],dmat[msk,...],2)
+    dc = tools.polyVal(p0,i0_wp)
+    pc = tools.polyFit(i-ic,Imat-dc,order,removeOrders=[0])
+    pcprime = tools.polyDer(pc)
+    c = lambda(i): polyVal(pc,i-ic) + dc
+  else:
+    pc = tools.polyFit(i-ic,dmat,order,removeOrders=[])
+    pcprime = tools.polyDer(pc)
+    c = lambda(i): tools.polyVal(pc,i-ic)
+    dc = c(ic)
+  c_prime = lambda(i): tools.polyVal(pcprime,i-ic)
+  cprimeic = c_prime(ic)
+  if sc is None:
+    sc = c(ic)
+  def corrFunc(Dm,im):
+    im = np.asarray(im).ravel()
+    return (sc.T/ic*im).T + cprimeic/c_prime(im)* sc/dc * (Dm-c(im))
+  #return corrFunc
+  if wrapit:
+    def corrFuncTransposed(Dm,im=None,normalize=False,fillValue=np.nan):
+      if im is None:
+	im = np.apply_over_axes(np.nansum,Dm,range(np.rank(Dm)-1)).ravel()
+      cr = corrFunc(Dm.swapaxes(0,-1),im).swapaxes(0,-1)
+      if normalize:
+	cr/=im.ravel().T
+      cr[:,~np.logical_and(im>np.min(i),im<np.max(i))] *= fillValue
+      return cr
+    #else: 
+	#return corrFunc(D.swapaxes(0,-1),i).swapaxes(0,-1)
 
-def getCorrectionFunc(order=5,Imat=None,i0=None,i0_wp=None,fraclims_dc=[.9,1.1],wrapit=True):
+    corrFuncWrapped = wrapFunc(corrFuncTransposed,transposeStack=True)
+    def corrFuncWrap(Dm,im=None,normalize=False,fillValue=np.nan):
+      if im is not None:
+	Df = Dm*im.filter([np.min(i),np.max(i)]).ones()
+      else:
+	Df = Dm
+      return corrFuncWrapped(Df,im=im,normalize=normalize,fillValue=fillValue)
+    return corrFuncWrap
+  else:
+    return corrFunc
+
+
+################3333
+def getCorrectionFunc_old(order=5,Imat=None,i0=None,i0_wp=None,fraclims_dc=[.9,1.1],wrapit=True):
   """ 
   Getting nonlinear correction factors form a calibration dataset consiting of:
     i0     	array of intensity/parameter values the calibration has been made for
@@ -148,9 +220,9 @@ class CorrNonLin(object):
 	self.dataset['corrNonLin_Imat'] = self.Imat
 	self.dataset['corrNonLin_I0'] = self.I0
 	self.dataset.save()
-  def getCorrFunc(self,order=5,i0_wp=None,fraclims_dc=[.9,1.1], wrapit=True):
+  def getCorrFunc(self,order=5,ic=None,search_dc_limits=None, wrapit=True):
     if not ((self.Imat is None) and (self.I0 is None)):
-      self.correct = getCorrectionFunc(order=order,Imat=self.Imat,i0=self.I0,i0_wp=i0_wp,fraclims_dc=fraclims_dc, wrapit=wrapit)
+      self.correct = getCorrectionFunc(order=order,dmat=self.Imat,i=self.I0,ic=ic,search_dc_limits=search_dc_limits, wrapit=wrapit)
       return self.correct
 
   def testCorrfunc(self,order=5,ic=None):
@@ -163,7 +235,7 @@ class CorrNonLin(object):
     tools.clim_std(2)
     plt.colorbar()
     plt.draw()
-    cf = self.getCorrFunc(order=order,i0_wp=ic,wrapit=False)
+    cf = self.getCorrFunc(order=order,ic=ic,wrapit=False)
     Icorr = cf(self.Imat,self.I0)
     plt.axes(ax[1])
     it = (Icorr.T/self.I0).T
