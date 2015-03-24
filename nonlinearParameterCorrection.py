@@ -95,7 +95,7 @@ def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=
       cr = corrFunc(Dm.swapaxes(0,-1),im).swapaxes(0,-1)
       if normalize:
 	cr/=im.ravel().T
-      cr[:,~np.logical_and(im>np.min(i),im<np.max(i))] *= fillValue
+      cr[...,~np.logical_and(im>np.min(i),im<np.max(i))] *= fillValue
       return cr
     #else: 
 	#return corrFunc(D.swapaxes(0,-1),i).swapaxes(0,-1)
@@ -255,11 +255,6 @@ class CorrNonLin(object):
 
 
 
-
-
-
-
-
 class CorrNonLinDep(object):
   def __init__(self,data=None,Iref=None,I0=None,Imat=None,fina=None):
     self.data = data
@@ -336,7 +331,7 @@ class CorrNonLinDep(object):
     cf = self.getCorrFunc(order=order,ic=ic,wrapit=False)
     Icorr = cf(self.Imat,self.I0)
     plt.axes(ax[1])
-    it = (Icorr.T/self.I0).T
+    it = Icorr
     tools.imagesc((it/np.mean(it,0))-1)
     tools.clim_std(2)
     plt.colorbar()

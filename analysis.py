@@ -99,7 +99,8 @@ class PumpProbeNDarray(object):
   probeOff = property(_getProbeOff)
 
   def _getTimeDelay(self):  
-    pumpedAndProbed = self.probeOn*self.pumpOn*self.monitor.ones()
+    pumpedAndProbed = self.probeOn*self.pumpOn
+    #pumpedAndProbed = self.probeOn*self.pumpOn*self.monitor.ones()
     if self._timeDelay is None:
       try:
         self._timeDelay = self.data.ones()*self.data.scan[0]
@@ -147,19 +148,19 @@ class PumpProbeNDarray(object):
     except:
       self.res[self._dsNamePrefix+'_PumpedRatio'] = \
         self.timeDelay.ones()*\
-	self.data*self.pumpOn*self.probeOn/self.monitor / self.dataOffNorm.mean())
+	(self.data*self.pumpOn*self.probeOn / self.dataOff.mean())
       return self.res[self._dsNamePrefix+'_PumpedRatio']
   dataPPratio = property(_getDataPPratio)
     
-  def _getDataNorm(self):
+  def _getDataNormPPratio(self):
     try:
       return self.res[self._dsNamePrefix+'_Norm']
     except:
       self.res[self._dsNamePrefix+'_Norm'] = \
         self.timeDelay.ones()*\
-	(self.data*self.pumpOn*self.probeOn/self.monitor / self.dataOff.mean())
-      return self.res[self._dsNamePrefix+'_PumpedRatio']
-  dataPPratio = property(_getDataPPratio)
+	(self.data*self.pumpOn*self.probeOn/self.monitor / self.dataOffNorm.mean())
+      return self.res[self._dsNamePrefix+'_Norm']
+  dataNormPPratio = property(_getDataNormPPratio)
 
   #def _getCorrfun(self,**kwargs):
     #if self.nonlinCorrObj is None:

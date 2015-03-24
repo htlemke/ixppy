@@ -10,7 +10,9 @@ numpyfuncs = [
     'nansum',
     'average',
     'apply_over_axes',
-    'polyval'
+    'polyval',
+    'isnan',
+    'any'
     ]
 
 for funName in numpyfuncs:

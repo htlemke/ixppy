@@ -115,7 +115,6 @@ def clim_std(stdfac=1,axh=None):
   ih.set_clim([imean-stdfac*istd,imean+stdfac*istd])
 
 #TODO section
-
 def getSpanCoordinates(direction='horizontal',axh=None,fig=None,data=None):
   """Tool for selecting a span, functionality similar to ginput. Finish with right mouse button."""
   if not axh:

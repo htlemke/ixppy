@@ -1316,12 +1316,16 @@ class data(object):
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
       tout = 0
+      N=0
       for chunk in step:
 	if len(chunk)>0:
-          tout += np.nansum(self[stepNo,np.ix_(chunk)][0],axis=0)
+	  tdr =  self[stepNo,np.ix_(chunk)][0]
+	  N += np.sum(~np.isnan(tdr),axis=0)
+          tout += np.nansum(tdr,axis=0)
         processedevents += len(chunk)
 	pbar.update(processedevents)
-      out.append(tout/totlen)
+      #N[N==0] = np.nan  
+      out.append(tout/N)
     pbar.finish()
     return out
   
