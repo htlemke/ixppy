@@ -47,7 +47,7 @@ class PumpProbeNDarray(object):
   def __init__(self,
       data, monitor=None, timeDelay=None,
       pumpOn=None,probeOn=None,
-      timeBinSize=50e-15,
+      timeBinSize=20e-15,
       attachDropObject=None,
       resFina='tempFile_pumpProbeND.ixp.h5',
       dsNamePrefix='pumpProbe'):

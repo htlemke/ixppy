@@ -390,3 +390,53 @@ def unmaskData(data,mask,fillValue=np.nan):
     re[n].put(msk,dat)
   #return re.reshape([len(data),32,185,388])
   return re
+
+def applyFuncOnClosestN(func,N,x0,x1,D0):
+  acni = _ApplyClosestN(func,N,x0,x1,D0)
+  return acni
+
+
+
+
+class _ApplyClosestN(object):
+  def __init__(self,func,N,x0,x1,D0):
+    self.x0 = np.sort(x0)
+    self.x0_sortind = np.argsort(x0)
+    self.D0 = D0
+    self.x1 = np.sort(x1)
+    self.x1_sortind = np.argsort(x1)
+    self.func = func
+    self.N = N
+    self.presInd = range(N)
+    self.presLst = list(self.x0[:N])
+    self.res = []
+  
+  def step(self,x):
+    while (self.presLst[-1]-x) < (x-self.presLst[0]):
+      if self.presLst[-1]>=len(self.x0):
+	break
+      if (self.x0[self.presInd[-1]+1] - x) > (x-self.presLst[0]):
+        self.res.append(self.func(self.D0[self.x0_sortind[np.ix(self.presInd)]]))
+        return
+      self.presInd.pop(0)
+      self.presInd.append(self.presInd[-1]+1)
+      self.presLst.pop(0)
+      self.presLst.append(self.x0[self.presInd[-1]])
+
+  def run(self):
+    for x in self.x1:
+      self.step(x)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

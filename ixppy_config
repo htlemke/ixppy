@@ -123,6 +123,7 @@ rayonix Camera::FrameV1/XppSb1Pim.0:Rayonix.0/image  Camera::FrameV1/XppSb1Pim.0
 rayonix Camera::Frame*/XppEndstation.0:Rayonix.0/image Camera::Frame*/XppEndstation.0:Rayonix.0/image dummy
 cspadAzAv noSrc__azimuthalInt/data noSrc__azimuthalInt/time dummy
 cspadAzAv XppGon.0:Cspad.0__azimuthalInt/data   XppGon.0:Cspad.0__azimuthalInt/time   dummy
+cspadAzAvSum XppGon.0:Cspad.0__sum_intav/data   XppGon.0:Cspad.0__sum_intav/time   dummy
 adc	Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0/channelValue  Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0/time notused
 
 # XCS area detectors, label as #*line, then line of alias, and data, time, and config datasets
