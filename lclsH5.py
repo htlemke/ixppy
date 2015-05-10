@@ -17,8 +17,12 @@ class lclsH5(object):
     self.cnf = cnf
 
   def checkFiles(self):
-    self.fileHandles = tools.iterate(self.fileNames,tH5.openOrCreateFile,"r")
-    
+    self.fileHandles = tools.iterate(self.fileNames,tH5.openOrCreateFile,"r",driver='sec2')
+
+  def close(self):
+    for fh in self.fileHandles:
+      fh.close()
+
   def findDetectors(self,detectors=None): 
     # Detectors
     # TODO
@@ -333,7 +337,7 @@ class detector(object):
       #######################################################################
       #######################################################################
   def _readPointDataGeneral(self,path,field=None,stepSlice=None,shotSlice=None):
-    if stepSlice==None:
+    if stepSlice is None:
       stepSlice = range(self.Nsteps)
     stepSlice = tools.iterfy(stepSlice)
 
@@ -366,7 +370,7 @@ class detector(object):
       outSind+=1
 
     if outS[outSind].dtype.names:
-      if not field==None:
+      if not field is None:
 	index = ''
 	while not field in outS[outSind].dtype.names:
 	  index = field[-1] + index
@@ -384,14 +388,14 @@ class detector(object):
 
 	if tret[0].ndim==2:
           noofvecs = np.shape(outS[0][tfield])[1]
-	  if not index==None:
+	  if not index is None:
 	    indices = [index]
 	  else:
 	    indices = range(noofvecs)
 	  for tindex in indices:
 	    strfmt = '%0' + '%dd' %(1+np.floor(np.log10(noofvecs)))
 	    tname = tfield + strfmt %(tindex)
-	    ret.append([sd[:,tindex] if np.rank(sd)==2 else np.asarray([]) for sd in tret ])
+	    ret.append([sd[:,tindex] if np.ndim(sd)==2 else np.asarray([]) for sd in tret ])
 	    retfields.append(tname)
 	else:
 	  ret.append(tret)
@@ -484,7 +488,7 @@ class detector(object):
       self.readData = self._readDataGeneral
 
   def _readTime(self,path,stepSlice=None,shotSlice=None):
-    if stepSlice==None:
+    if stepSlice is None:
       stepSlice = range(self.Nsteps)
     stepSlice = tools.iterfy(stepSlice)
     times = []

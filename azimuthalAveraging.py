@@ -650,8 +650,18 @@ class azimuthalBinning:
 
 
 def sepS0S2(D,azi):
-  p2 = 0.5*(3.*cos(azi)**2-1)
-  res = polyFit(p2,D,order=1)
+  #Dma = np.ma.masked_array(D,np.isnan(D))
+  p2 = 0.5*(3.*np.cos(azi)**2-1)
+  if np.isnan(D).any():
+    res = np.zeros([2,np.shape(D)[1]])
+    for n,prof in enumerate(D.T):
+      idx = ~np.isnan(prof)
+      if sum(idx)<4:
+        res[:,n] = np.array([np.nan,np.nan]) 
+      else:
+        res[:,n] = np.polyfit(p2[idx],prof[idx],1)
+  else:
+    res = polyFit(p2,Dma,order=1)
   res[0] *=-1
   return res
 

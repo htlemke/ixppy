@@ -1,10 +1,13 @@
 import types
-import os
+import os,glob
 import numpy as np
 from copy import deepcopy
-import re
+import re,operator
 from itertools import takewhile
 from toolsVecAndMat import smooth
+import ixppy
+from scipy.io import loadmat,savemat
+
 #from ixppy import wrapFunc
 
 def allnamesequal(name):
@@ -145,7 +148,7 @@ def iterate(data,function,*args,**keywords):
   nargs = len(args)
   nkey  = len(keywords)
   if   ( (nargs!=0) and (nkey!=0) ):
-    return [function(x,args,keywords) for x in data]
+    return [function(x,*args,**keywords) for x in data]
   elif ( (nargs!=0) and (nkey==0) ):
     return [function(x,*args) for x in data]
   elif ( (nargs==0) and (nkey!=0) ):
@@ -399,3 +402,47 @@ def applyPeriodically(func,x,x0,dx,period,including=[True,False],nrep_kw=None,st
       kwargs[startpar_kw] = tx0
     out[ind] = func(x[ind]-tx0,**kwargs)
   return out
+
+def getFileNumberlist(searchstring,wildcard='*'):
+  strings = searchstring.split(wildcard)
+  assert len(strings) == 2 , "Can't handle more than one number section in filename"
+  filelist = glob.glob(searchstring)
+  nums = []
+  for file in filelist:
+    nums.append(int(file.split(strings[0])[1].split(strings[1])[0]))
+  return filelist,nums
+    
+def readDataFile(fina,fieldname=None):
+  name,extension = os.path.splitext(fina)
+  if extension=='.m':
+    if fieldname is not None:
+      return loadmat(fina)[fieldname]
+    else:
+      return loadmat(fina)
+  elif extension=='.npy':
+    return np.load(fina)
+  elif extension=='.h5':
+    sname,sext = os.path.splitext(name)
+    if sext=='.ixp':
+      return ixppy.dataset(fina)
+    return h5py.File(fina)
+  else:
+    try:
+      return np.loadtxt(fina)
+    except Exception,e:
+      print "could not read that file. \nError ---->\n "
+      print e
+
+def readReferenceToRunNumber(searchstring,runno,comparator='le',wildcard='*'):
+  comparator = operator.__dict__[comparator]
+  filelist,numbers = getFileNumberlist(searchstring,wildcard=wildcard)
+  nums = np.asarray(numbers)
+  nums = nums[comparator(nums,runno).nonzero()[0]]
+  if len(nums)==0:
+    print "Warning: Could not find reference run, will try to read closest runnumber instead!"
+    nums = np.asarray(numbers)
+  refrunno = np.min(np.abs(nums-runno))
+  idx = numbers.index(refrunno)
+  return readDataFile(filelist[idx])
+
+

@@ -158,10 +158,19 @@ class PumpProbeNDarray(object):
     except:
       self.res[self._dsNamePrefix+'_Norm'] = \
         self.timeDelay.ones()*\
-	(self.data*self.pumpOn*self.probeOn/self.monitor / self.dataOffNorm.mean())
+	(self.data*self.pumpOn*self.probeOn/self.monitor / self.dataOffNorm.median())
       return self.res[self._dsNamePrefix+'_Norm']
   dataNormPPratio = property(_getDataNormPPratio)
 
+  def _getDataNormPPdiff(self):
+    try:
+      return self.res[self._dsNamePrefix+'_Norm']
+    except:
+      self.res[self._dsNamePrefix+'_Norm'] = \
+        self.timeDelay.ones()*\
+	(self.data*self.pumpOn*self.probeOn/self.monitor - self.dataOffNorm.median())
+      return self.res[self._dsNamePrefix+'_Norm']
+  dataNormPPdiff = property(_getDataNormPPdiff)
   #def _getCorrfun(self,**kwargs):
     #if self.nonlinCorrObj is None:
       #if self._nonlinCorrFile is not None:

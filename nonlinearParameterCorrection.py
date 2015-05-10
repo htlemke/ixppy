@@ -91,7 +91,7 @@ def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=
   if wrapit:
     def corrFuncTransposed(Dm,im=None,normalize=False,fillValue=np.nan):
       if im is None:
-	im = np.apply_over_axes(np.nansum,Dm,range(np.rank(Dm)-1)).ravel()
+	im = np.apply_over_axes(np.nansum,Dm,range(np.ndim(Dm)-1)).ravel()
       cr = corrFunc(Dm.swapaxes(0,-1),im).swapaxes(0,-1)
       if normalize:
 	cr/=im.ravel().T
@@ -150,7 +150,7 @@ def getCorrectionFunc_old(order=5,Imat=None,i0=None,i0_wp=None,fraclims_dc=[.9,1
   if wrapit:
     def corrFuncTransposed(D,i=None,normalize=False,fillValue=np.nan):
       if i is None:
-	i = np.apply_over_axes(np.nansum,D,range(np.rank(D)-1)).ravel()
+	i = np.apply_over_axes(np.nansum,D,range(np.ndim(D)-1)).ravel()
       cr = corrFunc(D.swapaxes(0,-1),i).swapaxes(0,-1)
       if normalize:
 	cr/=i

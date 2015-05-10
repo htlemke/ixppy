@@ -395,7 +395,19 @@ def applyFuncOnClosestN(func,N,x0,x1,D0):
   acni = _ApplyClosestN(func,N,x0,x1,D0)
   return acni
 
+def rollaxis2end(a):
+  n = a.ndim
+  axes = list(range(0, n))
+  axes.remove(0)
+  axes.insert(n, 0)
+  return a.transpose(axes)
 
+def rollaxis2beg(a):
+  n = np.ndim(a)
+  axes = list(range(0, n))
+  axes.remove(n-1)
+  axes.insert(0, n-1)
+  return a.transpose(axes)
 
 
 class _ApplyClosestN(object):
@@ -426,6 +438,19 @@ class _ApplyClosestN(object):
   def run(self):
     for x in self.x1:
       self.step(x)
+
+def arrayFromList(a):
+  shps = [np.shape(ta) for ta in a]
+  shplens = np.asarray([len(tshp) for tshp in shps])
+  shp = shps[shplens.argmax()]
+  o = np.nan*np.ones((len(a),)+shp)
+  for n,ta in enumerate(a):
+    try:
+      o[n] = ta
+    except:
+      pass
+  return o  
+
 
 
 

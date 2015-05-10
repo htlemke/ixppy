@@ -43,8 +43,6 @@ epics   EpicsArch.0:NoDevice.0
 #* detector alias, dataset link to data, dataset link to time, dataset for configuration.
 #* pointDet_xpp
 epics     EpicsArch.0:NoDevice.0 notused   notused
-eventCode EvrData                notused   EvrData*eventcodes
-eventCode EvrData*DataV3         notused   EvrData*eventcodes
 events    EvrData::DataV4/NoDetector.0:Evr.0/present  dummy  dummy
 ipm1      IpmFex*/NH2-SB1-IPM-01 notused   notused 
 ipm2      IpmFex*/XppSb2_Ipm     notused   notused 
@@ -64,6 +62,8 @@ encoder   Data*/XppGon.0:Encoder.0 notused notused
 timeTool   TIMETOOL  notused notused
 timeTool   TTSPEC  notused notused
 encoder   UsdUsb*/XppEndstation.0:USDUSB.0 notused notused
+#eventCode EvrData                notused   EvrData*eventcodes
+#eventCode EvrData*DataV3         notused   EvrData*eventcodes
 #adc       Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0  notused   notused
 #ipm1  Lusi::IpmFexV1/NH2-SB1-IPM-01/data  Lusi::IpmFexV1/NH2-SB1-IPM-01/time  dummy
 #ipm2  Lusi::IpmFexV1/XppSb2_Ipm/data  Lusi::IpmFexV1/XppSb2_Ipm/time  dummy

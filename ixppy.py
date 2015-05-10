@@ -60,7 +60,7 @@ class dataset(object):
     self.config.readCachedData = readCachedData
     self._getFileStrategy()
     if len(self.config.fileNamesIxp)==0:
-      if ixpFile==None:
+      if ixpFile is None:
 	tfname =  self.config.fileNamesH5[0]
 	ixpname = os.path.join(self.config.cachePath,os.path.basename(tfname))
 	ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
@@ -76,7 +76,7 @@ class dataset(object):
 	if os.path.exists(ixpFile):
 	    self.config.filestrategy.append('ixp')
     else:
-      if ixpFile==None:
+      if ixpFile is None:
         self.config.ixp = Ixp(self.config.fileNamesIxp[0])
       else:
         self.config.ixp = Ixp(ixpFile)
@@ -315,7 +315,7 @@ class dataset(object):
     return
 
   def _rdConfiguration(self,beamline):
-    if not beamline==None:
+    if not beamline is None:
       self.config.beamline = beamline
       self.config.cnfFile = rdConfiguration(beamline=beamline)
     else:
@@ -416,7 +416,7 @@ class memdata(object):
     self._name = name
     self.scan = scan
     self.grid = grid
-    if input==None:
+    if input is None:
       raise Exception("memdata can not be initialized as no datasources were defined.")
     if hasattr(input,'isevtObj') and input.isevtObj:
       self._evtObj = input
@@ -435,12 +435,12 @@ class memdata(object):
     self._expand = False
     self.interp  = interp(self)
     
-    if not self._evtObj==None:
+    if not self._evtObj is None:
       self._evtObj.evt_cb = self._evtCall
   
   def _getFilteredData(self):
     if not hasattr(self,'_data'):
-      if not self._rdAllData==None:
+      if not self._rdAllData is None:
 	self._data,self._time = initmemdataraw(self._rdAllData())
 	lens = [len(td) for td in self._data]
 	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
@@ -452,7 +452,7 @@ class memdata(object):
   
   def _getFilteredTime(self):
     if not hasattr(self,'_time'):
-      if not self._rdAllData==None:
+      if not self._rdAllData is None:
 	self._data,self._time = initmemdataraw(self._rdAllData())
 	lens = [len(td) for td in self._data]
 	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
@@ -491,12 +491,12 @@ class memdata(object):
   lens = property(_get_lens)
   
   def _dataSource(self):
-    if not self._data==None:
+    if not self._data is None:
       return 'data'
     else:
-      if not self._rdStride==None:
+      if not self._rdStride is None:
 	return 'rdStride'
-      elif not self_evtObj==None:
+      elif not self_evtObj is None:
 	return 'evtObj'
       else:
 	return None
@@ -535,7 +535,7 @@ class memdata(object):
     else:
       tim,dum = ravelScanSteps(self.time)
       scan = tools.dropObject(name='scan')
-      if self._name==None:
+      if self._name is None:
 	nname = ''
       else:
 	nname = self._name+'_'
@@ -631,37 +631,37 @@ class memdata(object):
   
   def _stepStatFunc(self,func,*args,**kwargs):
     data = np.asarray([func(d,*args,**kwargs) for d in self])
-    if not self.grid==None:
+    if not self.grid is None:
       data = data.reshape(self.grid.shape)
     return data
 
   def mean(self,weights=None):
-    if not weights==None:
+    if not weights is None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
       data =  np.asarray([np.average(d,weights=w) if len(w)>0 else np.nan for d,w in zip(selfdat,weights)])
-      if not self.grid==None:
+      if not self.grid is None:
 	data = data.reshape(self.grid.shape)
       return data
     else:
       return self._stepStatFunc(np.mean)
       
   def std(self,weights=None):
-    if not weights==None:
+    if not weights is None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
       return np.asarray([tools.weighted_avg_and_std(d,w)[1] for d,w in zip(selfdat,weights)])
     else:
       return self._stepStatFunc(np.std)
   def median(self,weights=None):
-    if not weights==None:
+    if not weights is None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
       return np.asarray([tools.weighted_median(d,w) for d,w in zip(selfdat,weights)])
     else:
       return self._stepStatFunc(np.median)
   def mad(self,weights=None):
-    if not weights==None:
+    if not weights is None:
       weights = self.ones()*weights
       selfdat = weights.ones()*self
       return np.asarray([tools.weighted_mad(d,w) for d,w in zip(selfdat,weights)])
@@ -675,7 +675,7 @@ class memdata(object):
     #return np.asarray([np.sqrt(d) for d in self._data])
   def plot(self,weights=None):
     i = self.median(weights=weights).ravel()
-    if not self.grid==None:
+    if not self.grid is None:
       x,y,im = self.grid.format(i)
       tools.imagesc(x,y,im.T)
 
@@ -811,11 +811,11 @@ class memdata(object):
   def __lt__(self,other):
     return applyDataOperator(operator.lt,self,other)
   def __eq__(self,other):
-    if other==None:
+    if other is None:
       return False
     return applyDataOperator(operator.eq,self,other)
   def __ne__(self,other):
-    if other==None:
+    if other is None:
       return True
     return applyDataOperator(operator.ne,self,other)
   def __ge__(self,other):
@@ -833,7 +833,7 @@ class data(object):
     self.grid = grid
     self._ixpAddressData = ixpAddressData
     self._parent = parent
-    #if input==None:
+    #if input is None:
       #raise Exception("data can not be initialized as no datasources were defined.")
     if hasattr(input,'isevtObj') and input.isevtObj:
       self._procObj = None
@@ -858,7 +858,7 @@ class data(object):
     if not self._ixpAddressData is None:
       self._rdStride = self._rdFromIxp
 
-    if time==None:
+    if time is None:
       self._time = []
       print "Warning: Missing timestamps for data instance,\n--> data needs to be appended."
     else:
@@ -934,7 +934,7 @@ class data(object):
 
   def _getFilteredTime(self):
     if not hasattr(self,'_time'):
-      if not self._rdAllData==None:
+      if not self._rdAllData is None:
 	self._data,self._time = initmemdataraw(self._rdAllData())
 	lens = [len(td) for td in self._data]
 	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
@@ -981,7 +981,7 @@ class data(object):
 	      thisshape = np.shape(tdat[0][0])
 	      gotshape = True
 	    usedmem += tdat[0].nbytes
-	    if thisstuff._procObj==None:
+	    if thisstuff._procObj is None:
 	      done = True
 	    else:
 	      args = thisstuff._procObj['args']
@@ -995,12 +995,13 @@ class data(object):
 
 	  self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
 	Nread = np.floor(self._mem.free/8/self._sizeEvt['bytes']*memFrac)
-	print "Event size (bytes):",self._sizeEvt['bytes']
-	print "Event size (MB):   ",self._sizeEvt['bytes']/1024./1024
-	mm = self._mem.free
-	print "Available memory (free+cached+buffer, bytes):",mm/8
-	print "Available memory (free+cached+buffer, MB): %.2f"%(mm/8./1024/1024)
-	print "Memory to use (%.2f of available, MB): %.2f" % (memFrac,mm*memFrac/8./1024/1024)
+	if False:
+	  print "Event size (bytes):",self._sizeEvt['bytes']
+	  print "Event size (MB):   ",self._sizeEvt['bytes']/1024./1024
+	  mm = self._mem.free
+	  print "Available memory (free+cached+buffer, bytes):",mm/8
+	  print "Available memory (free+cached+buffer, MB): %.2f"%(mm/8./1024/1024)
+	  print "Memory to use (%.2f of available, MB): %.2f" % (memFrac,mm*memFrac/8./1024/1024)
 	while nextEvtNo<tlen:
 	  #stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)]) #this was the old state of memiterate
 	  stepChunks.append(tevts[nextEvtNo:min(tlen,nextEvtNo+Nread)])
@@ -1065,7 +1066,7 @@ class data(object):
   ##self._ixpAddress = ixpAddress
   ##self._parent = parent
     #if self._proc
-    #if input==None:
+    #if input is None:
       #raise Exception("data can not be initialized as no datasources were defined.")
     #if hasattr(input,'isevtObj') and input.isevtObj:
       #self._procObj = None
@@ -1084,7 +1085,7 @@ class data(object):
       #self._evtObj = None
       #self._rdStride = None
 
-    #if time==None:
+    #if time is None:
       #print Exception("Warning: Missing timestamps for data instance!")
     #if hasattr(time,'isevtObj') and input.isevtObj:
       #self._evtObjtime = input
@@ -1293,11 +1294,11 @@ class data(object):
   def __lt__(self,other):
     return applyDataOperator(operator.lt,self,other)
   def __eq__(self,other):
-    if other==None:
+    if other is None:
       return False
     return applyDataOperator(operator.eq,self,other)
   def __ne__(self,other):
-    if other==None:
+    if other is None:
       return True
     return applyDataOperator(operator.eq,self,other)
   def __ge__(self,other):
@@ -1315,6 +1316,8 @@ class data(object):
     pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
+      if totlen==0:
+	out.append(np.nan)
       tout = 0
       N=0
       for chunk in step:
@@ -1324,8 +1327,11 @@ class data(object):
           tout += np.nansum(tdr,axis=0)
         processedevents += len(chunk)
 	pbar.update(processedevents)
-      #N[N==0] = np.nan  
-      out.append(tout/N)
+      #N[N==0] = np.nan
+      if N==0:
+	out.append(np.nan)
+      else:
+        out.append(tout/N)
     pbar.finish()
     return out
   
@@ -1335,24 +1341,58 @@ class data(object):
     # progress bar
     Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in allchunks])
     processedevents = 0
-    widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+    widgets = ['Evaluating median: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
     pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
+      if totlen==0:
+	out.append(np.nan)
+	continue
       tout = []
       for chunk in step:
 	if len(chunk)>0:
           tout += [(len(chunk),np.median(self[stepNo,np.ix_(chunk)][0],axis=0))]
         processedevents += len(chunk)
 	pbar.update(processedevents)
-      if tout > 1:
+      if len(tout) > 1:
 	print "Cant't calc real median, will use weighted mean of medians instead."
 	out.append(np.average(np.asarray([ttout[1] for ttout in tout]),weights=np.asarray([ttout[0] for ttout in tout]),axis=0))
       else:
-        out.append(tout[1])
+        out.append(tout[0][1])
     pbar.finish()
     return out
 
+  def mad(self, c=0.6745):
+    """calculate median absolute deviation
+    median(abs(a - median(a))) / c
+    c = 0.6745 is the constant to convert from MAD to std; it is used by
+	        default
+		    """
+    allchunks = self._memIterate()
+    out = []
+    # progress bar
+    Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in allchunks])
+    processedevents = 0
+    widgets = ['Evaluating mad: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+    pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+    for stepNo,step in allchunks:
+      totlen = np.sum([len(x) for x in step])
+      if totlen==0:
+	out.append(np.nan)
+	continue
+      tout = []
+      for chunk in step:
+	if len(chunk)>0:
+          tout += [(len(chunk),tools.mad(self[stepNo,np.ix_(chunk)][0],axis=0,c=c))]
+        processedevents += len(chunk)
+	pbar.update(processedevents)
+      if len(tout) > 1:
+	print "Cant't calc real mad, will use weighted mean of medians instead."
+	out.append(np.average(np.asarray([ttout[1] for ttout in tout]),weights=np.asarray([ttout[0] for ttout in tout]),axis=0))
+      else:
+        out.append(tout[0][1])
+    pbar.finish()
+    return out
 
 Data = data
 Memdata = memdata
@@ -1442,7 +1482,7 @@ def applyMemdataOperator(optr,a,b,isreverse=False):
   return memdata(input=[resdat,restim],scan=scan)
       
 def applyDataOperator(optr,a,b=None,isreverse=False):
-  if b==None:
+  if b is None:
     args=[a]
   else:
     if not isreverse:
@@ -1469,13 +1509,13 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
     otherwise NmemdataOut and NdataOut need to be specified. All other output 
     comes after ixppy instances if avaiable.
   """
-  if outputtypes==None:
+  if outputtypes is None:
     outputtypes = NdataOut*['data'] + NmemdataOut*['memdata']
   ##### Filter timestampsin order, args first, kwargs after sorted keys
   allobjects = [(arg,0,argno) for argno,arg in enumerate(ipargs) if (isinstance(arg,data) or isinstance(arg,memdata))]
   kwkeys = ipkwargs.keys()
   kwkeys.sort()
-  if KWignore==None:
+  if KWignore is None:
     KWignore = []
   else:
     KWignore = iterfy(KWignore)
@@ -1489,7 +1529,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
     
   rtimes = get_common_timestamps([ao[0] for ao in allobjects])
   # get also other arguments in seperate list for later use in length analysis if needed
-  if not picky and not rtimes==None:
+  if not picky and not rtimes is None:
     # get other input
     otherargs = [(arg,0,argno) for argno,arg in enumerate(ipargs) if ( not isinstance(arg,data) and not isinstance(arg,memdata))]
     for keyno,key in enumerate(kwkeys):
@@ -1509,7 +1549,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
   ############ generate output ############
   # case of data instance in input, at the moment seems like data might come out, but this has to be thought about more.
   if np.asarray([isinstance(to[0],data) for to in allobjects]).any() or forceCalculation:
-    if 'data' in outputtypes and stride==None:
+    if 'data' in outputtypes and stride is None:
       # this is the normal case to make an object that will act upon call
       output = []
       for nargSelf in (np.asarray(outputtypes)=='data').nonzero()[0]:
@@ -1520,7 +1560,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
       else:
 	output = output[0]
     # case mainly when executes as data procObj
-    elif ('data' in outputtypes and not stride==None) or forceCalculation:
+    elif ('data' in outputtypes and not stride is None) or forceCalculation:
       # in force case and when stride is not given
       if (stride == None) and forceCalculation:
 	# find smallest chunk size, will go for that...
@@ -1573,7 +1613,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	      io,inclsteps = io
 	      tmp = np.concatenate(o._getStepsShots(io[(inclsteps==step).nonzero()[0]][0],io[(inclsteps==step).nonzero()[0]][1]),axis=0)
 	      if (not isPerEvt) and transposeStack:
-                tmp         = tmp.swapaxes(0,-1)
+                tmp         = tools.rollaxis2end(tmp)
               targs[i] = tmp
 	      #raise NotImplementedError('Use the source, luke!')
 
@@ -1585,16 +1625,16 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	    else:
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
 	      if (not isPerEvt) and transposeStack:
-                tmp = tmp.swapaxes(0,-1)
+                tmp = tools.rollaxis2end(tmp)
               tkwargs[kwkeys[i]] = tmp
 	for o,k,i in otherip:
 	  if not k:
 	    targs[i] = o[step]
-	    if np.rank(targs[i])>0 and not len(targs[i])==1:
+	    if np.ndim(targs[i])>0 and not len(targs[i])==1:
 	      targs[i] = targs[i][...,np.newaxis]
 	  else:
 	    tkwargs[kwkeys[i]]  = o[step]
-	    if np.rank(tkwargs[kwkeys[i]])>0 and not len(tkwargs[kwkeys[i]])==1:
+	    if np.ndim(tkwargs[kwkeys[i]])>0 and not len(tkwargs[kwkeys[i]])==1:
 	      tkwargs[kwkeys[i]] = tkwargs[kwkeys[i]][...,np.newaxis]
 	if isPerEvt:
 	  # TODO: in case func works only for single shot
@@ -1622,9 +1662,9 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
 	if (not isPerEvt) and transposeStack:
 	  tret = list(tret)
 	  for ono,ttret in enumerate(tret):
-	    rnk = np.rank(ttret)
+	    rnk = np.ndim(ttret)
 	    if rnk>1:
-	      tret[ono]   = ttret.swapaxes(0,-1)
+	      tret[ono]   = tools.rollaxis2beg(ttret)
 	  tret = tuple(tret)
 	output_list.append(tret)
     ############ interprete output automatically find memdata candidates ###########
@@ -1786,7 +1826,7 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
 def get_common_timestamps(allobjects):
   times = None
   for o in allobjects:
-    if times==None:
+    if times is None:
       times = o.time
     else:
       ia,io = filterTimestamps(times,o.time)
@@ -1949,7 +1989,7 @@ def address(fileNum,stepNum,what):
   return "_file%d.step%d.%s" % (fileNum,stepNum,what)
 
 def initmemdataraw(data):
-  if data==None:
+  if data is None:
     return None,None
   if type(data) is dict:
     dk = data.keys()
@@ -1961,7 +2001,7 @@ def initmemdataraw(data):
   elif type(data) is list:
     dat = data[0]
     tim = data[1]
-  if tim==None:
+  if tim is None:
 
     print "NB: memdata instance without timestamps!"
   elif not len(dat)==len(tim):
@@ -1980,7 +2020,7 @@ def ravelScanSteps(ip):
 
 def ravelIndexScanSteps(ip,stepsizes,stepNo=None):
   if (not len(ip)==len(stepsizes)):
-    if not stepNo==None:
+    if not stepNo is None:
       stepNo = tools.iterfy(stepNo)
       aip = [[]]*len(stepsizes)
       for tstepNo,tip in zip(stepNo,ip): 
@@ -2014,7 +2054,7 @@ def unravelIndexScanSteps(ip,stepsizes,replacements=None):
   for stepsize in stepsizes:
     stopind += stepsize
     tind = np.logical_and(startind<=ip,ip<stopind)
-    if replacements==None:
+    if replacements is None:
       op.append(ip[tind])
     else:
       op.append(replacements[tind])
@@ -2036,7 +2076,7 @@ def getStepShotsFromIndsTime(inds,times,stride=None,getIncludedSteps=False):
     if len(ind)>0:
       includedsteps.append(step)
       ts = np.vstack(added[np.ix_(ind)])
-      if not stride==None:
+      if not stride is None:
 	if len(stride)>step and np.iterable(stride[step]):
 	  tstride = stride[step]
 	else:
@@ -2094,7 +2134,7 @@ def filterTimestamps(ts0,ts1,asTime=True):
   ts0r = getTime(ts0r,asTime=asTime)
   ts1r = getTime(ts1r,asTime=asTime)
   
-  if (not (ts0r.dtype.names==None or ts1r.dtype.names==None)) and not asTime:
+  if (not (ts0r.dtype.names is None or ts1r.dtype.names is None)) and not asTime:
     sel0rb,sel1ri = sortTimestampFiducials(ts0r,ts1r)
   else:
     sel0rb = np.in1d(ts0r,ts1r)
@@ -2199,7 +2239,7 @@ def digitizeN(*args,**kwargs):
   if isinstance(target,memdata):
     dat,stsz = ravelScanSteps(target.data)
     tim,stszt = ravelScanSteps(target.time)
-  elif target==None:
+  elif target is None:
     atarg = args[0].ones()
     for targ in args[1:]:
       atarg = atarg*targ.ones()
@@ -2251,7 +2291,7 @@ class Grid(object):
     self._ixpsaved = ['_definition']
 
   def _get_vec(self,sel=None):
-    if sel==None:
+    if sel is None:
       return tuple([tdef[1] for tdef in self._definition])
     elif type(sel)==int:
       return self._definition[sel][1]
@@ -2260,7 +2300,7 @@ class Grid(object):
       return self._definition[ind][1]
 
   def _get_name(self,sel=None):
-    if sel==None:
+    if sel is None:
       return tuple([tdef[0] for tdef in self._definition])
     elif type(sel)==int:
       return self._definition[sel][0]
@@ -2282,7 +2322,7 @@ class Grid(object):
   def format(self,vec,dims=None,method=np.mean):
     isSelection = np.iterable(vec[0])
     vec = self.gridshape(vec)
-    if not dims==None:
+    if not dims is None:
       adims = list(self.shape)
       for rdim in dims:
 	adims.remove(rdim)
@@ -2523,7 +2563,7 @@ class Ixp(object):
 	  self.mkDset(newgroup,'data',data.data)
 	  self.mkDset(newgroup,'time',data.time)
 	  self.save(data.scan,newgroup,name='scan')
-	  if not data.grid==None:
+	  if not data.grid is None:
 	    gridgroup = newgroup.require_group('grid')
 	    self.mkDset(gridgroup,'definition',data.grid._definition)
 	  
@@ -2725,7 +2765,7 @@ def rdConfiguration(fina="ixppy_config",beamline=None):
   # dataset aliases
 
   # read present beamline
-  if beamline==None:
+  if beamline is None:
     cnf["beamline"] = dat["beamline"][0][0]
   else:
     cnf["beamline"] = beamline
@@ -2976,7 +3016,7 @@ class channelcorrobj(object):
 
 ################## data manipulation #################3
 def getProfileLimitsNew(Areadet,step=0,shots=range(10),direction=False,lims=None, dname='profile'):
-  if lims==None:
+  if lims is None:
     getLims = True
   else:
     getLims = False
@@ -3026,7 +3066,7 @@ def getProfileLimitsNew(Areadet,step=0,shots=range(10),direction=False,lims=None
 
   tfun = ixppy.wrapFunc(extractProfilesFromData)
   profile = tfun(dat,limsdict)
-  if det==None:
+  if det is None:
     return limsdict,profile
   else:
     if not hasattr(det,dname+'Limits'):
@@ -3046,7 +3086,7 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, d
 
   direction = 'vertical'
   if transpose: direction = 'horizontal'
-  if lims==None:
+  if lims is None:
     I = dat[step,np.ix_(shots)][0]
     tools.nfigure('Select limits')
     pl.imshow(np.mean(I,axis=0),interpolation='nearest')
@@ -3055,7 +3095,7 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, d
   limsdict = dict(projection = direction+' range',limits=lims)
   tfun = ixppy.wrapFunc(extractProfilesFromData)
   profile = tfun(dat,limsdict)
-  if det==None:
+  if det is None:
     return limsdict,profile
   else:
     if not hasattr(det,dname+'Limits'):
@@ -3395,7 +3435,7 @@ def filter(dat,lims=None,graphicalInput=True,figName=None,perc=False):
   if not figName:
     figName = 'Select filter limits'
 
-  if graphicalInput and lims==None:
+  if graphicalInput and lims is None:
     tools.nfigure(figName)
     pl.clf()
     N,edg = tools.histogramSmart(dat)
@@ -3416,7 +3456,7 @@ def digitize(dat,bins=None,graphicalInput=True,figName=None):
   if not figName:
     figName = 'Select filter limits'
 
-  if graphicalInput and bins==None:
+  if graphicalInput and (bins is None):
     tools.nfigure(figName)
     pl.clf()
     N,edg = tools.histogramSmart(dat)
@@ -3493,7 +3533,7 @@ def digitize_new(dat,bins=None,graphicalInput=True,figName=None):
     if not figName:
       figName = 'Select filter limits'
 
-    if graphicalInput and bins==None:
+    if graphicalInput and bins is None:
       tools.nfigure(figName)
       pl.clf()
       N,edg = tools.histogramSmart(dat)

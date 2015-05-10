@@ -43,7 +43,7 @@ class ixppyHDF5(h5py.File):
       
 
 
-def openOrCreateFile(fname,mode="r"):
+def openOrCreateFile(fname,mode="r",driver=None):
   if (os.path.isfile(fname)):
     if (mode == "r"):
       if not os.access(fname,os.R_OK):
@@ -53,7 +53,7 @@ def openOrCreateFile(fname,mode="r"):
       if not os.access(fname,os.W_OK):
         raise IOError("Asked to read/write %s but it is not possible, check permissions" % fname)
         return None
-    h5handle=h5py.File(fname,mode)
+    h5handle=h5py.File(fname,mode,driver=driver)
     logbook("File %s exists already, opening in %s mode" % (fname,mode))
   else:
     logbook("File %s does not exists, creating it" % (fname))
