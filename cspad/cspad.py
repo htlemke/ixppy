@@ -722,14 +722,17 @@ def commonModeCorrectTile(tile,mask=None,gainAv=30,nbSwitchFactor=3,unbPx=None):
   else:
     unb = unbPx
   unbV = np.median(tile[unb])
-  if mask is None:
-    mask = np.ones_like(tile,dtype=bool)
-  tdat = tile[mask]
-  med = np.median(tdat)
-  lowexp = (med-unbV) < (nbSwitchFactor*gainAv)
+  if gainAv is not None:
+    if mask is None:
+      mask = np.ones_like(tile,dtype=bool)
+    tdat = tile[mask]
+    med = np.median(tdat)
+    lowexp = (med-unbV) < (nbSwitchFactor*gainAv)
 
-  if lowexp:
-    bg = getCommonModeFromHist(tdat,gainAv=gainAv)
+    if lowexp:
+      bg = getCommonModeFromHist(tdat,gainAv=gainAv)
+    else:
+      bg = unbV
   else:
     bg = unbV
     
@@ -754,18 +757,19 @@ def _nanify(i,mask):
 
 nanify = wrapFunc(_nanify,isPerEvt=True)
 
-def correct(data,dark=None,mask=None,NpxEdgeMask=1,gainAv=30,nbSwitchFactor=3,Ntiles=32):
+def correct(data,dark=None,mask=None,NpxEdgeMask=1,correctCommonMode=True,gainAv=30,nbSwitchFactor=3,Ntiles=32):
   if dark is not None:
     darkcorrect = data-dark
   maskub = createMaskUnbonded(Ntiles)
   maskedg = maskEdges(Ntiles,offset=NpxEdgeMask)
   maskcomb = np.logical_or(mask,maskub)
   maskcomb = np.logical_or(mask,maskedg)
-  corr0 = commonModeCorrect(darkcorrect,mask=maskcomb,gainAv=gainAv,nbSwitchFactor=3,unbPx=maskub[0])
+  if correctCommonMode:
+    corr0 = commonModeCorrect(darkcorrect,mask=maskcomb,gainAv=gainAv,nbSwitchFactor=3,unbPx=maskub[0])
+  else:
+    corr0 = darkcorrect
   corr0 = nanify(corr0,maskcomb)
   return corr0
-
-
   
 
 def histOverview(data,clearFig=True):

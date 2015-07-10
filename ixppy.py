@@ -1487,7 +1487,7 @@ def applyDataOperator(optr,a,b=None,isreverse=False):
       args = [a,b]
     else:
       args = [b,a]
-  return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None, transposeStack=True)
+  return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None, transposeStack=False)
 
 def _applyFun(func,a):
   res = ixppyList()
