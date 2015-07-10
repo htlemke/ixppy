@@ -61,14 +61,21 @@ def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=
     elif len(search_dc_limits)==2:
       msk = (i>i-np.min(search_dc_limits)) & (i<i+np.max(search_dc_limits))
     p0 = tools.polyFit(i[msk],dmat[msk,...],2)
+
     dc = tools.polyVal(p0,i0_wp)
     pc = tools.polyFit(i-ic,Imat-dc,order,removeOrders=[0])
     if corrtype is 'corrNonLin':
       pcprime = tools.polyDer(pc)
-    c = lambda(i): polyVal(pc,i-ic) + dc
+    #c = lambda(i): polyVal(pc,i-ic) + dc
+    def c(i):
+      #print np.shape(pc)
+      return tools.polyVal(pc,i-ic) + dc
   else:
     pc = tools.polyFit(i-ic,dmat,order,removeOrders=[])
-    c = lambda(i): tools.polyVal(pc,i-ic)
+    #c = lambda(i): tools.polyVal(pc,i-ic)
+    def c(i):
+      print np.shape(pc)
+      return tools.polyVal(pc,i-ic)
     dc = c(ic)
     if corrtype is 'corrNonLin':
       pcprime = tools.polyDer(pc)
@@ -80,7 +87,7 @@ def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=
       sc = c(ic)
     def corrFunc(Dm,im):
       im = np.asarray(im).ravel()
-      return (sc.T/ic*im).T + cprimeic/c_prime(im)* sc/dc * (Dm-c(im))
+      return (sc.T/ic*im).T + cprimeic/c_prime(im)* sc/dc * (Dm-c(im)) #!!!
   elif corrtype is 'removeDep':
     def corrFunc(Dm,im):
       im = np.asarray(im).ravel()
@@ -91,16 +98,19 @@ def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=
   if wrapit:
     def corrFuncTransposed(Dm,im=None,normalize=False,fillValue=np.nan):
       if im is None:
-	im = np.apply_over_axes(np.nansum,Dm,range(np.ndim(Dm)-1)).ravel()
-      cr = corrFunc(Dm.swapaxes(0,-1),im).swapaxes(0,-1)
+	im = np.apply_over_axes(np.nansum,Dm,range(1,np.ndim(Dm))).ravel()
+      cr = corrFunc(Dm,im)
       if normalize:
-	cr/=im.ravel().T
-      cr[...,~np.logical_and(im>np.min(i),im<np.max(i))] *= fillValue
+	im = im.ravel()
+	for dimno in range(cr.ndim-1):
+	  np.expand_dims(im,-1)
+	cr/=im
+      cr[~np.logical_and(im>np.min(i),im<np.max(i)),...] *= fillValue
       return cr
     #else: 
 	#return corrFunc(D.swapaxes(0,-1),i).swapaxes(0,-1)
 
-    corrFuncWrapped = wrapFunc(corrFuncTransposed,transposeStack=True)
+    corrFuncWrapped = wrapFunc(corrFuncTransposed,transposeStack=False)
     def corrFuncWrap(Dm,im=None,normalize=False,fillValue=np.nan):
       if im is not None:
 	Df = Dm*im.filter([np.min(i),np.max(i)]).ones()

@@ -1318,6 +1318,7 @@ class data(object):
       totlen = np.sum([len(x) for x in step])
       if totlen==0:
 	out.append(np.nan)
+	continue
       tout = 0
       N=0
       for chunk in step:
@@ -1328,10 +1329,7 @@ class data(object):
         processedevents += len(chunk)
 	pbar.update(processedevents)
       #N[N==0] = np.nan
-      if N==0:
-	out.append(np.nan)
-      else:
-        out.append(tout/N)
+      out.append(tout/N)
     pbar.finish()
     return out
   

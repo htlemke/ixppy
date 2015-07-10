@@ -104,15 +104,16 @@ def impz(b,a=1):
         pl.subplots_adjust(hspace=0.5)
 
 
-def clim_std(stdfac=1,axh=None):
-  if not axh:
-    axh = pl.gca()
-  ihandles = axh.findobj(matplotlib.image.AxesImage)
-  ih = ihandles[-1]
+def clim_std(stdfac=1,ih=None):
+  if not ih:
+    ih = plt.gci()
+  #ihandles = h.findobj(matplotlib.image.AxesImage)
+  #ih = ihandles[-1]
   im = ih.get_array()
   imean = np.median(im.ravel())
   istd = mad(im.ravel())
   ih.set_clim([imean-stdfac*istd,imean+stdfac*istd])
+  plt.draw_if_interactive()
 
 #TODO section
 def getSpanCoordinates(direction='horizontal',axh=None,fig=None,data=None):

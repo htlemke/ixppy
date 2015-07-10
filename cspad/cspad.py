@@ -819,11 +819,12 @@ class corrNonLin(object):
     self.Iref = self.Iref.get_memdata()[0]
     os.remove(fina)
 
-    
 
-
-
-
+def genRayonixCoordinates(binningNo=2):
+  """make 2 2d arrays with x and z coordinates for the rayonix."""
+  edges = np.arange(0,3841,binningNo)*.44
+  centers = edges[:-1]+np.diff(edges)
+  return np.meshgrid(centers,centers)
 
 
 
