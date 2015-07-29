@@ -155,7 +155,7 @@ class CSPADPixCoords (PixCoords2x1) :
         sp.y_pix_um = np.zeros((sp.quads,sp.sects,sp.rows,sp.cols), dtype=np.float32)
 
         angle_deg = np.array(orient_deg)
-        if tilt_deg != None : angle_deg += tilt_deg
+        if tilt_deg is not None : angle_deg += tilt_deg
  
         for quad in range(sp.quads) :
             for sect in range(sp.sects) :

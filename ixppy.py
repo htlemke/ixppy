@@ -980,7 +980,8 @@ class data(object):
 	    if not gotshape:
 	      thisshape = np.shape(tdat[0][0])
 	      gotshape = True
-	    usedmem += tdat[0].nbytes
+	    if len(tdat)>0:
+	      usedmem += tdat[0].nbytes
 	    if thisstuff._procObj is None:
 	      done = True
 	    else:
@@ -1116,6 +1117,7 @@ class data(object):
 	args=[],
 	kwargs=dict(),
 	isCrossEvent=True,
+	#transposeStack=True,
 	nargSelf=0)
     return data(time=timenew,input=procObj,scan=self.scan)
 
@@ -1487,7 +1489,7 @@ def applyDataOperator(optr,a,b=None,isreverse=False):
       args = [a,b]
     else:
       args = [b,a]
-  return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None, transposeStack=False)
+  return applyFunction(optr,args,dict(),InputDependentOutput=True, NdataOut=1,NmemdataOut=0, picky=False, isPerEvt=False, outputtypes=None, transposeStack=True)
 
 def _applyFun(func,a):
   res = ixppyList()

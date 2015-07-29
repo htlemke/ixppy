@@ -74,7 +74,7 @@ def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=
     pc = tools.polyFit(i-ic,dmat,order,removeOrders=[])
     #c = lambda(i): tools.polyVal(pc,i-ic)
     def c(i):
-      print np.shape(pc)
+      #print np.shape(pc)
       return tools.polyVal(pc,i-ic)
     dc = c(ic)
     if corrtype is 'corrNonLin':
@@ -103,7 +103,7 @@ def getCorrectionFunc(dmat=None,i=None,ic=None,order=5,sc=None,search_dc_limits=
       if normalize:
 	im = im.ravel()
 	for dimno in range(cr.ndim-1):
-	  np.expand_dims(im,-1)
+	  im = np.expand_dims(im,-1)
 	cr/=im
       cr[~np.logical_and(im>np.min(i),im<np.max(i)),...] *= fillValue
       return cr
@@ -224,6 +224,7 @@ class CorrNonLin(object):
 
   def getI0Imat(self,bins=None,evaluate=False):
     digi = (self.refDataFilter*self.Iref).digitize(bins=bins)
+    self.Iref_good = self.Iref * digi.ones()
     self.I0 = digi.scan.bincenters
     self.Imat = 1/digi*self.data*self.I0
     if evaluate:
@@ -248,10 +249,11 @@ class CorrNonLin(object):
   def testCorrfunc(self,order=5,ic=None):
     fig = tools.nfigure('test_correction_func_order_%d'%order)
     plt.clf()
-    fig,ax = plt.subplots(1,2,num=fig.number)
+    #fig,ax = plt.subplots(1,2,num=fig.number)
+    fig,ax = plt.subplots(1,2,num=fig.number,sharex=True,sharey=True)
     plt.axes(ax[0])
     it = (self.Imat.T/self.I0).T
-    tools.imagesc(np.arange(np.shape(self.Imat)[1]),self.I0,(it/np.mean(it,0))-1)
+    tools.imagesc(np.arange(np.prod(np.shape(self.Imat)[1:])),self.I0,((it/np.mean(it,0))-1).reshape(it.shape[0],-1))
     tools.clim_std(2)
     plt.colorbar()
     plt.draw()
@@ -259,7 +261,7 @@ class CorrNonLin(object):
     Icorr = cf(self.Imat,self.I0)
     plt.axes(ax[1])
     it = (Icorr.T/self.I0).T
-    tools.imagesc((it/np.mean(it,0))-1)
+    tools.imagesc(np.arange(np.prod(np.shape(self.Imat)[1:])),self.I0,((it/np.mean(it,0))-1).reshape(it.shape[0],-1))
     tools.clim_std(2)
     plt.colorbar()
 
@@ -284,10 +286,13 @@ class CorrNonLinDep(object):
     else:
       self.dataset = None
 
+
   def getRefdataMask(self,*args):
     flt = 1
     if 'step' in args:
       flt *= (self.data.ones()*self.data.scan[0]).filter().ones()
+    fig,ax = plt.subplots(1,2,num=fig.number,sharex=True,sharey=True)
+    tools.imagesc(((it/np.mean(it,0))-1).reshape(it.shape[0],-1))
     self.refDataFilter = flt
 
   def _getRefdata(self):
@@ -305,7 +310,7 @@ class CorrNonLinDep(object):
     os.remove(fina)
 
   def getI0Imat(self,bins=None,evaluate=False):
-    digi = (self.refDataFilter*self.Iref).digitize(bins=bins)
+    digi = (self.refDataFilter*self.Iref*self.data.ones()).digitize(bins=bins)
     self.I0 = digi.scan.bincenters
     self.Imat = digi.ones()*self.data
     if evaluate:
@@ -331,10 +336,11 @@ class CorrNonLinDep(object):
   def testCorrfunc(self,order=5,ic=None):
     fig = tools.nfigure('test_correction_func_order_%d'%order)
     plt.clf()
-    fig,ax = plt.subplots(1,2,num=fig.number)
+    fig,ax = plt.subplots(1,2,num=fig.number,sharex=True,sharey=True)
     plt.axes(ax[0])
     it = (self.Imat.T/self.I0).T
-    tools.imagesc(np.arange(np.shape(self.Imat)[1]),self.I0,(it/np.mean(it,0))-1)
+    tools.imagesc(np.arange(np.prod(np.shape(self.Imat)[1:])),self.I0,((it/np.mean(it,0))-1).reshape(it.shape[0],-1))
+    #tools.imagesc(np.arange(np.shape(self.Imat)[1]),self.I0,(it/np.mean(it,0))-1)
     tools.clim_std(2)
     plt.colorbar()
     plt.draw()
@@ -342,7 +348,8 @@ class CorrNonLinDep(object):
     Icorr = cf(self.Imat,self.I0)
     plt.axes(ax[1])
     it = Icorr
-    tools.imagesc((it/np.mean(it,0))-1)
+    #tools.imagesc((it/np.mean(it,0))-1)
+    tools.imagesc(np.arange(np.prod(np.shape(self.Imat)[1:])),self.I0,((it/np.mean(it,0))-1).reshape(it.shape[0],-1))
     tools.clim_std(2)
     plt.colorbar()
 

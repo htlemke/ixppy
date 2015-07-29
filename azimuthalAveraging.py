@@ -547,7 +547,8 @@ class azimuthalBinning:
     self.Cake_idxs[mask.ravel()] = 0; # send the masked ones in the first bin
     #print "last index",last_idx
     self.msg("...done")
-    self.phi  = np.arange(0,2*np.pi+phibin,phibin)+phibin/2
+    #self.phi  = np.arange(0,2*np.pi+phibin,phibin)+phibin/2
+    self.phi  = self.phiVec[:-1]
     # include geometrical corrections
     geom  = (d/r) ; # pixels are not perpendicular to scattered beam
     geom *= (d/r**2); # scattered radiation is proportional to 1/r^2
@@ -656,12 +657,12 @@ def sepS0S2(D,azi):
     res = np.zeros([2,np.shape(D)[1]])
     for n,prof in enumerate(D.T):
       idx = ~np.isnan(prof)
-      if sum(idx)<4:
+      if sum(idx)<5:
         res[:,n] = np.array([np.nan,np.nan]) 
       else:
         res[:,n] = np.polyfit(p2[idx],prof[idx],1)
   else:
-    res = polyFit(p2,Dma,order=1)
+    res = polyFit(p2,D,order=1)
   res[0] *=-1
   return res
 

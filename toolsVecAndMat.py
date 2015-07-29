@@ -180,19 +180,19 @@ def rotmat3Dfrom2vectors(v0,v1):
     rotmat = np.eye(3)
   return rotmat
 
-def pol2cart(theta, radius, units='deg'):
+def pol2cart(theta, radius, units='rad'):
     """Convert from polar to cartesian coordinates 
      
     **usage**: 
         x,y = pol2cart(theta, radius, units='deg') 
     """
     if units in ['deg', 'degs']:
-        theta = theta*pi/180.0
-    xx = radius*cos(theta)
-    yy = radius*sin(theta)
+        theta = theta*np.pi/180.0
+    xx = radius*np.cos(theta)
+    yy = radius*np.sin(theta)
     return xx,yy
 #---------------------------------------------------------------------- 
-def cart2pol(x,y, units='deg'):
+def cart2pol(x,y, units='rad'):
     """Convert from cartesian to polar coordinates 
      
     **usage**: 

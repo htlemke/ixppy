@@ -752,18 +752,26 @@ def commonModeCorrectImg(img,mask=None,gainAv=30,nbSwitchFactor=3,unbPx=None):
 commonModeCorrect = wrapFunc(commonModeCorrectImg,isPerEvt=True)
 
 def _nanify(i,mask):
-  i[mask] = np.nan
+  if np.shape(mask)[-1] is 1:
+    i[np.squeeze(mask,axis=-1),:] = np.nan
+  else:
+    i[mask,:] = np.nan
   return i
 
-nanify = wrapFunc(_nanify,isPerEvt=True)
+nanify = wrapFunc(_nanify,isPerEvt=False,transposeStack=True)
 
 def correct(data,dark=None,mask=None,NpxEdgeMask=1,correctCommonMode=True,gainAv=30,nbSwitchFactor=3,Ntiles=32):
   if dark is not None:
+    if np.shape(dark)[-1] is not 1: dark=dark[...,np.newaxis]
     darkcorrect = data-dark
+  else:
+    darkcorrect = data
   maskub = createMaskUnbonded(Ntiles)
   maskedg = maskEdges(Ntiles,offset=NpxEdgeMask)
   maskcomb = np.logical_or(mask,maskub)
   maskcomb = np.logical_or(mask,maskedg)
+  if np.shape(maskcomb)[-1] is not 1: maskcomb=maskcomb[...,np.newaxis]
+
   if correctCommonMode:
     corr0 = commonModeCorrect(darkcorrect,mask=maskcomb,gainAv=gainAv,nbSwitchFactor=3,unbPx=maskub[0])
   else:

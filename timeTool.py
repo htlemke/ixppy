@@ -468,7 +468,7 @@ def extractProfilesCorr(Areadet, xrayoff=None, laseroff=None, dataset_name_trace
   datpump  = dat * xrayoff.filter(False).ones()
   datref   = dat * xrayoff.filter(True).ones()
   datrefIP = datref.interpolate(xrayoff.filter(False).time)
-  
+  datrefIP[0,0]
   Areadet[dataset_name_traces] = (datpump-datrefIP)/datrefIP
   if evaluate:
     Areadet[dataset_name_traces].evaluate(force=True)

@@ -110,8 +110,8 @@ def clim_std(stdfac=1,ih=None):
   #ihandles = h.findobj(matplotlib.image.AxesImage)
   #ih = ihandles[-1]
   im = ih.get_array()
-  imean = np.median(im.ravel())
-  istd = mad(im.ravel())
+  imean = np.median(im.ravel()[~np.isnan(im.ravel())])
+  istd = mad(im.ravel()[~np.isnan(im.ravel())])
   ih.set_clim([imean-stdfac*istd,imean+stdfac*istd])
   plt.draw_if_interactive()
 

@@ -62,7 +62,7 @@ encoder   Data*/XppGon.0:Encoder.0 notused notused
 timeTool   TIMETOOL  notused notused
 timeTool   TTSPEC  notused notused
 encoder   UsdUsb*/XppEndstation.0:USDUSB.0 notused notused
-#eventCode EvrData                notused   EvrData*eventcodes
+eventCode EvrData                notused   EvrData*eventcodes
 #eventCode EvrData*DataV3         notused   EvrData*eventcodes
 #adc       Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0  notused   notused
 #ipm1  Lusi::IpmFexV1/NH2-SB1-IPM-01/data  Lusi::IpmFexV1/NH2-SB1-IPM-01/time  dummy
