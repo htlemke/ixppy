@@ -326,6 +326,68 @@ class CspadPattern(object):
     for n,(tx,ty) in enumerate(zip(x,y)):
       plt.text(tx,ty,str(n))
 
+
+  def refineCen(self,i,segments=16,Nrbins='auto',cycles=5):
+    #def refineCen(x,y,i,cen,R0ring,Rsearchlims,segments=16,Nrbins='auto',cycles=5):
+    self.imageShow(i)
+    x = self.xpx.ravel()
+    y = self.ypx.ravel()
+    print "Select ring center..."
+    cen = np.asarray(plt.ginput(1))[0]
+    print "Select point on ring ..."
+    por = np.asarray(plt.ginput(1))[0]
+    R0ring = np.sqrt(np.sum((por-cen)**2))
+    print "Select search limits ..."
+    rslc = np.asarray(plt.ginput(2))
+    Rslc = np.sqrt(np.sum((rslc-cen)**2,axis=1)).ravel()
+    Rslc.sort()
+    Rsearchlims = Rslc-R0ring
+
+    azedges = np.arange(0,segments+1)*(2*np.pi/segments)-np.pi
+    if Nrbins=='auto':
+      rbinsz = np.max(np.diff(np.sort(x.ravel())))
+      Rsearchlims = np.asarray(Rsearchlims)
+    for cycle in range(cycles):
+      redges = np.arange(R0ring+Rsearchlims[0],R0ring+Rsearchlims[1],rbinsz)
+      R = np.sqrt((x-cen[0])**2+(y-cen[1])**2)
+      A = np.arctan2(y-cen[1],x-cen[0])
+      rd = np.digitize(R.ravel(),redges)
+      azd = np.digitize(A.ravel(),azedges)
+      plt.figure(5)
+      plt.hold(0)
+      self.imageShow(azd.reshape(x.shape))
+
+
+      idx = np.ravel_multi_index(np.vstack([rd,azd]), (len(redges)+1,len(azedges)+1))
+      mnl = (len(redges)+1)*(len(azedges)+1)
+      res = (np.bincount(idx,weights=i.ravel(),minlength=mnl)/np.bincount(idx,minlength=mnl)).reshape(len(redges)+1,len(azedges)+1)[1:-1,1:-1]
+      rvec = tools.histVecCenter(redges)
+      avec = tools.histVecCenter(azedges)
+      fts = [np.polyfit(rvec[~np.isnan(tprof)],tprof[~np.isnan(tprof)],2) for tprof in res.T]
+      rts = [np.unique(np.roots(np.polyder(tp))) for tp in fts]
+      tools.imagesc(avec,rvec,res)
+      plt.hold(1)
+      plt.plot(avec,rts,'ow')
+      plt.hold(0)
+      #plt.figure(6)
+      #for tp,pos,prf in zip(fts,rts,res.T):
+	#plt.hold(0)
+       # 
+	#plt.plot(rvec,prf,'k')
+	#plt.hold(1)
+	#plt.axvline(pos)
+	#plt.plot(rvec,np.polyval(tp,rvec),'r')
+	#sleep(.1)
+	#plt.draw()
+      xf,yf = tools.pol2cart(avec,np.squeeze(rts))
+      xc,yc,R0ring,chisq = tools.fitCircle(xf+cen[0],yf+cen[1])
+      plt.figure(1)
+      plt.plot(xc,yc,'r+')
+      plt.plot(xf+cen[0],yf+cen[1],'ow')
+      plt.waitforbuttonpress()
+      cen = [xc,yc]
+    return cen,R0ring
+
   #def digitizeRadialQspace(i, 
                       #polarization=None, # no correction if None, standard XPP setup correction if True, if float polarization degree.
                       #Ephot=None, # in keV

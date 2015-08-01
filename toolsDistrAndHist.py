@@ -1,8 +1,7 @@
 import numpy as np
 import scipy as sp
-from scipy.special import factorial
 import numpy.linalg as linalg
-from scipy.special import erf
+from scipy.special import erf,gamma
 import matplotlib
 import pylab as pl
 import time
@@ -33,7 +32,7 @@ def iterfy(iterable):
 def poiss_prob(x,count):
   x = np.asarray(x)
   count = float(count)
-  return count**x*np.exp(-count)/factorial(x)
+  return count**x*np.exp(-count)/gamma(x+1)
 
 #def gauss_norm(X,xdat):
 #	ydat = 1./sqrt(2.*pi*X[2]**2)*X[0]*exp(-(xdat-X[1])**2/2/X[2]**2)
