@@ -1,4 +1,4 @@
-from ixppy import tools,wrapFunc,dataset
+from ixppy import tools,wrapFunc,dataset,matchEvents
 import pylab as plt
 import numpy as np
 from scipy import linalg,io
@@ -185,8 +185,7 @@ def getCorrectionFunc_old(order=5,Imat=None,i0=None,i0_wp=None,fraclims_dc=[.9,1
 
 
 class CorrNonLin(object):
-  def __init__(self,data=None,I0=None,Imat=None,fina=None):
-    self.data = data
+  def __init__(self,data=None,I0=None,Imat=None,Iref=None,fina=None):
     self.refDataFilter = 1
     if fina is not None:
       assert fina[-7:]=='.ixp.h5', "File name has to be of extension ... .ixp.h5"
@@ -201,6 +200,10 @@ class CorrNonLin(object):
 	self.Imat = None
     else:
       self.dataset = None
+    if Iref is not None:
+      self.Iref,self.data = matchEvents(Iref,data)
+    else:
+      self.data = data
 
   def getRefdataMask(self,*args):
     flt = 1

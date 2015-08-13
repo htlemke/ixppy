@@ -3093,7 +3093,7 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, d
     print 'Select region of interest'
     lims = np.round(tools.getSpanCoordinates(direction))
   limsdict = dict(projection = direction+' range',limits=lims)
-  tfun = ixppy.wrapFunc(extractProfilesFromData)
+  tfun = ixppy.wrapFunc(extractProfilesFromData,transposeStack=False)
   profile = tfun(dat,limsdict)
   if det is None:
     return limsdict,profile

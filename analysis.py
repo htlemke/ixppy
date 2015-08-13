@@ -44,10 +44,16 @@ def anaPumpProbePar(I,probeMonitor,timeDelay=None,pumpMonitor=None,xrayon=None,l
 
 
 class PumpProbeNDarray(object):
+  """ calculate pump and probe difference ratios and diffs.
+  monitor refers to the x-ray intensity monitor and will be the nansum of the curve itself 
+     if not provided.
+  pumpMonitor is the pump intensity monitor, if provided"""
+
   def __init__(self,
       data, monitor=None, timeDelay=None,
       pumpOn=None,probeOn=None,
       timeBinSize=None,
+      pumpMonitor=None,
       attachDropObject=None,
       resFina='tempFile_pumpProbeND.ixp.h5',
       dsNamePrefix='pumpProbe'):
@@ -57,6 +63,15 @@ class PumpProbeNDarray(object):
     self._timeDelay = timeDelay
     self._pumpOn = pumpOn
     self._probeOn = probeOn
+    if pumpMonitor is None: 
+      pumpMonitor=1
+    else:
+      if pumpOn is None:
+	avPump = np.median( pumpMonitor.ravel() )
+      else:
+	avPump = np.median( (pumpMonitor*pumpOn).ravel() )
+      pumpMonitor = pumpMonitor/avPump	
+    self.pumpMonitor = pumpMonitor
     self.timeBinSize = timeBinSize
     self._res = attachDropObject
     self.resultFile = resFina
@@ -144,33 +159,44 @@ class PumpProbeNDarray(object):
 
   def _getDataPPratio(self):
     try:
-      return self.res[self._dsNamePrefix+'_PumpedRatio']
+      return self.res[self._dsNamePrefix+'_PPratio']
     except:
-      self.res[self._dsNamePrefix+'_PumpedRatio'] = \
-        self.timeDelay.ones()*\
-	(self.data*self.pumpOn*self.probeOn / self.dataOff.mean())
-      return self.res[self._dsNamePrefix+'_PumpedRatio']
+      self.res[self._dsNamePrefix+'_PPratio'] = \
+        self.timeDelay.ones()*self.pumpMonitor* \
+	( (self.data*self.pumpOn*self.probeOn / self.dataOff.mean()) - 1 ) + 1
+      return self.res[self._dsNamePrefix+'_PPratio']
   dataPPratio = property(_getDataPPratio)
     
   def _getDataNormPPratio(self):
     try:
-      return self.res[self._dsNamePrefix+'_Norm']
+      return self.res[self._dsNamePrefix+'_NormPPratio']
     except:
-      self.res[self._dsNamePrefix+'_Norm'] = \
-        self.timeDelay.ones()*\
-	(self.data*self.pumpOn*self.probeOn/self.monitor / self.dataOffNorm.median())
-      return self.res[self._dsNamePrefix+'_Norm']
+      self.res[self._dsNamePrefix+'_NormPPratio'] = \
+        self.timeDelay.ones()* self.pumpMonitor* \
+	( (self.data*self.pumpOn*self.probeOn/self.monitor / self.dataOffNorm.median()) - 1 ) + 1
+      return self.res[self._dsNamePrefix+'_NormPPratio']
   dataNormPPratio = property(_getDataNormPPratio)
 
   def _getDataNormPPdiff(self):
     try:
-      return self.res[self._dsNamePrefix+'_Norm']
+      return self.res[self._dsNamePrefix+'_NormPPdiff']
     except:
-      self.res[self._dsNamePrefix+'_Norm'] = \
-        self.timeDelay.ones()*\
+      self.res[self._dsNamePrefix+'_NormPPdiff'] = \
+        self.timeDelay.ones()* self.pumpMonitor *\
 	(self.data*self.pumpOn*self.probeOn/self.monitor - self.dataOffNorm.median())
-      return self.res[self._dsNamePrefix+'_Norm']
+      return self.res[self._dsNamePrefix+'_NormPPdiff']
   dataNormPPdiff = property(_getDataNormPPdiff)
+
+  def _getDataPPdiff(self):
+    try:
+      return self.res[self._dsNamePrefix+'_PPdiff']
+    except:
+      self.res[self._dsNamePrefix+'_PPdiff'] = \
+        self.timeDelay.ones()* self.pumpMonitor *\
+	(self.data*self.pumpOn*self.probeOn/self.monitor - self.dataOffNorm.median())
+      return self.res[self._dsNamePrefix+'_PPdiff']
+  dataPPdiff = property(_getDataPPdiff)
+
   #def _getCorrfun(self,**kwargs):
     #if self.nonlinCorrObj is None:
       #if self._nonlinCorrFile is not None:

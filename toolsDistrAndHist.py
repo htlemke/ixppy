@@ -433,6 +433,12 @@ def histVec(v,oversample=1):
     vv = np.array(np.hstack(vvo))
   return vv
 
+def histVecLinlog(v,smBinsize,lgBinsize):
+  V = np.array(v)
+  V.sort()
+  dV = np.diff(V)
+  smStep = np.min(dV)
+
 
 def histVecCenter(v):
   v = np.array(v)*1.

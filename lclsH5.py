@@ -130,7 +130,10 @@ class lclsH5(object):
       nameData = name["data"].replace("*","\S+")
       detDataset = [x for x in h5names if (re.search(nameData,x) is not None)]
       nameConf = name["conf"].replace("*","\S+")
-      detConf    = [x for x in h5confs if (re.search(nameConf,x) is not None)]
+      try:
+        detConf    = [x for x in h5confs if (re.search(nameConf,x) is not None)]
+      except:
+	detConf=[]
       data = [x for x in detDataset if x[-5:]=="/data" or x[-8:]=="/evrData" or x[-13:]=="/channelValue"]
       time = [x for x in detDataset if x[-5:]=="/time"]
       if ( (len(data) != 0) and (len(time) != 0) ):
