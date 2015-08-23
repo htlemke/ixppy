@@ -12,10 +12,10 @@ import types
 import numpy.ma as ma
 import toolsDistrAndHist
 from toolsVarious import iterfy
-try:
-  import minuit
-except:
-  print "Minuit not found"
+#try:
+  #import minuit
+#except:
+  #print "Minuit not found"
 
 
 
