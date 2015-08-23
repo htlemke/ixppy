@@ -22,11 +22,11 @@ import time
 import lclsH5
 import copy as pycopy
 import postInitProc
-try:
-  import psana
-except:
-  psana = None
-  print "psana not available on present machine, hdf5 files required."
+#try:
+  #import psana
+#except:
+  #psana = None
+  #print "psana not available on present machine, hdf5 files required."
 
 import progressbar as pb
 
