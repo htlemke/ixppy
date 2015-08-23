@@ -283,6 +283,54 @@ def getRectangleCoordinates(axh=None,fig=None):
   fig.canvas.draw()
   return roi.lims
 
+def maskPoints(x,y,linespec=None,maskedspec='or',dragtype='rectangle'):
+  if linespec is not None:
+    plt.plot(x,y,linespec)
+  done = False
+  mask = np.zeros_like(x,dtype=bool)
+  lh, = plt.plot([],[],maskedspec)
+  while not done:
+    print 'Select mask region by dragging %s' %dragtype
+    coos = getRectangleCoordinates()
+    mask[np.logical_and(filtvec(x,coos[:2]), filtvec(y,coos[2:]))]=True
+    lh.set_data(x[mask],y[mask])
+    print 'Click on plot to add region or press any key when done?'
+    if plt.waitforbuttonpress():
+      done = True
+      continue
+
+  return mask
+
+
+
+
+def getKeyPress():
+  fig = plt.gcf()
+  class Keydummy(object):
+    def __init__(self):
+      self.cycles=0
+    def onkey(self,event):
+      self.key = event.key
+      self.xdata = event.xdata
+      self.ydata = event.ydata
+  keydummy = Keydummy()
+  cid = fig.canvas.mpl_connect('key_press_event', keydummy.onkey)
+  done = False
+  while not done:
+    done = plt.waitforbuttonpress()
+  fig.canvas.mpl_disconnect(cid)
+  return keydummy.key,keydummy.xdata,keydummy.ydata
+
+
+
+  
+
+
+    #print 'button=%d, x=%d, y=%d, xdata=%f, ydata=%f'%(
+		  #event.button, event.x, event.y, event.xdata, event.ydata)
+  cid = fig.canvas.mpl_connect('key_press_event', keydum.y.onkey)
+
+
 
 def hist2dSmart(x,y,fac=400.,**kwargs):
   h,xe,ye = histogram2dSmart(x,y,fac,**kwargs)

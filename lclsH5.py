@@ -23,7 +23,7 @@ class lclsH5(object):
     for fh in self.fileHandles:
       fh.close()
 
-  def findDetectors(self,detectors=None): 
+  def findDetectors(self,detectors=None,exclude=None): 
     # Detectors
     # TODO
     # strategy in 2 paths:
@@ -34,7 +34,7 @@ class lclsH5(object):
       # _findDetectors tries to match datasets found in files with mnemonic given in config
       t0 = time.time()
       print "Finding data in hdf5 file ...",
-      self.findDatasets(detectors=detectors)
+      self.findDatasets(detectors=detectors,exclude=exclude)
       print " ... done (%.1f) ms" % ((time.time()-t0)*1e3)
 
     else:
@@ -51,7 +51,7 @@ class lclsH5(object):
       except KeyError:
         print "Failed to find detectors in ", h.filename
 
-  def findDatasets(self,detectors=None):
+  def findDatasets(self,detectors=None,exclude=None):
     """finds datasets from a cnf that contains aliases, if no aliases are defined the file is parsed and the hdf5 names are returned as names.
     
     Finds detectors in hdf5 file matching with mnemonic given in config file;
@@ -61,6 +61,16 @@ class lclsH5(object):
     subSelection = detectors
     if (subSelection==[]) or (subSelection is None):
       subSelection = self.cnf["pointDet"].keys() + self.cnf["areaDet"].keys()
+
+    if exclude is not None:
+      exclude = tools.iterfy(exclude)
+      for tex in exclude:
+	while True:
+	  try:
+            subSelection.remove(tex)
+	    continue
+	  except:
+	    break
     h = self.fileHandles[0]
    
     # Getting all Detector path strings in CCs and config

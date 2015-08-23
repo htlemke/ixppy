@@ -322,10 +322,10 @@ class CorrNonLinDep(object):
       print fina
       self.Imat.setFile(fina)
       self.Imat.evaluate()
-      self.Imat = np.asarray(self.Imat.mean())
+      self.Imat = np.asarray(self.Imat.median())
       os.remove(fina)
     else:
-      self.Imat = np.asarray(self.Imat.mean())
+      self.Imat = np.asarray(self.Imat.median())
       if self.dataset is not None:
 	self.dataset['corrNonLinRem_Imat'] = self.Imat
 	self.dataset['corrNonLinRem_I0'] = self.I0

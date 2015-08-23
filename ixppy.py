@@ -21,6 +21,7 @@ import operator
 import time
 import lclsH5
 import copy as pycopy
+import postInitProc
 try:
   import psana
 except:
@@ -35,6 +36,7 @@ class dataset(object):
   def __init__(self,
     inputFilesOrExpRunTuple='',
     detectors = [],
+    exclude=None,
     ixpFile=None,
     beamline = None,               
     rdPointDetectorsImmediately=True,
@@ -98,7 +100,7 @@ class dataset(object):
       self.config.lclsH5obj= lclsH5.lclsH5(self.config.fileNamesH5,self.config.cnfFile)
       
       self.config.lclsH5obj.checkFiles()
-      self.config.lclsH5obj.findDetectors(detectors)
+      self.config.lclsH5obj.findDetectors(detectors,exclude=exclude)
       self.config.lclsH5obj.initDetectors()
       if hasattr(self.config.lclsH5obj,'scanVars'):
 	for name in self.config.lclsH5obj.scanVars.keys():
@@ -122,6 +124,7 @@ class dataset(object):
 	  #self[detName] = tools.dropObject(parent=self)
 	  #self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
           addToObj(self,detName+'.data',data(name=detName,time=det.time,input = det.readData,scan=scan),ixpsaved=True,setParent=True)
+    postInitProc.process(self)
 
 	  
 
@@ -3466,9 +3469,12 @@ def digitize(dat,bins=None,graphicalInput=True,figName=None):
     bins = None
     hs = []
     while not ip=='q':
-      ip = raw_input('Enter number of bins (q to finish) ')
+      ip = raw_input('Enter number of bins (integer) or bin interval (float) (q to finish) ')
       if ip=='q': continue
-      bins = np.linspace(np.min(lims),np.max(lims),int(ip)+1)
+      if type(eval(ip)) is int:
+	bins = np.linspace(np.min(lims),np.max(lims),int(ip)+1)
+      else:
+	bins = np.arange(np.min(lims),np.max(lims),float(ip))
       for th in hs: 
 	th.remove()
 	hs = []

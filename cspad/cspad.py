@@ -347,6 +347,7 @@ class CspadPattern(object):
     if Nrbins=='auto':
       rbinsz = np.max(np.diff(np.sort(x.ravel())))
       Rsearchlims = np.asarray(Rsearchlims)
+    mask = None
     for cycle in range(cycles):
       redges = np.arange(R0ring+Rsearchlims[0],R0ring+Rsearchlims[1],rbinsz)
       R = np.sqrt((x-cen[0])**2+(y-cen[1])**2)
@@ -363,12 +364,43 @@ class CspadPattern(object):
       res = (np.bincount(idx,weights=i.ravel(),minlength=mnl)/np.bincount(idx,minlength=mnl)).reshape(len(redges)+1,len(azedges)+1)[1:-1,1:-1]
       rvec = tools.histVecCenter(redges)
       avec = tools.histVecCenter(azedges)
-      fts = [np.polyfit(rvec[~np.isnan(tprof)],tprof[~np.isnan(tprof)],2) for tprof in res.T]
-      rts = [np.unique(np.roots(np.polyder(tp))) for tp in fts]
+      #fts = [np.polyfit(rvec[~np.isnan(tprof)],tprof[~np.isnan(tprof)],2) for tprof in res.T if np.sum(~np.isnan(tprof))>1 else np.array([np.nan]*3)]
+      if False:
+        fts = [np.polyfit(rvec[~np.isnan(tprof)],tprof[~np.isnan(tprof)],2) if np.sum(~np.isnan(tprof))>1 else np.array([np.nan]*3) for tprof in res.T ]
+        rts = np.asarray([np.unique(np.roots(np.polyder(tp)))[0] if not np.isnan(tp).all() else np.nan for tp in fts])
+      else:
+	rts = []
+	#rts = [tools.peakAna(rvec[~np.isnan(tprof)],tprof[~np.isnan(tprof)],3)[0] if np.sum(~np.isnan(tprof))>1 else np.nan for tprof in res.T ]
+	for tprof in res.T:
+	  try:
+	    rts.append(np.float(tools.peakAna(rvec[~np.isnan(tprof)],tprof[~np.isnan(tprof)],3)[0]))
+	  except:
+	    rts.append(np.nan)
+	 
+	  plt.figure(100)
+	  plt.hold(0)
+	  plt.plot(rvec[~np.isnan(tprof)],tprof[~np.isnan(tprof)],'.-')
+	  plt.axvline(rts[-1])
+	  plt.draw()
+	  plt.waitforbuttonpress()
+
+      rts = np.asarray(rts)	 
+
+      plt.figure(5)
       tools.imagesc(avec,rvec,res)
       plt.hold(1)
-      plt.plot(avec,rts,'ow')
+      if mask is None:
+        plt.plot(avec,rts,'ow')
+	mask = np.isnan(rts)
+	mask[rts<np.min(rvec)] = True
+	mask[rts>np.max(rvec)] = True
+        mask[tools.maskPoints(avec,rts)] = True
+      else:
+        plt.plot(avec[~mask],rts[~mask],'ow')
+
+      rts[mask] = np.nan
       plt.hold(0)
+
       #plt.figure(6)
       #for tp,pos,prf in zip(fts,rts,res.T):
 	#plt.hold(0)
@@ -379,9 +411,10 @@ class CspadPattern(object):
 	#plt.plot(rvec,np.polyval(tp,rvec),'r')
 	#sleep(.1)
 	#plt.draw()
-      xf,yf = tools.pol2cart(avec,np.squeeze(rts))
-      xc,yc,R0ring,chisq = tools.fitCircle(xf+cen[0],yf+cen[1])
+      xf,yf = tools.pol2cart(avec[~np.isnan(rts)],np.squeeze(rts[~np.isnan(rts)]))
+      xc,yc,R0ring,chisq = tools.fitCircle(xf+cen[0],yf+cen[1],w=np.sum(~np.isnan(res),0)[~np.isnan(rts)])
       plt.figure(1)
+      plt.hold(1)
       plt.plot(xc,yc,'r+')
       plt.plot(xf+cen[0],yf+cen[1],'ow')
       plt.waitforbuttonpress()
