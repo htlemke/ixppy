@@ -41,7 +41,7 @@ def writePyFile(funcs,experiment=None,save=True,cacheDir='',identifier=''):
   timestr = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
   filename = 'lsf_autocall_'+timestr+'.py'
   filestr = preamble
-  if experiment==None:
+  if experiment is None:
     filestr += 'experiment = sys.argv[1]\nprint "got experiment %s"%experiment\n'
     filestr += 'runnos = [int(tr) for tr in sys.argv[2:]]\nprint "got run %s"%runnos\n'
   else:
@@ -53,7 +53,7 @@ def writePyFile(funcs,experiment=None,save=True,cacheDir='',identifier=''):
     modFina = os.path.abspath(modFina)
     modnames.append(get_module_name(modFina))
     filestr += 'import_file(\'%s\',globals())\n'%modFina
-  if experiment==None:
+  if experiment is None:
     filestr += 'cachefina = os.path.join(\'%s\',experiment+\'run\'+\'-\'.join(str(run) for run in runnos)+\'_%s_lsfHelper.ixp.h5\')\n' %(cacheDir,identifier)
     filestr += 'd = eval(\'ixppy.dataset((\\\'%s\\\',%d),ixpFile=%s)\'%(experiment,runno,cachefina))\n'
   else:
@@ -73,14 +73,14 @@ def writePyFile(funcs,experiment=None,save=True,cacheDir='',identifier=''):
 def applyFileOnRun(fina,runno,experiment=None):
   execstr = 'bsub -q ' + queue + ' '
   execstr+= '-o ' + os.path.splitext(fina)[0]
-  if not experiment==None:
+  if not experiment is None:
     execstr+= '_'+experiment
   for tr in runno:
     execstr+= '_run%04d'%tr
   execstr+= '.out '
   execstr+=' python '
   execstr+=fina+' '
-  if not experiment==None:
+  if not experiment is None:
     execstr+= experiment+' '
   for run in runno:
     execstr+= str(run) + ' '

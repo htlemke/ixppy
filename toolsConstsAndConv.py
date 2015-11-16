@@ -77,7 +77,7 @@ def BraggAngle(ID,hkl,E=None):
         E is photon energy in eV or keV (default is LCLS value)
     """
     ID=checkID(ID)
-    #if E==None:
+    #if E is None:
       #E=pypsepics.get("SIOC:SYS0:ML00:AO627")
     d=dSpace(ID,hkl)
     theta = np.arcsin(E2lam(E)/2/d)*180/np.pi

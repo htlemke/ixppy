@@ -583,9 +583,9 @@ class nlcmap(LinearSegmentedColormap):
  
  
 def cmap_smooth(I=None,axh=None,Nlevels=256,cmap_lin=None):
-  if cmap_lin==None:
+  if cmap_lin is None:
     cmap_lin = pl.cm.jet
-  if I == None:
+  if I is None:
     if not axh:
       axh = pl.gca()
     ihandles = axh.findobj(matplotlib.image.AxesImage)
@@ -637,7 +637,7 @@ class hist_ascii(object):
         :Parameters:
             - `data`: array like object
         """
-	if not percRange==None:
+	if not percRange is None:
 	  range = np.percentile(data,percRange)
 
         self.data = data
@@ -719,7 +719,7 @@ class Roipoly(Widget):
     self.useblit = useblit
     if useblit:
 	self.background = self.canvas.copy_from_bbox(self.axes.bbox)
-    if not xy==None:
+    if not xy is None:
       x, y = xy
       self.verts = [(x,y)]
     else:
@@ -782,7 +782,7 @@ class Roipoly(Widget):
 	#self.open_path = False
 
       self.verts.append((event.xdata, event.ydata))
-      if self.line==None:
+      if self.line is None:
 	self.verts.append((event.xdata, event.ydata))
 	self.open_path = True
 	x,y = zip(*self.verts)
@@ -793,9 +793,9 @@ class Roipoly(Widget):
 
     if self.useblit:
 	self.canvas.restore_region(self.background)
-	if not self.line==None:
+	if not self.line is None:
 	  self.axes.draw_artist(self.line)
-	if not self.line_close==None:
+	if not self.line_close is None:
 	  self.axes.draw_artist(self.line_close)
 	self.canvas.blit(self.axes.bbox)
     else:
@@ -812,7 +812,7 @@ class Roipoly(Widget):
       closedat = [plotdat[-1],plotdat[0]]
       self.line.set_data(zip(*plotdat))
       self.line_close.set_data(zip(*closedat))
-    elif event.button==None:
+    elif event.button is None:
       plotdat = copy(self.verts)
       plotdat.append((event.xdata, event.ydata))
       closedat = [plotdat[-1],plotdat[0]]
@@ -829,7 +829,7 @@ class Roipoly(Widget):
 
 def roipoly(ax=None):
   """ use polygonmask to get the pixel mask"""
-  if ax==None:
+  if ax is None:
     ax = plt.gca()
   r = Roipoly(ax)
   while not r.done:
