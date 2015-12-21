@@ -429,7 +429,7 @@ def extractProfiles(Areadet, xrayoff=None, laseroff=None,
     'steps' analyze only every steps images
     'calibcycles' which ones to do, if None do all
   """
-  if not laseroff == None:
+  if not laseroff is None:
     dat = Areadet.data * laseroff.filter(False).ones()
   else:
     dat = Areadet.data
@@ -458,7 +458,7 @@ def extractProfilesCorr(Areadet, xrayoff=None, laseroff=None, dataset_name_trace
     'steps' analyze only every steps images
     'calibcycles' which ones to do, if None do all
   """
-  if not laseroff == None:
+  if not laseroff is None:
     dat = Areadet[dataset_name_traces_raw] * laseroff.filter(False).ones()
   else:
     dat = Areadet[dataset_name_traces_raw]
@@ -485,7 +485,7 @@ def extractProfilesOnly(Areadet, profileLimits=None, transpose=False,dataset_nam
     'steps' analyze only every steps images
     'calibcycles' which ones to do, if None do all
   """
-  #if not laseroff == None:
+  #if not laseroff is None:
     #dat = Areadet.data * laseroff.filter(False).ones()
   #else:
   dat = Areadet.data
@@ -520,7 +520,7 @@ def extractFromRun(d,datasetname='opal2',profileLimits=None,xrayoffCode=None,las
     d.save()
 
 def applyFilterToAll(det,filter=None,kind='stepUp'):
-  if filter==None:
+  if filter is None:
     filter = standardfilter()
   traces = det.TTtraces
   o = ixppy.applyFunction(applyFilter,[traces,filter],dict(kind=kind),outputtypes=['memdata']*3,forceCalculation=True,transposeStack=False)

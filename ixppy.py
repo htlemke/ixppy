@@ -1565,7 +1565,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
     # case mainly when executes as data procObj
     elif ('data' in outputtypes and not stride is None) or forceCalculation:
       # in force case and when stride is not given
-      if (stride == None) and forceCalculation:
+      if (stride is None) and forceCalculation:
 	# find smallest chunk size, will go for that...
 	dataIPchunkings = [o._memIterate() for o,dum,dum in allobjects if isinstance(o,data)]
 	chunksize = np.min([np.min([len(tchunk[1]) for tchunk in tchunks]) for tchunks in dataIPchunkings])
