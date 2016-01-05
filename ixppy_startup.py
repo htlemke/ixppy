@@ -16,4 +16,4 @@ sys.path.insert(0,parentdir)
 from tools import *
 get_ipython().run_line_magic('load_ext','autoreload')
 get_ipython().run_line_magic('autoreload','2')
-h5py.enable_ipython_completer()
+#h5py.enable_ipython_completer()

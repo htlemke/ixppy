@@ -168,12 +168,12 @@ def rotmat3Dfrom2vectors(v0,v1):
   """calculate 3D rotation matrix that rotates from v0 to v1"""
   v0 = v0/linalg.norm(v0)
   v1 = v1/linalg.norm(v1)
-  ax = linalg.cross(v0,v1)
+  ax = np.cross(v0,v1)
   if not linalg.norm(ax)==0.:
     ax = ax/linalg.norm(ax)
-    ve = linalg.cross(ax,v0)
-    cx = linalg.dot(v1,v0)
-    cy = linalg.dot(v1,ve)
+    ve = np.cross(ax,v0)
+    cx = np.dot(v1,v0)
+    cy = np.dot(v1,ve)
     ang = np.arctan2(cy,cx)
     rotmat = rotmat3D(ax,ang)
   else:

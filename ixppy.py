@@ -10,7 +10,7 @@ import numpy as np
 import tools
 from toolsVarious import addToObj
 import toolsHdf5 as tH5
-from toolsHdf5 import datasetRead as h5r
+from toolsHdf5 import datasetRead as h5r,getHdf5Format
 from functools import partial,wraps
 from copy import copy
 import re
@@ -20,6 +20,7 @@ import datetime
 import operator
 import time
 import lclsH5
+import saclaH5
 import copy as pycopy
 import postInitProc
 #try:
@@ -45,13 +46,14 @@ class dataset(object):
     outputDirectory = '',
     readCachedData = True,
     cacheFile = None,
-    ignore_daqHdf5file = False
+    ignore_daqHdf5file = False,
+    cnfFileName = 'ixppy_config'
               ):
     self._name = 'dataset'
     # dropObject is a 'container'
     self.config = tools.dropObject()
     # read configuration file
-    self._rdConfiguration(beamline)
+    self._rdConfiguration(beamline,fina=cnfFileName)
     # boolean if cache data is taken into account 
     # HDF5/XTC/IXP file(s) to read, it is a tuple of lists for files in the three formats, empty if files not available.
     allfilenames   = self._getFilename(inputFilesOrExpRunTuple)
@@ -97,35 +99,65 @@ class dataset(object):
 
     
     if 'h5' in self.config.filestrategy:
-      self.config.lclsH5obj= lclsH5.lclsH5(self.config.fileNamesH5,self.config.cnfFile)
-      
-      self.config.lclsH5obj.checkFiles()
-      self.config.lclsH5obj.findDetectors(detectors,exclude=exclude)
-      self.config.lclsH5obj.initDetectors()
-      if hasattr(self.config.lclsH5obj,'scanVars'):
-	for name in self.config.lclsH5obj.scanVars.keys():
-	  tVar = self.config.lclsH5obj.scanVars[name]
-	  if not hasattr(tVar,'names'): continue
-	  for vname,vdat in zip(tVar.names,np.asarray(tVar.data).T):
-	    vname = getValidFieldname(vname,lowerit=True) 
-            addToObj(self,name+'.'+vname,vdat,ixpsaved=True)
-      if hasattr(self,'scan'):
-	scan=self.scan
-      else:
-	scan=None
-
-      for detName in self.config.lclsH5obj.detectorsNames:
-        det = self.config.lclsH5obj.detectors[detName]
-        if det._isPointDet:
-	  if hasattr(det,'fields'):
-	    for fieldName in det.fields.keys():
-              addToObj(self,detName+'.'+fieldName,memdata(name=fieldName,input = det.fields[fieldName],scan=scan),ixpsaved=True)
+      h5format = getHdf5Format(self.config.fileNamesH5)
+      if h5format is 'lclsH5':
+	self.config.lclsH5obj= lclsH5.lclsH5(self.config.fileNamesH5,self.config.cnfFile)
+	
+	self.config.lclsH5obj.checkFiles()
+	self.config.lclsH5obj.findDetectors(detectors,exclude=exclude)
+	self.config.lclsH5obj.initDetectors()
+	if hasattr(self.config.lclsH5obj,'scanVars'):
+	  for name in self.config.lclsH5obj.scanVars.keys():
+	    tVar = self.config.lclsH5obj.scanVars[name]
+	    if not hasattr(tVar,'names'): continue
+	    for vname,vdat in zip(tVar.names,np.asarray(tVar.data).T):
+	      vname = getValidFieldname(vname,lowerit=True) 
+	      addToObj(self,name+'.'+vname,vdat,ixpsaved=True)
+	if hasattr(self,'scan'):
+	  scan=self.scan
 	else:
-	  #self[detName] = tools.dropObject(parent=self)
-	  #self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
-          addToObj(self,detName+'.data',data(name=detName,time=det.time,input = det.readData,scan=scan),ixpsaved=True,setParent=True)
-    postInitProc.process(self)
+	  scan=None
 
+	for detName in self.config.lclsH5obj.detectorsNames:
+	  det = self.config.lclsH5obj.detectors[detName]
+	  if det._isPointDet:
+	    if hasattr(det,'fields'):
+	      for fieldName in det.fields.keys():
+		addToObj(self,detName+'.'+fieldName,memdata(name=fieldName,input = det.fields[fieldName],scan=scan),ixpsaved=True)
+	  else:
+	    #self[detName] = tools.dropObject(parent=self)
+	    #self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
+	    addToObj(self,detName+'.data',data(name=detName,time=det.time,input = det.readData,scan=scan),ixpsaved=True,setParent=True)
+      postInitProc.process(self)
+
+      if h5format is 'saclaH5':
+	self.config.saclaH5obj= saclaH5.SaclaH5(self.config.fileNamesH5,self.config.cnfFile)
+	self.config.saclaH5obj.checkFiles()
+	self.config.saclaH5obj.findDetectors(detectors,exclude=exclude)
+	self.config.saclaH5obj.initDetectors()
+	if hasattr(self.config.saclaH5obj,'scanVars') and not len(self.config.saclaH5obj.scanVars)==0:
+	  for name in self.config.lclsH5obj.scanVars.keys():
+	    tVar = self.config.lclsH5obj.scanVars[name]
+	    if not hasattr(tVar,'names'): continue
+	    for vname,vdat in zip(tVar.names,np.asarray(tVar.data).T):
+	      vname = getValidFieldname(vname,lowerit=True) 
+	      addToObj(self,name+'.'+vname,vdat,ixpsaved=True)
+	if hasattr(self,'scan'):
+	  scan=self.scan
+	else:
+	  scan=None
+
+	for detName in self.config.saclaH5obj.detectorsNames:
+	  det = self.config.saclaH5obj.detectors[detName]
+	  if det._isPointDet:
+	    if hasattr(det,'fields'):
+	      for fieldName in det.fields.keys():
+		addToObj(self,detName+'.'+fieldName,memdata(name=fieldName,input = det.fields[fieldName],scan=scan),ixpsaved=True)
+	  else:
+	    #self[detName] = tools.dropObject(parent=self)
+	    #self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
+	    addToObj(self,detName+'.data',data(name=detName,time=det.time,input = det.readData,scan=scan),ixpsaved=True,setParent=True)
+      postInitProc.process(self)
 	  
 
   def _add(self,name,data,ixpsaved='auto'):
@@ -317,12 +349,12 @@ class dataset(object):
     # *** stop scan variables *** #
     return
 
-  def _rdConfiguration(self,beamline):
+  def _rdConfiguration(self,beamline,fina='ixppy_config'):
     if not beamline is None:
       self.config.beamline = beamline
-      self.config.cnfFile = rdConfiguration(beamline=beamline)
+      self.config.cnfFile = rdConfiguration(fina=fina,beamline=beamline)
     else:
-      self.config.cnfFile = rdConfiguration()
+      self.config.cnfFile = rdConfiguration(fina=fina)
       self.config.beamline = self.config.cnfFile['beamline']
     # setup path for data and cached files
     self.config.hostname = gethostname()

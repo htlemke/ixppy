@@ -204,3 +204,27 @@ def datasetToNumpy(dataset,sliceSel=None,chunksize=1):
   else:
     data = dataset[sliceSel]
   return data
+
+
+def getHdf5Format(fileNames):
+  fileHandles = toolsVarious.iterate(fileNames,openOrCreateFile,"r",driver='sec2')
+  h5format = ''
+  for tformat in ['lclsH5','saclaH5']:
+    try:
+      if tformat is 'lclsH5':
+	h5format = int(np.asarray(['Configure:0000' in fh.keys() for fh in fileHandles]).all())*tformat
+	print h5format
+      elif tformat is 'saclaH5':
+	#h5format = int(np.asarray([fh['file_info/format_type'].value == 'run_dat_format' for fh in fileHandles]).all())*tformat
+	h5format = int(np.asarray(['file_info' in fh.keys() for fh in fileHandles]).all())*tformat
+	
+      if not (h5format==''):
+	break
+    except Exception,e:
+      pass
+  return h5format
+
+
+
+
+
