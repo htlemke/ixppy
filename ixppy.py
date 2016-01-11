@@ -22,6 +22,7 @@ import time
 import lclsH5
 import copy as pycopy
 import postInitProc
+import itertools
 #try:
   #import psana
 #except:
@@ -703,7 +704,14 @@ class memdata(object):
 
 
   def __getitem__(self,x):
-    return self.data[x]
+    get = np.arange(self.__len__())[x]
+    if np.iterable(get):
+      nscan = copy(self.scan)
+      for key in nscan._get_keys():
+	nscan[key] = nscan[key][x]
+      return Memdata(input=[[self.data[ti] for ti in get],[self.time[ti] for ti in get]],scan=nscan)
+    else:
+      return self.data[x]
   
   # functions to make it feel like a datatype
   #def __add__(self,other):
@@ -1354,7 +1362,7 @@ class data(object):
       tout = []
       for chunk in step:
 	if len(chunk)>0:
-          tout += [(len(chunk),np.median(self[stepNo,np.ix_(chunk)][0],axis=0))]
+          tout += [(len(chunk),np.nanmedian(self[stepNo,np.ix_(chunk)][0],axis=0))]
         processedevents += len(chunk)
 	pbar.update(processedevents)
       if len(tout) > 1:
@@ -2103,6 +2111,22 @@ def matchEvents(*args):
   ret = [filt*tobj for tobj in args]
   return tuple(ret)
 
+def concatenate(objs,forceFirstScanNames=True):
+  assert np.asarray([isinstance(obj,Memdata) for obj in objs]).all() , "ixppy.concatenate only implemented for Memdata at the Moment!"
+  ndat = list(itertools.chain(*[o.data for o in objs]))
+  ntim = list(itertools.chain(*[o.time for o in objs]))
+  if forceFirstScanNames:
+    fstsca = list(itertools.chain(*[o.scan[0] for o in objs]))
+    scan = tools.dropObject(name='scan')
+    scan[objs[0].scan._get_keys()[0]] = fstsca
+  else:
+    scan = None
+  return Memdata(input=[ndat,ntim],scan=scan)
+
+
+
+  
+
 def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
   """finds N closes events in ts0 to ts1. Returns those events (after 
   ravelling) plus the unravel information (lengths per step in ts0 events).
@@ -2681,7 +2705,7 @@ class Ixp(object):
 
     else:
       data = rootgroup.value
-      if data=='empty':
+      if data is 'empty':
         data = []
 
     return data
