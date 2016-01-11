@@ -16,7 +16,8 @@ from copy import copy
 from matplotlib import pyplot as plt
 from distutils.version import LooseVersion
 from matplotlib.ticker import MaxNLocator
-
+import divmap
+from matplotlib.colors import ListedColormap
 
 if LooseVersion(matplotlib.__version__)<'1.2':
   from matplotlib.nxutils import points_inside_poly
@@ -1001,5 +1002,8 @@ def showRealTimeDevelopment(*args,**kwargs):
     opdata.append([t,var.R])
   return opdata
 
+def divergingColorMap(name='divmap'):
+  cmap = ListedColormap(divmap.getCmapData(),name=name)
+  plt.register_cmap(cmap=cmap)
 
 

@@ -9,6 +9,7 @@ import types
 import numpy.ma as ma
 #from toolsVarious import iterfy
 from tools import *
+import ixppy
 
 def iterfy(iterable):
     if isinstance(iterable, basestring):
@@ -435,9 +436,37 @@ def histVec(v,oversample=1):
 
 def histVecLinlog(v,smBinsize,lgBinsize):
   V = np.array(v)
-  V.sort()
+  #V.sort()
   dV = np.diff(V)
   smStep = np.min(dV)
+  linsteps = dV<(1+.05)*smStep
+  indMid = linsteps.nonzero()[-1]+1
+  np.arange(V[0]-smBinsize/2.,V[ndMid]+smBinsize,smBinsize)
+  
+
+def histVecLinlogFromTT(t,tt,ttOffset=None,binSize=None):
+  if ttOffset is None:
+    pass
+  tT = tt + t + ttOffset
+
+  
+  T = np.array(t)
+  s = T.argsort()
+  Ts = T[s]
+  dT = np.diff(Ts)
+  smStep = np.min(dT)
+  logsteps = (dT>(1+.01)*smStep).nonzero()[0] +1
+  linsteps = (dT<=(1+.01)*smStep).nonzero()[0]
+  linsteps = np.concatenate([linsteps,[linsteps[-1]+1]])
+  linedges = np.arange(np.min(Ts[linsteps])-binSize/2.,np.max(Ts[linsteps])+binSize,binSize)
+  
+
+  toLin = tT[s[linsteps]].digitize(linedges)
+  toLog = tT[s[logsteps]]
+  return ixppy.concatenate([toLin,toLog])
+
+
+
 
 
 def histVecCenter(v):

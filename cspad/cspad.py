@@ -858,9 +858,9 @@ nanify = wrapFunc(_nanify,isPerEvt=False,transposeStack=True)
 def correct(data,dark=None,mask=None,NpxEdgeMask=1,correctCommonMode=True,gainAv=30,nbSwitchFactor=3,Ntiles=32):
   if dark is not None:
     if np.shape(dark)[-1] is not 1: dark=dark[...,np.newaxis]
-    darkcorrect = data-dark
+    darkcorrect = 1.*np.data-dark
   else:
-    darkcorrect = data
+    darkcorrect = 1.*data
   maskub = createMaskUnbonded(Ntiles)
   maskedg = maskEdges(Ntiles,offset=NpxEdgeMask)
   maskcomb = np.logical_or(mask,maskub)
@@ -871,7 +871,7 @@ def correct(data,dark=None,mask=None,NpxEdgeMask=1,correctCommonMode=True,gainAv
     corr0 = commonModeCorrect(darkcorrect,mask=maskcomb,gainAv=gainAv,nbSwitchFactor=3,unbPx=maskub[0])
   else:
     corr0 = darkcorrect
-  corr0 = nanify(corr0,maskcomb)
+  corr0 = nanify(1.*corr0,maskcomb)
   return corr0
   
 
