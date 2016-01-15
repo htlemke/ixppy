@@ -2633,7 +2633,7 @@ class Ixp(object):
       #newgroup = rootgroup.require_group(name)
       #newgroup.create_dataset('_dtype',data='')
 
-      if not ((data==[]) or (type(data)==np.ndarray and data.size==False)):
+      if not ((data is []) or (type(data) is np.ndarray and data.size is False)):
         rootgroup.create_dataset(name,data=data)
       else:
         rootgroup.create_dataset(name,data='empty')
