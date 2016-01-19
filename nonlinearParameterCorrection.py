@@ -1,3 +1,7 @@
+""" This module is to correct CSPAD images as discussed
+in J Synchrotron Radiat. 2015 May 1; 22(Pt 3): 584–591.
+doi:  10.1107/S1600577515005536
+Correction of complex nonlinear signal response from a pixel array detector"""
 from ixppy import tools,wrapFunc,dataset,matchEvents
 import pylab as plt
 import numpy as np
