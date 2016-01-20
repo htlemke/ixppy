@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import datetime
 import subprocess
@@ -15,7 +16,7 @@ def import_file(full_path_to_module,glb):
         save_cwd = os.getcwd()
         os.chdir(module_dir)
 	os.system('pwd')
-	print module_name
+	logbook(module_name)
 	module_obj = __import__(module_name)
 	#exec('import '+module_name)
 	module_obj.__file__ = full_path_to_module
@@ -34,7 +35,7 @@ def get_module_name(full_path_to_module):
         module_name, module_ext = os.path.splitext(module_file)
 	return module_name
     except Exception,e:
-        print e
+        logbook(e)
         raise ImportError
 
 def writePyFile(funcs,experiment=None,save=True,cacheDir='',identifier=''):

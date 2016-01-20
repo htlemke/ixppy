@@ -3,6 +3,7 @@ in J Synchrotron Radiat. 2015 May 1; 22(Pt 3): 584–591.
 doi:  10.1107/S1600577515005536
 Correction of complex nonlinear signal response from a pixel array detector"""
 from ixppy import tools,wrapFunc,dataset,matchEvents
+from toolsLog import logbook
 import pylab as plt
 import numpy as np
 from scipy import linalg,io
@@ -223,7 +224,7 @@ class CorrNonLin(object):
     self.Iref = self.refDataFilter * nansum(self.data)
     fina = 'tmp_getRefIntensity_' \
 	+ datetime.datetime.now().isoformat() + '.ixp.h5'
-    print fina
+    logbook(fina)
     self.Iref.setFile(fina)
     self.Iref.evaluate()
     self.Iref = self.Iref.get_memdata()[0]
@@ -237,7 +238,7 @@ class CorrNonLin(object):
     if evaluate:
       fina = 'tmp_getImat_' \
 	  + datetime.datetime.now().isoformat() + '.ixp.h5'
-      print fina
+      logbook(fina)
       self.Imat.setFile(fina)
       self.Imat.evaluate()
       self.Imat = np.asarray(self.Imat.mean())
@@ -310,7 +311,7 @@ class CorrNonLinDep(object):
     self.Iref = self.refDataFilter * nansum(self.data)
     fina = 'tmp_getRefIntensity_' \
 	+ datetime.datetime.now().isoformat() + '.ixp.h5'
-    print fina
+    logbook(fina)
     self.Iref.setFile(fina)
     self.Iref.evaluate()
     self.Iref = self.Iref.get_memdata()[0]
@@ -323,7 +324,7 @@ class CorrNonLinDep(object):
     if evaluate:
       fina = 'tmp_getImat_' \
 	  + datetime.datetime.now().isoformat() + '.ixp.h5'
-      print fina
+      logbook(fina)
       self.Imat.setFile(fina)
       self.Imat.evaluate()
       self.Imat = np.asarray(self.Imat.median())

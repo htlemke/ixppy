@@ -28,6 +28,7 @@ Reference:
   bib code: 1989ApJ...338..277P
 
 """
+from __future__ import print_function
 #from numpy import *
 #from numpy.fft import *
 import numpy as np
@@ -52,7 +53,7 @@ def __spread__(y, yy, n, x, m):
   """
   nfac=[0,1,1,2,6,24,120,720,5040,40320,362880]
   if m > 10. :
-    print 'factorial table too small in spread'
+    print('factorial table too small in spread')
     return
 
   ix=long(x)
@@ -114,7 +115,7 @@ def fasper(x,y,ofac,hifac, MACC=4):
   #Check dimensions of input arrays
   n = long(len(x))
   if n != len(y):
-    print 'Incompatible arrays.'
+    print('Incompatible arrays.')
     return
 
   nout  = 0.5*ofac*hifac*n

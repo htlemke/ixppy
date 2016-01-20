@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import scipy as sp
 import scipy.signal as signal
@@ -26,39 +27,37 @@ else:
   
 
 def nfigure(name="noname",figsize=None,**figprops):
-	try:
-		fig_names = [x.canvas.manager.window.get_title()
-				for x in matplotlib._pylab_helpers.Gcf.get_all_fig_managers()]
-	except:
-          try:
-		fig_names = [x.canvas.manager.window.wm_title()
-				for x in matplotlib._pylab_helpers.Gcf.get_all_fig_managers()]
-          except:
-		fig_names = [x.canvas.manager.window.windowTitle()
-				for x in matplotlib._pylab_helpers.Gcf.get_all_fig_managers()]
+  try:
+    fig_names = [x.canvas.manager.window.get_title()
+      for x in matplotlib._pylab_helpers.Gcf.get_all_fig_managers()]
+  except:
+    try:
+                  fig_names = [x.canvas.manager.window.wm_title()
+        for x in matplotlib._pylab_helpers.Gcf.get_all_fig_managers()]
+    except:
+      fig_names = [x.canvas.manager.window.windowTitle()
+        for x in matplotlib._pylab_helpers.Gcf.get_all_fig_managers()]
+        #import code; code.interact(local=locals())
+  n=0
+  found=0
+  for tname in fig_names:
+          n+=1
+          if tname == name:
+                  fig=matplotlib._pylab_helpers.Gcf.get_all_fig_managers()[n-1]
+                  matplotlib._pylab_helpers.Gcf.set_active(fig)
+                  fig = pl.gcf()
+                  found = 1
 
-	#import code; code.interact(local=locals())
-
-	n=0
-	found=0
-	for tname in fig_names:
-		n+=1
-		if tname == name:
-			fig=matplotlib._pylab_helpers.Gcf.get_all_fig_managers()[n-1]
-			matplotlib._pylab_helpers.Gcf.set_active(fig)
-			fig = pl.gcf()
-			found = 1
-
-	if not found==1:
-		print 'Created new figure %s'  % (name)
-		if (figsize is None):
-			fig = pl.figure(**figprops)
-		else:
-			fig = pl.figure(figsize=figsize,**figprops)
-		if name is not None:
-		  fig.canvas.set_window_title(name)
-#	figure(fig.number)
-	return fig
+  if not found==1:
+          print('Created new figure %s'  % (name))
+          if (figsize is None):
+                  fig = pl.figure(**figprops)
+          else:
+                  fig = pl.figure(figsize=figsize,**figprops)
+          if name is not None:
+            fig.canvas.set_window_title(name)
+  figure(fig.number)
+  return fig
 
 def draw_verticalline(pos=0,linespec='k'):
   ah = pl.gca()
@@ -88,21 +87,21 @@ def mfreqz(b,a=1):
     pl.subplots_adjust(hspace=0.5)
 
 def impz(b,a=1):
-        impulse = np.repeat(0.,50); impulse[0] =1.
-        x = np.arange(0,50)
-        response = signal.lfilter(b,a,impulse)
-        pl.subplot(211)
-        pl.stem(x, response)
-        pl.ylabel('Amplitude') 
-        pl.xlabel(r'n (samples)')
-        pl.title(r'Impulse response')
-        pl.subplot(212)
-        step = np.cumsum(response)
-        pl.stem(x, step)
-        pl.ylabel('Amplitude') 
-        pl.xlabel(r'n (samples)')
-        pl.title(r'Step response')
-        pl.subplots_adjust(hspace=0.5)
+  impulse = np.repeat(0.,50); impulse[0] =1.
+  x = np.arange(0,50)
+  response = signal.lfilter(b,a,impulse)
+  pl.subplot(211)
+  pl.stem(x, response)
+  pl.ylabel('Amplitude') 
+  pl.xlabel(r'n (samples)')
+  pl.title(r'Impulse response')
+  pl.subplot(212)
+  step = np.cumsum(response)
+  pl.stem(x, step)
+  pl.ylabel('Amplitude') 
+  pl.xlabel(r'n (samples)')
+  pl.title(r'Step response')
+  pl.subplots_adjust(hspace=0.5)
 
 
 def clim_std(stdfac=1,ih=None):
@@ -133,19 +132,18 @@ def getSpanCoordinates(direction='horizontal',axh=None,fig=None,data=None):
 
     def coo(self,tmin,tmax):
       self.lims = [tmin,tmax]
-      if self.boxh:
-        self.boxh.remove()
+      if self.boxh: self.boxh.remove()
       if self.direction is 'horizontal':
         self.boxh = pl.axvspan(tmin,tmax,facecolor='r',alpha=0.5)
-	delta = tmax-tmin
-	axh.set_xlim([tmin-0.2*delta, tmax+0.2*delta])
-	if data is not None:
-	  dat = data[1]
+        delta = tmax-tmin
+        axh.set_xlim([tmin-0.2*delta, tmax+0.2*delta])
+        if data is not None:
+          dat = data[1]
 
       if self.direction is 'vertical':
         self.boxh = pl.axhspan(tmin,tmax,facecolor='r',alpha=0.5)
-	delta = tmax-tmin
-	axh.set_ylim([tmin-0.2*delta, tmax+0.2*delta])
+        delta = tmax-tmin
+        axh.set_ylim([tmin-0.2*delta, tmax+0.2*delta])
       fig.canvas.draw()
     
     def button_press_callback(self,event):
@@ -155,10 +153,9 @@ def getSpanCoordinates(direction='horizontal',axh=None,fig=None,data=None):
   roi = ROI(fig,axh,direction)
   selector = pl.matplotlib.widgets.SpanSelector(axh,roi.coo,direction)
   fig.canvas.mpl_connect('button_press_event', roi.button_press_callback)
-  print "Select Span region of interest, finish with right click."
-  while not roi.finished:
-    pl.waitforbuttonpress()
-  print "Span %s selected."%(roi.lims) 
+  print("Select Span region of interest, finish with right click.")
+  while not roi.finished: pl.waitforbuttonpress()
+  print("Span %s selected."%(roi.lims))
   roi.boxh.remove()
   fig.canvas.draw()
   del selector
@@ -196,7 +193,7 @@ def getBins(lims,direction='horizontal',axh=None,fig=None):
   roi = ROI(fig,axh,direction)
   selector = pl.matplotlib.widgets.SpanSelector(axh,roi.coo,direction)
   fig.canvas.mpl_connect('button_press_event', roi.button_press_callback)
-  print "Select Span region of interest, finish with right click."
+  print("Select Span region of interest, finish with right click.")
   while not roi.finished:
     pl.waitforbuttonpress()
   
@@ -221,7 +218,7 @@ def getCoordinate(direction='both',axh=None,fig=None):
       if event.button == 3:
         finished = True
   fig.canvas.mpl_connect('button_press_event', button_press_callback)
-  print "Select a coordinate, finish with right click."
+  print("Select a coordinate, finish with right click.")
   linh = []
   while not finished:
     for tlinh in linh:
@@ -257,12 +254,11 @@ def getRectangleCoordinates(axh=None,fig=None):
     def coo(self,eclick,erelease):
 
       self.lims = [min([eclick.xdata,erelease.xdata]),
-                   max([eclick.xdata,erelease.xdata]),
-                   min([eclick.ydata,erelease.ydata]),
-                   max([eclick.ydata,erelease.ydata])]
-                   
-      if self.boxh:
-        self.boxh.remove()
+       max([eclick.xdata,erelease.xdata]),
+       min([eclick.ydata,erelease.ydata]),
+       max([eclick.ydata,erelease.ydata])]
+       
+      if self.boxh:  self.boxh.remove()
       ptch = pl.Rectangle([self.lims[0],self.lims[2]],self.lims[1]-self.lims[0],self.lims[3]-self.lims[2],facecolor='r',alpha=0.5,ec='k')
       self.boxh = self.axh.add_patch(ptch)
       fig.canvas.draw()
@@ -274,7 +270,7 @@ def getRectangleCoordinates(axh=None,fig=None):
   roi = ROI(fig,axh)
   selector = pl.matplotlib.widgets.RectangleSelector(axh,roi.coo)
   fig.canvas.mpl_connect('button_press_event', roi.button_press_callback)
-  print "Select rectangular region of interest, finish with right click."
+  print("Select rectangular region of interest, finish with right click.")
   while not roi.finished:
     pl.waitforbuttonpress()
   
@@ -291,11 +287,11 @@ def maskPoints(x,y,linespec=None,maskedspec='or',dragtype='rectangle'):
   mask = np.zeros_like(x,dtype=bool)
   lh, = plt.plot([],[],maskedspec)
   while not done:
-    print 'Select mask region by dragging %s' %dragtype
+    print('Select mask region by dragging %s' %dragtype)
     coos = getRectangleCoordinates()
     mask[np.logical_and(filtvec(x,coos[:2]), filtvec(y,coos[2:]))]=True
     lh.set_data(x[mask],y[mask])
-    print 'Click on plot to add region or press any key when done?'
+    print('Click on plot to add region or press any key when done?')
     if plt.waitforbuttonpress():
       done = True
       continue
@@ -328,7 +324,7 @@ def getKeyPress():
 
 
     #print 'button=%d, x=%d, y=%d, xdata=%f, ydata=%f'%(
-		  #event.button, event.x, event.y, event.xdata, event.ydata)
+                  #event.button, event.x, event.y, event.xdata, event.ydata)
   cid = fig.canvas.mpl_connect('key_press_event', keydum.y.onkey)
 
 
@@ -361,22 +357,22 @@ def imagesc(*args,**kwargs):
     I = args[2]
     ny,nx = np.shape(I)
     if len(x)==nx+1:
-      print "imagesc: x-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges."
+      print("imagesc: x-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges.")
       x = x[:-1]+np.mean(np.diff(x))
     elif len(x)==nx-1:
-      print "imagesc: x-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides."
+      print("imagesc: x-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides.")
       x = x-np.mean(np.diff(x))
     elif not len(x)==nx:
-      print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
+      print("Warning! x vector does not fit the side length of your matrix, possibly transposed!")
     if len(y)==ny+1:
-      print "imagesc: y-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges."
+      print("imagesc: y-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges.")
       y = y[:-1]+np.mean(np.diff(y))
     elif len(y)==ny-1:
-      print "imagesc: y-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides."
+      print("imagesc: y-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides.")
       y = y-np.mean(np.diff(y))
     elif not len(y)==ny:
-      print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
-      print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
+      print("Warning! x vector does not fit the side length of your matrix, possibly transposed!")
+      print("Warning! x vector does not fit the side length of your matrix, possibly transposed!")
   dx = float(max(x)-min(x))/nx
   dy = float(max(y)-min(y))/ny
   xmn = min(x)-dx/2
@@ -392,7 +388,7 @@ def imagesc(*args,**kwargs):
     except IndexError:
       return 'x=%1.4f, y=%1.4f'%(x, y)
   h = axes.imshow(I,interpolation=interpolation,
-              extent=[xmn,xmx,ymn,ymx],origin='bottom',**kwargs)
+        extent=[xmn,xmx,ymn,ymx],origin='bottom',**kwargs)
   h.axes.format_coord=_format_coord
   axes.axis('tight')
   
@@ -433,22 +429,22 @@ def imagesc2(*args,**kwargs):
     I = args[2]
     ny,nx = np.shape(I)
     if len(x)==nx+1:
-      print "imagesc: x-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges."
+      print("imagesc: x-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges.")
       x = x[:-1]+np.mean(np.diff(x))
     elif len(x)==nx-1:
-      print "imagesc: x-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides."
+      print("imagesc: x-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides.")
       x = x-np.mean(np.diff(x))
     elif not len(x)==nx:
-      print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
+      print("Warning! x vector does not fit the side length of your matrix, possibly transposed!")
     if len(y)==ny+1:
-      print "imagesc: y-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges."
+      print("imagesc: y-vector is one element longer than corresponding intensity matrix. Is interpreted as bin edges.")
       y = y[:-1]+np.mean(np.diff(y))
     elif len(y)==ny-1:
-      print "imagesc: y-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides."
+      print("imagesc: y-vector is one element shorter than corresponding intensity matrix. Is interpreted as bin edges with overflow on both sides.")
       y = y-np.mean(np.diff(y))
     elif not len(y)==ny:
-      print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
-      print "Warning! x vector does not fit the side length of your matrix, possibly transposed!"
+      print("Warning! x vector does not fit the side length of your matrix, possibly transposed!")
+      print("Warning! x vector does not fit the side length of your matrix, possibly transposed!")
     dx = float(max(x)-min(x))
     dy = float(max(y)-min(y))
     xmn = min(x)-dx/(nx-1)/2
@@ -478,12 +474,12 @@ def imagesc2(*args,**kwargs):
     smax = Slider(axmax, 'Max', prc[0], prc[-1], valinit=prc[-4])
     def updatemax(val):
       if smax.val<smin.val:
-	smax.set_val(smin.val)
+        smax.set_val(smin.val)
       h.set_clim([smin.val,smax.val])
       fig.canvas.draw()
     def updatemin(val):
       if smax.val<smin.val:
-	smin.set_val(smax.val)
+        smin.set_val(smax.val)
       h.set_clim([smin.val,smax.val])
       fig.canvas.draw()
     smin.on_changed(updatemin)
@@ -510,7 +506,7 @@ def subplots(*args,**kwargs):
   fig,ax = plt.subplots(*args,**kwargs)
   plt.subplots_adjust(hspace=hspace,bottom=bottom,left=left,right=right,top=top,wspace=wspace)
   if (fig.subplotpars.hspace < hspacemin) and sharex:
-    print 'YES'
+    print('YES')
     #for tax in ax[:-1]:
       #tax.set_xticklabels([])
       #xticklabels += tax.get_xticklabels()
@@ -522,66 +518,65 @@ def subplots(*args,**kwargs):
 
 
 def addPngMetadata(fname,dictionary):
-	""" This function is meant to store information about the analysis on a 
-	png image created with matplotlib;
-	It takes a filename (of a previously saved png image) and a dictionary;
-	inspired by Nick Galbreath google code: pngaddcomment
-	"""
-	outtemp = "addPngMetadata.png"
-	try:
-		from PIL import Image
-		from PIL import PngImagePlugin
-	except ImportError:
-		print "PIL module not found, can't add PngMetadata"
-	img = Image.open(fname)
-	meta = PngImagePlugin.PngInfo()
-	for k,v in dictionary.iteritems():
-		meta.add_text(k,str(v))
-#	for k,v in img.info.iteritems():
-#		meta.add_text(k,str(v))
-	img.save(outtemp,"PNG", pnginfo=meta)
-# if previous steps works, writing directly to fname could corrupt file
-	os.rename(outtemp,fname);
-	 
+  """ This function is meant to store information about the analysis on a 
+  png image created with matplotlib;
+  It takes a filename (of a previously saved png image) and a dictionary;
+  inspired by Nick Galbreath google code: pngaddcomment
+  """
+  outtemp = "addPngMetadata.png"
+  try:
+    from PIL import Image
+    from PIL import PngImagePlugin
+  except ImportError("PIL module not found, can't add PngMetadata"):
+    pass
+  img = Image.open(fname)
+  meta = PngImagePlugin.PngInfo()
+  for k,v in dictionary.iteritems():
+          meta.add_text(k,str(v))
+  for k,v in img.info.iteritems():
+           meta.add_text(k,str(v))
+  img.save(outtemp,"PNG", pnginfo=meta)
+  #previous steps works, writing directly to fname could corrupt file
+  os.rename(outtemp,fname);
+         
 def getPngMetadata(fname):
-	""" This function is meant to store information about the analysis on a 
-	png image created with matplotlib;
-	It takes a filename (of a previously saved png image) and a dictionary;
-	inspired by Nick Galbreath google code: pngaddcomment
-	"""
-	try:
-		from PIL import Image
-		from PIL import PngImagePlugin
-	except ImportError:
-		print "PIL module not found, can't add PngMetadata"
-		return None
-	img = Image.open(fname)
-	return img.info
+   """ This function is meant to store information about the analysis on a 
+   png image created with matplotlib;
+   It takes a filename (of a previously saved png image) and a dictionary;
+   inspired by Nick Galbreath google code: pngaddcomment
+   """
+   try:
+     from PIL import Image
+     from PIL import PngImagePlugin
+   except ImportError("PIL module not found, can't add PngMetadata"):
+     return None
+   img = Image.open(fname)
+   return img.info
 
 
 from matplotlib.colors import LinearSegmentedColormap
 
 class nlcmap(LinearSegmentedColormap):
-    """A nonlinear colormap"""
-    name = 'nlcmap'
-    def __init__(self, cmap, levels):
-        self.cmap = cmap
-        # @MRR: Need to add N for backend
-        self.N = cmap.N
-        self.monochrome = self.cmap.monochrome
-        self.levels = np.asarray(levels, dtype='float64')
-        self._x = self.levels / self.levels.max()
-        self._y = np.linspace(0.0, 1.0, len(self.levels))
+  """A nonlinear colormap"""
+  name = 'nlcmap'
+  def __init__(self, cmap, levels):
+    self.cmap = cmap
+    # @MRR: Need to add N for backend
+    self.N = cmap.N
+    self.monochrome = self.cmap.monochrome
+    self.levels = np.asarray(levels, dtype='float64')
+    self._x = self.levels / self.levels.max()
+    self._y = np.linspace(0.0, 1.0, len(self.levels))
     #@MRR Need to add **kw for 'bytes'
-    def __call__(self, xi, alpha=1.0, **kw):
-        """docstring for fname"""
-        # @MRR: Appears broken?
-        # It appears something's wrong with the
-        # dimensionality of a calculation intermediate
-        #yi = stineman_interp(xi, self._x, self._y)
-        yi = np.interp(xi, self._x, self._y)
-        return self.cmap(yi, alpha)
- 
+
+  def __call__(self, xi, alpha=1.0, **kw):
+    """docstring for fname"""
+    # @MRR: Appears broken?
+    # It appears something's wrong with the
+    # dimensionality of a calculation intermediate
+    #yi = stineman_interp(xi, self._x, self._y)
+    yi = np.interp(xi, self._x, self._y)
+    return self.cmap(yi, alpha)
  
 def cmap_smooth(I=None,axh=None,Nlevels=256,cmap_lin=None):
   if cmap_lin is None:
@@ -598,15 +593,15 @@ def cmap_smooth(I=None,axh=None,Nlevels=256,cmap_lin=None):
 
 
 greyscale = [
-            " ",
-            " ",
-            ".,-",
-            "_ivc=!/|\\~",
-            "gjez2]/(YL)t[+T7Vf",
-            "mdK4ZGbNDXY5P*Q",
-            "W8KMA",
-            "#%$"
-            ]
+      " ",
+      " ",
+      ".,-",
+      "_ivc=!/|\\~",
+      "gjez2]/(YL)t[+T7Vf",
+      "mdK4ZGbNDXY5P*Q",
+      "W8KMA",
+      "#%$"
+      ]
 from bisect import bisect
 from random import randint
 
@@ -628,88 +623,88 @@ def hist_asciicontrast(x,bins=50,range=None,disprange=True):
   return hstr  
   
 class hist_ascii(object):
+  """
+  Ascii histogram
+  """
+  def __init__(self, data, bins=50,percRange=None,range=None):
     """
-    Ascii histogram
+    Class constructor
+    :Parameters:
+    - `data`: array like object
     """
-    def __init__(self, data, bins=50,percRange=None,range=None):
-        """
-        Class constructor
-        
-        :Parameters:
-            - `data`: array like object
-        """
-	if not percRange is None:
-	  range = np.percentile(data,percRange)
+    if not percRange is None:
+     range = np.percentile(data,percRange)
+    self.data = data
+    self.bins = bins
+    self.h = np.histogram(self.data, bins=self.bins, range=range)
 
-        self.data = data
-        self.bins = bins
-        self.h = np.histogram(self.data, bins=self.bins, range=range)
-    def horizontal(self, height=4, character ='|'):
-        """Returns a multiline string containing a
-        a horizontal histogram representation of self.data
-        :Parameters:
-            - `height`: Height of the histogram in characters
-            - `character`: Character to use
-        >>> d = normal(size=1000)
-        >>> h = Histogram(d,bins=25)
-        >>> print h.horizontal(5,'|')
-        106            |||
-                      |||||
-                      |||||||
-                    ||||||||||
-                   |||||||||||||
-        -3.42                         3.09
-        """
-        his = """"""
-        bars = 1.*self.h[0]/np.max(self.h[0])*height
-        formnum = lambda(num): '{:<9}'.format('%0.4g' %(num))
-        for l in reversed(range(1,height+1)):      
-            line = ""
-            if l == height:
-                line = formnum(np.max(self.h[0])) + ' ' #histogram top count
-            else:
-                line = ' '*(9+1) #add leading spaces
-            for c in bars:
-                if c >= np.ceil(l):
-                    line += character
-                else:
-                    line += ' '
-            line +='\n'
-            his += line
-        his += formnum(self.h[1][0]) + ' '*(self.bins) + formnum(self.h[1][-1]) + '\n'
-        return his
-    def vertical(self,height=20, character ='|'):
-        """
-        Returns a Multi-line string containing a
-        a vertical histogram representation of self.data
-        :Parameters:
-            - `height`: Height of the histogram in characters
-            - `character`: Character to use
-        >>> d = normal(size=1000)
-        >>> Histogram(d,bins=10)
-        >>> print h.vertical(15,'*')
-                              236
-        -3.42:
-        -2.78:
-        -2.14: ***
-        -1.51: *********
-        -0.87: *************
-        -0.23: ***************
-        0.41 : ***********
-        1.04 : ********
-        1.68 : *
-        2.32 :
-        """
-        his = """"""
-        xl = ['%.2f'%n for n in self.h[1]]
-        lxl = [len(l) for l in xl]
-        bars = self.h[0]/max(self.h[0])*height
-        his += ' '*(np.max(bars)+2+np.max(lxl))+'%s\n'%np.max(self.h[0])
-        for i,c in enumerate(bars):
-            line = xl[i] +' '*(np.max(lxl)-lxl[i])+': '+ character*c+'\n'
-            his += line
-        return his
-            
+  def horizontal(self, height=4, character ='|'):
+    """Returns a multiline string containing a
+    a horizontal histogram representation of self.data
+    :Parameters:
+        - `height`: Height of the histogram in characters
+        - `character`: Character to use
+    >>> d = normal(size=1000)
+    >>> h = Histogram(d,bins=25)
+    >>> print h.horizontal(5,'|')
+    106      |||
+            |||||
+           |||||||
+          ||||||||||
+         |||||||||||||
+    -3.42       3.09"""
+    his = """"""
+    bars = 1.*self.h[0]/np.max(self.h[0])*height
+    def formnum(num):
+      return '{:<9}'.format('%0.4g' %(num))
+    for l in reversed(range(1,height+1)):      
+      line = ""
+      if l == height:
+        line = formnum(np.max(self.h[0])) + ' ' #histogram top count
+      else:
+        line = ' '*(9+1) #add leading spaces
+      for c in bars:
+        if c >= np.ceil(l):
+          line += character
+        else:
+          line += ' '
+      line +='\n'
+      his += line
+    his += formnum(self.h[1][0]) + ' '*(self.bins) + formnum(self.h[1][-1]) + '\n'
+    return his
+
+  def vertical(self,height=20, character ='|'):
+    """
+    Returns a Multi-line string containing a
+    a vertical histogram representation of self.data
+    :Parameters:
+        - `height`: Height of the histogram in characters
+        - `character`: Character to use
+    >>> d = normal(size=1000)
+    >>> Histogram(d,bins=10)
+    >>> print h.vertical(15,'*')
+              236
+    -3.42:
+    -2.78:
+    -2.14: ***
+    -1.51: *********
+    -0.87: *************
+    -0.23: ***************
+    0.41 : ***********
+    1.04 : ********
+    1.68 : *
+    2.32 :
+    """
+    his = """"""
+    xl = ['%.2f'%n for n in self.h[1]]
+    lxl = [len(l) for l in xl]
+    bars = self.h[0]/max(self.h[0])*height
+    his += ' '*(np.max(bars)+2+np.max(lxl))+'%s\n'%np.max(self.h[0])
+    for i,c in enumerate(bars):
+      line = xl[i] +' '*(np.max(lxl)-lxl[i])+': '+ character*c+'\n'
+      his += line
+    return his
+      
  
 
 class Roipoly(Widget):
@@ -719,7 +714,7 @@ class Roipoly(Widget):
     self.canvas = self.figure.canvas
     self.useblit = useblit
     if useblit:
-	self.background = self.canvas.copy_from_bbox(self.axes.bbox)
+        self.background = self.canvas.copy_from_bbox(self.axes.bbox)
     if not xy is None:
       x, y = xy
       self.verts = [(x,y)]
@@ -742,7 +737,7 @@ class Roipoly(Widget):
       self.verts.append((event.xdata, event.ydata))
       self.dragging = False
       #if len(self.verts)>2:
-	#self.callback(self.verts)
+        #self.callback(self.verts)
 #
 
   def onclick(self, event):
@@ -750,57 +745,55 @@ class Roipoly(Widget):
     self.clicktime = time.time()
     if event.button==3:
       if self.open_path:
-	self.open_path = False
+        self.open_path = False
         self.verts.append((event.xdata, event.ydata))
-	plotdat = copy(self.verts)
-	plotdat.append(plotdat[0])
-	self.line.set_data(zip(*plotdat))
+        plotdat = copy(self.verts)
+        plotdat.append(plotdat[0])
+        self.line.set_data(zip(*plotdat))
         self.axes.lines.remove(self.line_close)
-	self.line_close=None
+        self.line_close=None
       else:
-	
-	for cid in self.cids:
-	  self.canvas.mpl_disconnect(cid)
+        for cid in self.cids:
+          self.canvas.mpl_disconnect(cid)
         self.axes.lines.remove(self.line)
-	self.line = None
-	self.done = True
+        self.line = None
+        self.done = True
 
-	
+        
 
 
       #self.verts = None
       #self.axes.lines.remove(self.line)
       #self.verts = None
       #for cid in self.cids:
-	  #self.canvas.mpl_disconnect(cid)
+          #self.canvas.mpl_disconnect(cid)
       #return 
     if event.button==1:
       if not self.open_path:
         self.verts = []
-
-	self.line=None
-	#self.dragging = False
-	#self.open_path = False
+        self.line=None
+        #self.dragging = False
+        #self.open_path = False
 
       self.verts.append((event.xdata, event.ydata))
       if self.line is None:
-	self.verts.append((event.xdata, event.ydata))
-	self.open_path = True
-	x,y = zip(*self.verts)
-	self.line = Line2D([x], [y], linestyle='-', color='black', lw=1.3)
-	self.axes.add_line(self.line)
-	self.line_close = Line2D([x], [y], linestyle=':', color='black', lw=1.3)
-	self.axes.add_line(self.line_close)
+        self.verts.append((event.xdata, event.ydata))
+        self.open_path = True
+        x,y = zip(*self.verts)
+        self.line = Line2D([x], [y], linestyle='-', color='black', lw=1.3)
+        self.axes.add_line(self.line)
+        self.line_close = Line2D([x], [y], linestyle=':', color='black', lw=1.3)
+        self.axes.add_line(self.line_close)
 
     if self.useblit:
-	self.canvas.restore_region(self.background)
-	if not self.line is None:
-	  self.axes.draw_artist(self.line)
-	if not self.line_close is None:
-	  self.axes.draw_artist(self.line_close)
-	self.canvas.blit(self.axes.bbox)
+        self.canvas.restore_region(self.background)
+        if not self.line is None:
+          self.axes.draw_artist(self.line)
+        if not self.line_close is None:
+          self.axes.draw_artist(self.line_close)
+        self.canvas.blit(self.axes.bbox)
     else:
-	self.canvas.draw_idle()
+        self.canvas.draw_idle()
 
   def onmove(self, event):
     if not self.open_path: return
@@ -821,12 +814,12 @@ class Roipoly(Widget):
       self.line_close.set_data(zip(*closedat))
 
     if self.useblit:
-	self.canvas.restore_region(self.background)
-	self.axes.draw_artist(self.line)
-	self.axes.draw_artist(self.line_close)
-	self.canvas.blit(self.axes.bbox)
+        self.canvas.restore_region(self.background)
+        self.axes.draw_artist(self.line)
+        self.axes.draw_artist(self.line_close)
+        self.canvas.blit(self.axes.bbox)
     else:
-	self.canvas.draw_idle()
+        self.canvas.draw_idle()
 
 def roipoly(ax=None):
   """ use polygonmask to get the pixel mask"""
@@ -841,7 +834,7 @@ def polygonmask(pgon,x,y):
   xshp = np.shape(x)
   yshp = np.shape(y)
   if not xshp==yshp:
-    print "Shapes dont match"
+    print("Shapes dont match")
     return
   if LooseVersion(matplotlib.__version__)<'1.2':
     mask = points_inside_poly(zip(x.ravel(),y.ravel()),pgon)
@@ -863,17 +856,17 @@ def colormaps():
   half.  Then you would use:
 
   cdict = {'red':   ((0.0,  0.0, 0.0),
-		     (0.5,  1.0, 1.0),
-		     (1.0,  1.0, 1.0)),
+                     (0.5,  1.0, 1.0),
+                     (1.0,  1.0, 1.0)),
 
-	   'green': ((0.0,  0.0, 0.0),
-		     (0.25, 0.0, 0.0),
-		     (0.75, 1.0, 1.0),
-		     (1.0,  1.0, 1.0)),
+           'green': ((0.0,  0.0, 0.0),
+                     (0.25, 0.0, 0.0),
+                     (0.75, 1.0, 1.0),
+                     (1.0,  1.0, 1.0)),
 
-	   'blue':  ((0.0,  0.0, 0.0),
-		     (0.5,  0.0, 0.0),
-		     (1.0,  1.0, 1.0))}
+           'blue':  ((0.0,  0.0, 0.0),
+                     (0.5,  0.0, 0.0),
+                     (1.0,  1.0, 1.0))}
 
   If, as in this example, there are no discontinuities in the r, g, and b
   components, then it is quite simple: the second and third element of
@@ -900,8 +893,8 @@ def colormaps():
   back to 0, and ramps back to 1 as x goes from 0.5 to 1.
 
   row i:   x  y0  y1
-		  /
-		 /
+                  /
+                 /
   row i+1: x  y0  y1
 
   Above is an attempt to show that for x in the range x[i] to x[i+1], the
@@ -913,56 +906,56 @@ def colormaps():
 
 
   cdict1 = {'red':   ((0.0, 0.0, 0.0),
-		     (0.5, 0.0, 0.1),
-		     (1.0, 1.0, 1.0)),
+                     (0.5, 0.0, 0.1),
+                     (1.0, 1.0, 1.0)),
 
-	   'green': ((0.0, 0.0, 0.0),
-		     (1.0, 0.0, 0.0)),
+           'green': ((0.0, 0.0, 0.0),
+                     (1.0, 0.0, 0.0)),
 
-	   'blue':  ((0.0, 0.0, 1.0),
-		     (0.5, 0.1, 0.0),
-		     (1.0, 0.0, 0.0))
-	  }
+           'blue':  ((0.0, 0.0, 1.0),
+                     (0.5, 0.1, 0.0),
+                     (1.0, 0.0, 0.0))
+          }
 
   cdict2 = {'red':   ((0.0, 0.0, 0.0),
-		     (0.5, 0.0, 1.0),
-		     (1.0, 0.1, 1.0)),
+                     (0.5, 0.0, 1.0),
+                     (1.0, 0.1, 1.0)),
 
-	   'green': ((0.0, 0.0, 0.0),
-		     (1.0, 0.0, 0.0)),
+           'green': ((0.0, 0.0, 0.0),
+                     (1.0, 0.0, 0.0)),
 
-	   'blue':  ((0.0, 0.0, 0.1),
-		     (0.5, 1.0, 0.0),
-		     (1.0, 0.0, 0.0))
-	  }
+           'blue':  ((0.0, 0.0, 0.1),
+                     (0.5, 1.0, 0.0),
+                     (1.0, 0.0, 0.0))
+          }
 
   cdict3 = {'red':  ((0.0, 0.0, 0.0),
-		     (0.25,0.0, 0.0),
-		     (0.5, 0.8, 1.0),
-		     (0.75,1.0, 1.0),
-		     (1.0, 0.4, 1.0)),
+                     (0.25,0.0, 0.0),
+                     (0.5, 0.8, 1.0),
+                     (0.75,1.0, 1.0),
+                     (1.0, 0.4, 1.0)),
 
-	   'green': ((0.0, 0.0, 0.0),
-		     (0.25,0.0, 0.0),
-		     (0.5, 0.9, 0.9),
-		     (0.75,0.0, 0.0),
-		     (1.0, 0.0, 0.0)),
+           'green': ((0.0, 0.0, 0.0),
+                     (0.25,0.0, 0.0),
+                     (0.5, 0.9, 0.9),
+                     (0.75,0.0, 0.0),
+                     (1.0, 0.0, 0.0)),
 
-	   'blue':  ((0.0, 0.0, 0.4),
-		     (0.25,1.0, 1.0),
-		     (0.5, 1.0, 0.8),
-		     (0.75,0.0, 0.0),
-		     (1.0, 0.0, 0.0))
-	  }
+           'blue':  ((0.0, 0.0, 0.4),
+                     (0.25,1.0, 1.0),
+                     (0.5, 1.0, 0.8),
+                     (0.75,0.0, 0.0),
+                     (1.0, 0.0, 0.0))
+          }
 
   # Make a modified version of cdict3 with some transparency
   # in the middle of the range.
   cdict4 = cdict3.copy()
   cdict4['alpha'] = ((0.0, 1.0, 1.0),
-		  #   (0.25,1.0, 1.0),
-		     (0.5, 0.3, 0.3),
-		  #   (0.75,1.0, 1.0),
-		     (1.0, 1.0, 1.0))
+                  #   (0.25,1.0, 1.0),
+                     (0.5, 0.3, 0.3),
+                  #   (0.75,1.0, 1.0),
+                     (1.0, 1.0, 1.0))
 
 
   # Now we will use this example to illustrate 3 ways of

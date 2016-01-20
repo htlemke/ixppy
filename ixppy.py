@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pylab as pl
 import h5py
 import os
@@ -8,6 +9,7 @@ import sys
 import numpy as np
 #import ixppy_specialdet
 import tools
+from toolsLog import logbook
 from toolsVarious import addToObj
 import toolsHdf5 as tH5
 from toolsHdf5 import datasetRead as h5r
@@ -15,7 +17,7 @@ from functools import partial,wraps
 from copy import copy
 import re
 import examples
-import ixppy
+#import ixppy
 import datetime
 import operator
 import time
@@ -64,27 +66,26 @@ class dataset(object):
     self._getFileStrategy()
     if len(self.config.fileNamesIxp)==0:
       if ixpFile is None:
-	tfname =  self.config.fileNamesH5[0]
-	ixpname = os.path.join(self.config.cachePath,os.path.basename(tfname))
-	ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
-	self.config.ixp = Ixp(ixpname)
+        tfname =  self.config.fileNamesH5[0]
+        ixpname = os.path.join(self.config.cachePath,os.path.basename(tfname))
+        ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
+        self.config.ixp = Ixp(ixpname)
       elif os.path.isdir(ixpFile):
-	tfname =  self.config.fileNamesH5[0]
-	ixpname = os.path.join(ixpFile,os.path.basename(tfname))
-	ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
-	self.config.ixp = Ixp(ixpname)
-
+        tfname =  self.config.fileNamesH5[0]
+        ixpname = os.path.join(ixpFile,os.path.basename(tfname))
+        ixpname = os.path.splitext(ixpname)[0] + '.ixp.h5'
+        self.config.ixp = Ixp(ixpname)
       else:
-	self.config.ixp = Ixp(ixpFile)
-	if os.path.exists(ixpFile):
-	    self.config.filestrategy.append('ixp')
+        self.config.ixp = Ixp(ixpFile)
+        if os.path.exists(ixpFile):
+          self.config.filestrategy.append('ixp')
     else:
       if ixpFile is None:
         self.config.ixp = Ixp(self.config.fileNamesIxp[0])
       else:
         self.config.ixp = Ixp(ixpFile)
-	if os.path.exists(ixpFile):
-	  self.config.filestrategy.append('ixp')
+        if os.path.exists(ixpFile):
+          self.config.filestrategy.append('ixp')
 
     self._ixpHandle = self.config.ixp
     self._ixpsaved = []
@@ -92,9 +93,9 @@ class dataset(object):
       self.config.ixp.get_cacheFileHandle(reopen=True)
       dat = self.config.ixp.load()
       if 'dataset' in [ixps[0] for ixps in dat._ixpsaved]:
-	names = [tn[0] for tn in dat.dataset._ixpsaved]
-	for name in names:
-	  self.__setitem__(name,dat.dataset[name],setParent=True)
+        names = [tn[0] for tn in dat.dataset._ixpsaved]
+        for name in names:
+          self.__setitem__(name,dat.dataset[name],setParent=True)
 
     
     if 'h5' in self.config.filestrategy:
@@ -104,30 +105,30 @@ class dataset(object):
       self.config.lclsH5obj.findDetectors(detectors,exclude=exclude)
       self.config.lclsH5obj.initDetectors()
       if hasattr(self.config.lclsH5obj,'scanVars'):
-	for name in self.config.lclsH5obj.scanVars.keys():
-	  tVar = self.config.lclsH5obj.scanVars[name]
-	  if not hasattr(tVar,'names'): continue
-	  for vname,vdat in zip(tVar.names,np.asarray(tVar.data).T):
-	    vname = getValidFieldname(vname,lowerit=True) 
+        for name in list(self.config.lclsH5obj.scanVars.keys()):
+          tVar = self.config.lclsH5obj.scanVars[name]
+          if not hasattr(tVar,'names'): continue
+          for vname,vdat in zip(tVar.names,np.asarray(tVar.data).T):
+            vname = getValidFieldname(vname,lowerit=True) 
             addToObj(self,name+'.'+vname,vdat,ixpsaved=True)
       if hasattr(self,'scan'):
-	scan=self.scan
+        scan=self.scan
       else:
-	scan=None
+        scan=None
 
       for detName in self.config.lclsH5obj.detectorsNames:
         det = self.config.lclsH5obj.detectors[detName]
         if det._isPointDet:
-	  if hasattr(det,'fields'):
-	    for fieldName in det.fields.keys():
+          if hasattr(det,'fields'):
+            for fieldName in list(det.fields.keys()):
               addToObj(self,detName+'.'+fieldName,memdata(name=fieldName,input = det.fields[fieldName],scan=scan),ixpsaved=True)
-	else:
-	  #self[detName] = tools.dropObject(parent=self)
-	  #self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
+        else:
+          #self[detName] = tools.dropObject(parent=self)
+          #self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
           addToObj(self,detName+'.data',data(name=detName,time=det.time,input = det.readData,scan=scan),ixpsaved=True,setParent=True)
     postInitProc.process(self)
 
-	  
+          
 
   def _add(self,name,data,ixpsaved='auto'):
     self.__dict__[name]=data
@@ -142,21 +143,21 @@ class dataset(object):
       try:
         self[name]._parent = self
       except:
-	pass
+        pass
 
   def _getItemsNameList(self,excludeFun=True,excludeConf=True,excludePrivate=True):
-    lst = self.__dict__.keys()
+    lst = list(self.__dict__.keys())
     if excludePrivate:
       for l in lst:
-	if l[0]=='_':
-	  lst.remove(l)
+        if l[0]=='_':
+          lst.remove(l)
     #if excludeFun:
       #for l in lst:
-	#if hasattr('__call__',self.):
-	  #lst.remove(l)
+        #if hasattr('__call__',self.):
+          #lst.remove(l)
     if excludeConf:
       if 'config' in lst:
-	lst.remove('config')
+        lst.remove('config')
     return lst
 
   def items(self):
@@ -173,7 +174,7 @@ class dataset(object):
     """ returns the memdata or data object
     usage: d.get("ipm2.sum") would return d.ipm2.sum"""
     return eval( "self.%s" % name )
-	  
+          
   def save(self,name=None,force=False):
     #self.config.ixp.save(self,self._ixpHandle,name='dataset')
     self._ixpHandle.save(self,self._ixpHandle.fileHandle,name='dataset',force=force)
@@ -184,7 +185,7 @@ class dataset(object):
     import itertools
     Nc = []
     # upon initialization each detector check for Ncalib
-    tocheck = list(itertools.chain( self.detectors.values(),self._scanVars))
+    tocheck = list(itertools.chain( list(self.detectors.values()),self._scanVars))
     Nc = []
     for d in tocheck:
       Nc.append(d._numOfScanSteps)
@@ -194,7 +195,7 @@ class dataset(object):
     for d in tocheck:
       # print out most limiting detector
       if (list(NcMin) == list(d._numOfScanSteps)) and (list(NcMin)!=list(NcMax)):
-        print "WARNING: Detector/Scan ",d,"is limiting the number of Calybcycle to",str(NcMin),"instead of ",str(NcMax)
+        logbook("WARNING: Detector/Scan "+d+" is limiting the number of Calybcycle to "+str(NcMin)+" instead of "+str(NcMax))
       d._numOfScanSteps = list(NcMin)
     self.numOfScanSteps = list(NcMin)
     if len(NcMin) ==1:
@@ -206,7 +207,7 @@ class dataset(object):
     The 
     """
     if (subSelection==[]) or (subSelection is None):
-      subSelection = self.config.cnfFile["pointDet"].keys() + self.config.cnfFile["areaDet"].keys()
+      subSelection = list(self.config.cnfFile["pointDet"].keys()) + list(self.config.cnfFile["areaDet"].keys())
     h = self.config.fileHandlesH5[0]
     pointDet = self.config.cnfFile["pointDet"]
     # try to use only CalibCycle0
@@ -216,7 +217,7 @@ class dataset(object):
       h5names = [base+x for x in h5names]
       # find all confs
       base = "Configure:0000/"
-      confs = h[base].keys()
+      confs = list(h[base].keys())
       h5confs = []
       for c in confs:
         if (c.find("Run")==0):
@@ -251,11 +252,11 @@ class dataset(object):
         self._epicsPaths[mne]["data"] = epicsCommon.replace('CalibCycle:0000','CalibCycle:%04d')+"/"+dpath+"/data"
         self._epicsPaths[mne]["time"] = epicsCommon.replace('CalibCycle:0000','CalibCycle:%04d')+"/"+dpath+"/time"
         self._epicsPaths[mne]["conf"] = []
-      self._epicsNames = self._epicsPaths.keys()
+      self._epicsNames = list(self._epicsPaths.keys())
     else:
       self._epicsNames = []
     # *** stop EpicsPV *** #
-    for (mnemonic,name) in pointDet.iteritems():
+    for (mnemonic,name) in list(pointDet.items()):
       if (mnemonic.find("epics")>-1) and (mnemonic.find("*")>-1):
         continue
       mnemonic = mnemonic.split('_bak')[0]
@@ -275,12 +276,12 @@ class dataset(object):
         if len(detConf)>0:
           ret[mnemonic]["conf"] = detConf[0]
     self._pointDetPaths = ret
-    self.pointDetNames = ret.keys()
+    self.pointDetNames = list(ret.keys())
     areaDet = self.config.cnfFile["areaDet"]
     ret = {}
     # 3D detectors need special care because data are written differently 
     # /data, /image, /waveform
-    for (mnemonic,name) in areaDet.iteritems():
+    for (mnemonic,name) in list(areaDet.items()):
       mnemonic = mnemonic.split('_bak')[0]
       # skip if not in the group we want to read
       if mnemonic not in subSelection:
@@ -297,7 +298,7 @@ class dataset(object):
         ret[mnemonic]["time"] = time[0].replace('CalibCycle:0000','CalibCycle:%04d')
         ret[mnemonic]["conf"] = conf
     self._areaDetPaths = ret
-    self.areaDetNames = ret.keys()
+    self.areaDetNames = list(ret.keys())
     self._detectorsPaths = tools.dictMerge(self._pointDetPaths,self._areaDetPaths)
     self.detectorsNames = self.pointDetNames + self.areaDetNames
     # *** start scan variables *** #
@@ -327,12 +328,12 @@ class dataset(object):
       self.config.beamline = self.config.cnfFile['beamline']
     # setup path for data and cached files
     self.config.hostname = gethostname()
-    knownhosts = self.config.cnfFile['dataPath'].keys()
+    knownhosts = list(self.config.cnfFile['dataPath'].keys())
     if self.config.hostname in knownhosts:
        self.config.dataPath = self.config.cnfFile['dataPath'][self.config.hostname]
     else:
        self.config.dataPath = os.path.join(self.config.cnfFile['dataPath']['default'],self.config.beamline)
-    knownhosts = self.config.cnfFile['cachePath'].keys()
+    knownhosts = list(self.config.cnfFile['cachePath'].keys())
     if self.config.hostname in knownhosts:
        self.config.cachePath = self.config.cnfFile['cachePath'][self.config.hostname]
     else:
@@ -361,7 +362,7 @@ class dataset(object):
     # TODO: replace "isavailable" by properties checking for empty list
     for f in filenamesH5:
       if (not os.path.exists(f)):
-        print "Asked to read file %s, but is does not exist" % f
+        logbook("Asked to read file %s, but is does not exist" % f)
         self.config.daqHdf5file_available = False
       else:
         self.config.daqHdf5file_available = True
@@ -377,10 +378,10 @@ class dataset(object):
 
       filenamesIxp = []
       for f in filenamesH5:
-	cached_filename = os.path.join(self.config.cachePath,os.path.basename(f))
-	cached_filename = os.path.splitext(cached_filename)[0] + '.ixp.h5'
-	if tools.fileExists(cached_filename):
-	  filenamesIxp.append(cached_filename)
+        cached_filename = os.path.join(self.config.cachePath,os.path.basename(f))
+        cached_filename = os.path.splitext(cached_filename)[0] + '.ixp.h5'
+        if tools.fileExists(cached_filename):
+          filenamesIxp.append(cached_filename)
       
     return (filenamesH5,filenamesXtc,filenamesIxp)
 
@@ -402,11 +403,11 @@ class dataset(object):
       self.config.filestrategy = ['ixp']
     if not self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
       if self.config.readCachedData:
-	print "found ixp file in cache, will try to use it (override with readCachedData keyword)"
-	self.config.filestrategy = ['h5','ixp']
+        logbook("found ixp file in cache, will try to use it (override with readCachedData keyword)")
+        self.config.filestrategy = ['h5','ixp']
       else:
-	print "found ixp file in cache, will not be used, but might get overridden!!"
-	self.config.filestrategy = ['h5']
+        logbook("found ixp file in cache, will not be used, but might get overridden!!")
+        self.config.filestrategy = ['h5']
 
     elif self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
       self.config.filestrategy = ['ixp']
@@ -445,10 +446,10 @@ class memdata(object):
   def _getFilteredData(self):
     if not hasattr(self,'_data'):
       if not self._rdAllData is None:
-	self._data,self._time = initmemdataraw(self._rdAllData())
-	lens = [len(td) for td in self._data]
-	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
-	self._Nsteps = len(lens)
+        self._data,self._time = initmemdataraw(self._rdAllData())
+        lens = [len(td) for td in self._data]
+        self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+        self._Nsteps = len(lens)
 
     dat,stepsz = ravelScanSteps(self._data)
     return [dat[tf] for tf in self._filter]
@@ -457,10 +458,10 @@ class memdata(object):
   def _getFilteredTime(self):
     if not hasattr(self,'_time'):
       if not self._rdAllData is None:
-	self._data,self._time = initmemdataraw(self._rdAllData())
-	lens = [len(td) for td in self._data]
-	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
-	self._Nsteps = len(lens)
+        self._data,self._time = initmemdataraw(self._rdAllData())
+        lens = [len(td) for td in self._data]
+        self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+        self._Nsteps = len(lens)
     dat,stepsz = ravelScanSteps(self._time)
     return [dat[tf] if len(tf)>0 else [] for tf in self._filter]
   time = property(_getFilteredTime)
@@ -473,7 +474,7 @@ class memdata(object):
     ad = self.R
     hrange = np.percentile(ad,[5,95])
 
-    formnum = lambda(num): '{:<9}'.format('%0.4g' %(num))
+    formnum = lambda num: '{:<9}'.format('%0.4g' %(num))
     for n in range(len(self)):
       ostr+='Step %04d:'%n + tools.hist_asciicontrast(self[n],bins=40,range=hrange,disprange=False) +'\n'
     ho = tools.hist_ascii(ad,range=hrange,bins=40)
@@ -499,18 +500,18 @@ class memdata(object):
       return 'data'
     else:
       if not self._rdStride is None:
-	return 'rdStride'
+        return 'rdStride'
       elif not self_evtObj is None:
-	return 'evtObj'
+        return 'evtObj'
       else:
-	return None
+        return None
 
   def ravel(self):
     return np.hstack(self.data)
 
   def filter(self,lims=None,inplace=False,perc=False):
     dat,stsz = ravelScanSteps(self.data)
-    lims,filt = filter(dat,lims,perc=perc)
+    lims,filt = list(filter(dat,lims,perc=perc))
     filt = unravelIndexScanSteps(filt.nonzero()[0],stsz)
     if inplace:
       self._filter = filt
@@ -524,13 +525,13 @@ class memdata(object):
     dat,stsz = ravelScanSteps(self.data)
     if bins is not None:
       if not np.iterable(bins):
-	med = self.median()
+        med = self.median()
         if type(bins) is int:
-	  bins = np.linspace(np.min(med),np.max(med),bins+1)
+          bins = np.linspace(np.min(med),np.max(med),bins+1)
         elif type(bins) is float:
-	  bins = np.arange(np.min(med)-bins/2,np.max(med)+bins*1.5,bins)
+          bins = np.arange(np.min(med)-bins/2,np.max(med)+bins*1.5,bins)
     inds,bins = digitize(dat,bins)
-    binrange = range(1,len(bins))
+    binrange = list(range(1,len(bins)))
 
     filt = [(inds==tbin).nonzero()[0] for tbin in binrange]
     if inplace:
@@ -540,9 +541,9 @@ class memdata(object):
       tim,dum = ravelScanSteps(self.time)
       scan = tools.dropObject(name='scan')
       if self._name is None:
-	nname = ''
+        nname = ''
       else:
-	nname = self._name+'_'
+        nname = self._name+'_'
       scan[nname+'binedges'] = bins
       scan[nname+'bincenters'] = tools.histVecCenter(bins)
 
@@ -565,42 +566,42 @@ class memdata(object):
     #for tbins in args:
       #raise NotImplementeError
       #if isinstance(tbins,memdata):
-	#print "Found memdata"
-	#res_bins_dat_tmp = []
-	#res_bins_tim_tmp = []
-	#for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
-	  #dum,tind = filterTimestamps(tbins.time,bins_tim)
-	  #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
-	  #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
-	#res_bins_dat = res_bins_dat_tmp
+        #print "Found memdata"
+        #res_bins_dat_tmp = []
+        #res_bins_tim_tmp = []
+        #for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
+          #dum,tind = filterTimestamps(tbins.time,bins_tim)
+          #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
+          #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
+        #res_bins_dat = res_bins_dat_tmp
         #res_bins_tim = res_bins_tim_tmp
-	#res_binvec.append(tbin.scan[tbin.scan.keys()[0]])
+        #res_binvec.append(tbin.scan[tbin.scan.keys()[0]])
       #else:
-	#res_bins_dat_tmp = []
-	#res_bins_tim_tmp = []
-	#for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
-	  #inds,bins = digitize(bins_dat,tbins)
-	  ## continue here ToDo
-	  #binrange = range(1,len(bins))
-	  #tind = [(inds==tbin).nonzero()[0] for tbin in binrange]
-	  #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
-	  #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
-	#res_bins_dat = res_bins_dat_tmp
+        #res_bins_dat_tmp = []
+        #res_bins_tim_tmp = []
+        #for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
+          #inds,bins = digitize(bins_dat,tbins)
+          ## continue here ToDo
+          #binrange = range(1,len(bins))
+          #tind = [(inds==tbin).nonzero()[0] for tbin in binrange]
+          #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
+          #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
+        #res_bins_dat = res_bins_dat_tmp
         #res_bins_tim = res_bins_tim_tmp
       #return memdata(input=[res_bins_dat,res_bins_tim])
 
 
-	#if inplace:
-	  #self._filter = filt
-	  #return self
-	#else:
-	  #tim,dum = ravelScanSteps(self.time)
-	  #scan = tools.dropObject(name='scan')
-	  #scan['binedges'] = bins
-	  #scan['bincenters'] = tools.histVecCenter(bins)
+        #if inplace:
+          #self._filter = filt
+          #return self
+        #else:
+          #tim,dum = ravelScanSteps(self.time)
+          #scan = tools.dropObject(name='scan')
+          #scan['binedges'] = bins
+          #scan['bincenters'] = tools.histVecCenter(bins)
 
-	  #return memdata(input=[[dat[tf] for tf in filt],
-				#[tim[tf] for tf in filt]],scan=scan)
+          #return memdata(input=[[dat[tf] for tf in filt],
+                                #[tim[tf] for tf in filt]],scan=scan)
   #def digitize_even_newer(self,*args):
     #dat,stsz = ravelScanSteps(self.data)
     #inds,bins = digitize(dat,bins)
@@ -645,7 +646,7 @@ class memdata(object):
       selfdat = weights.ones()*self
       data =  np.asarray([np.average(d,weights=w) if len(w)>0 else np.nan for d,w in zip(selfdat,weights)])
       if not self.grid is None:
-	data = data.reshape(self.grid.shape)
+        data = data.reshape(self.grid.shape)
       return data
     else:
       return self._stepStatFunc(np.mean)
@@ -686,7 +687,7 @@ class memdata(object):
     else:
       e = self.mad(weights=weights)/np.sqrt(self.lens)
       
-      scanfields = self.scan.__dict__.keys()
+      scanfields = list(self.scan.__dict__.keys())
       scanfields = [tf for tf in scanfields if not tf[0]=='_']
       x = self.scan.__dict__[scanfields[0]]
       tools.nfigure('memdata plot')
@@ -708,7 +709,7 @@ class memdata(object):
     if np.iterable(get):
       nscan = copy(self.scan)
       for key in nscan._get_keys():
-	nscan[key] = nscan[key][x]
+        nscan[key] = nscan[key][x]
       return Memdata(input=[[self.data[ti] for ti in get],[self.time[ti] for ti in get]],scan=nscan)
     else:
       return self.data[x]
@@ -871,18 +872,18 @@ class data(object):
 
     if time is None:
       self._time = []
-      print "Warning: Missing timestamps for data instance,\n--> data needs to be appended."
+      logbook("Warning: Missing timestamps for data instance,\n--> data needs to be appended.")
     else:
       if hasattr(time,'isevtObj') and input.isevtObj:
-	self._evtObjtime = input
-	self._rdTime = None
+        self._evtObjtime = input
+        self._rdTime = None
       elif hasattr(time,'__call__'):
-	self._rdTime = input
-	self._evtObj = None
+        self._rdTime = input
+        self._evtObj = None
       else:
-	self._time = time
-	self._evtObj = None
-	self._rdTime = None
+        self._time = time
+        self._evtObj = None
+        self._rdTime = None
     lens = [len(td) for td in self._time]
     self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
     self._Nsteps = len(lens)
@@ -901,11 +902,11 @@ class data(object):
   def _deleteIxp(self,force=False):
     ixp,path = self._getIxpHandle()
     if path in ixp.fileHandle and not force:
-      deleteit = 'y' == raw_input("Dataset %s exists in ixp file, would you like   to delete it? (y/n) "%path)
+      deleteit = 'y' == eval(input("Dataset %s exists in ixp file, would you like   to delete it? (y/n) "%path))
       if deleteit:
-	del ixp.fileHandle[path]
+        del ixp.fileHandle[path]
       else:
-	return
+        return
 
   def _appendData(self,input_data):
     assert np.iterable(input_data), "input data has to be iterable"
@@ -921,7 +922,7 @@ class data(object):
     if (type(data) is list) and (type(time) is list):
       self._time.extend(time)
       for tdata,ttime in zip(data,time):
-	ixp.appendData(grp,(tdata,ttime))
+        ixp.appendData(grp,(tdata,ttime))
 
     self._ixpAddressData = grp['data']
     self._rdStride = self._rdFromIxp
@@ -946,10 +947,10 @@ class data(object):
   def _getFilteredTime(self):
     if not hasattr(self,'_time'):
       if not self._rdAllData is None:
-	self._data,self._time = initmemdataraw(self._rdAllData())
-	lens = [len(td) for td in self._data]
-	self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
-	self._Nsteps = len(lens)
+        self._data,self._time = initmemdataraw(self._rdAllData())
+        lens = [len(td) for td in self._data]
+        self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+        self._Nsteps = len(lens)
     dat,stepsz = ravelScanSteps(self._time)
     return [dat[tf] for tf in self._filter]
   time = property(_getFilteredTime)
@@ -981,43 +982,43 @@ class data(object):
       nextEvtNo = 0
       stepChunks = []
       if tlen>0:
-	if not hasattr(self,'_sizeEvt') or (self._sizeEvt is None):
-	  usedmem=0
-	  thisstuff = self
-	  done = False
-	  gotshape = False
-	  while not done:
-	    tdat = thisstuff[step,tevts[0]]
-	    if not gotshape:
-	      thisshape = np.shape(tdat[0][0])
-	      gotshape = True
-	    if len(tdat)>0:
-	      usedmem += tdat[0].nbytes
-	    if thisstuff._procObj is None:
-	      done = True
-	    else:
-	      args = thisstuff._procObj['args']
-	      isdatainst = np.asarray([isinstance(targ,data) for targ in args])
-	      if np.sum(isdatainst)>0:
-		thisstuff = args[isdatainst.nonzero()[0][0]]
-	      elif 'ixppyInput' in thisstuff._procObj.keys():
-		ixpIP = thisstuff._procObj['ixppyInput'][0][0]
-		thisstuff = ixpIP
+        if not hasattr(self,'_sizeEvt') or (self._sizeEvt is None):
+          usedmem=0
+          thisstuff = self
+          done = False
+          gotshape = False
+          while not done:
+            tdat = thisstuff[step,tevts[0]]
+            if not gotshape:
+              thisshape = np.shape(tdat[0][0])
+              gotshape = True
+            if len(tdat)>0:
+              usedmem += tdat[0].nbytes
+            if thisstuff._procObj is None:
+              done = True
+            else:
+              args = thisstuff._procObj['args']
+              isdatainst = np.asarray([isinstance(targ,data) for targ in args])
+              if np.sum(isdatainst)>0:
+                thisstuff = args[isdatainst.nonzero()[0][0]]
+              elif 'ixppyInput' in list(thisstuff._procObj.keys()):
+                ixpIP = thisstuff._procObj['ixppyInput'][0][0]
+                thisstuff = ixpIP
 
 
-	  self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
-	Nread = np.floor(self._mem.free/8/self._sizeEvt['bytes']*memFrac)
-	if False:
-	  print "Event size (bytes):",self._sizeEvt['bytes']
-	  print "Event size (MB):   ",self._sizeEvt['bytes']/1024./1024
-	  mm = self._mem.free
-	  print "Available memory (free+cached+buffer, bytes):",mm/8
-	  print "Available memory (free+cached+buffer, MB): %.2f"%(mm/8./1024/1024)
-	  print "Memory to use (%.2f of available, MB): %.2f" % (memFrac,mm*memFrac/8./1024/1024)
-	while nextEvtNo<tlen:
-	  #stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)]) #this was the old state of memiterate
-	  stepChunks.append(tevts[nextEvtNo:min(tlen,nextEvtNo+Nread)])
-	  nextEvtNo+=Nread
+          self._sizeEvt = dict(bytes=usedmem , shape=thisshape)
+        Nread = np.floor(self._mem.free/8/self._sizeEvt['bytes']*memFrac)
+        if False:
+          logbook("Event size (bytes):"+self._sizeEvt['bytes'])
+          logbook("Event size (MB):   "+self._sizeEvt['bytes']/1024./1024)
+          mm = self._mem.free
+          logbook("Available memory (free+cached+buffer, bytes):"+mm/8)
+          logbook("Available memory (free+cached+buffer, MB): %.2f"%(mm/8./1024/1024))
+          print(("Memory to use (%.2f of available, MB): %.2f" % (memFrac,mm*memFrac/8./1024/1024)))
+        while nextEvtNo<tlen:
+          #stepChunks.append(tevts[nextEvtNo:min(tlen-1,nextEvtNo+Nread)]) #this was the old state of memiterate
+          stepChunks.append(tevts[nextEvtNo:min(tlen,nextEvtNo+Nread)])
+          nextEvtNo+=Nread
       indchunks.append((stepNo,stepChunks))
     #print indchunks
     return indchunks
@@ -1045,13 +1046,13 @@ class data(object):
     present = self
     while ixpSeed is None:
       tp = present._parent
-      name = [name for name,tid in tp.__dict__.iteritems() if id(tid)==id(present)][0]
+      name = [name for name,tid in list(tp.__dict__.items()) if id(tid)==id(present)][0]
       if hasattr(tp,'_ixpHandle'):
-	ixpSeed = tp._ixpHandle
-	path = '/dataset/'+name+'/'+path 
+        ixpSeed = tp._ixpHandle
+        path = '/dataset/'+name+'/'+path 
       else:
-	present = tp
-	path = name+'/'+path
+        present = tp
+        path = name+'/'+path
     return ixpSeed,path
 
   def get_memdata(self):
@@ -1062,10 +1063,10 @@ class data(object):
     for n in range(nel):
       tmemdat = []
       for step in data:
-	if len(step)>0:
-	  tmemdat.append(step[:,n])
-	else:
-	  tmemdat.append([])
+        if len(step)>0:
+          tmemdat.append(step[:,n])
+        else:
+          tmemdat.append([])
       memdat.append(memdata(input=[tmemdat,self.time],scan=self.scan,grid=self.grid))
     return memdat
 
@@ -1122,14 +1123,14 @@ class data(object):
         return np.mean(crossInput[0],axis=0)
 
     procObj = dict(
-	func=func,
-	ixppyInput=[(self,o[0])],
-	isPerEvt=False,
-	args=[],
-	kwargs=dict(),
-	isCrossEvent=True,
-	#transposeStack=True,
-	nargSelf=0)
+        func=func,
+        ixppyInput=[(self,o[0])],
+        isPerEvt=False,
+        args=[],
+        kwargs=dict(),
+        isCrossEvent=True,
+        #transposeStack=True,
+        nargSelf=0)
     return data(time=timenew,input=procObj,scan=self.scan)
 
   def __getitem__(self,x):
@@ -1139,15 +1140,15 @@ class data(object):
     if len(x)==1:
       if n==1:
         stepInd = [0]
-	#if len(x[1])==0:
-	  #return []
+        #if len(x[1])==0:
+          #return []
         evtInd = [tools.itemgetToIndices(x[0],lens[tind],boolean=True) for tind in stepInd]
       else:
-	raise IndexError('More than one scanstep [scanstep,event] index pair required!')
+        raise IndexError('More than one scanstep [scanstep,event] index pair required!')
     elif len(x)==2:
       stepInd = tools.itemgetToIndices(x[0],n)
       #if len(x[1])==0:
-	#return []
+        #return []
       evtInd = [tools.itemgetToIndices(x[1],lens[tind]) for tind in stepInd]
     #print stepInd,evtInd
     return self._getStepsShots(stepInd,evtInd)
@@ -1156,19 +1157,19 @@ class data(object):
   def _getStepsShots(self,stepInd,evtInd):
     if self._showMe:
       t0 = time.time()
-      print "%s is requested for stepInd %s and evtInd %s"%(self._showMeName,stepInd,evtInd)
+      logbook("%s is requested for stepInd %s and evtInd %s"%(self._showMeName,stepInd,evtInd))
     if self._cacheLast:
       if self._lastCache is None:
         readit = True
       else:
         if stepInd==self._lastCache['stepInd']\
             and np.asarray([len(teI)==len(tceI) for teI,tceI in zip(evtInd,self._lastCache['evtInd'])]).all()\
-	    and np.asarray([(teI==tceI).all() for teI,tceI in zip(evtInd,self._lastCache['evtInd'])]).all():
-	  dat = self._lastCache['dat']
-	  readit=False
-	  print "recycle"
-	else:
-	  readit=True
+            and np.asarray([(teI==tceI).all() for teI,tceI in zip(evtInd,self._lastCache['evtInd'])]).all():
+          dat = self._lastCache['dat']
+          readit=False
+          logbook("recycle")
+        else:
+          readit=True
     else:
       readit=True
 
@@ -1187,37 +1188,37 @@ class data(object):
       eventsRead = 0
       for step,tevtInd in zip(stepInd_read,evtInd_read):
         if len(dat)==0:
-	  tdat = self._rdStride(step,tevtInd)[0]
-	  if len(stepInd_read)>1:
-	    dat = np.zeros([len(indsdat_sorted)]+list(np.shape(tdat)[1:]))
-	    dat[:len(tdat)]=tdat
+          tdat = self._rdStride(step,tevtInd)[0]
+          if len(stepInd_read)>1:
+            dat = np.zeros([len(indsdat_sorted)]+list(np.shape(tdat)[1:]))
+            dat[:len(tdat)]=tdat
             eventsRead +=len(tdat)
-	  else:
-	    dat = tdat
-	else:
-	  dat[eventsRead:eventsRead+len(tevtInd)] = self._rdStride(step,tevtInd)[0]
-	  eventsRead += len(tevtInd)
+          else:
+            dat = tdat
+        else:
+          dat[eventsRead:eventsRead+len(tevtInd)] = self._rdStride(step,tevtInd)[0]
+          eventsRead += len(tevtInd)
 
 
 
 
       #dat = [self._rdStride(step,tevtInd)[0] for step,tevtInd in zip(stepInd_read,evtInd_read)]
       if not dat==[]:
-	#dat = np.concatenate(dat)
-	ind_resort = unravelIndexScanSteps(inds,lens,replacements=indsdat_resort)
-	ind_resort = [tools.smartIdx(l) for l in ind_resort if len(l)>0]
-	#print [tools.smartIdx(l) for l in ind_resort if len(l)>0]
-	dat = [dat[tind_resort,...] for tind_resort in ind_resort]
-	if 0 in lens:
-	  zinds = (np.asarray(lens)==0).nonzero()[0]
-	  for zind in zinds:
-	    if zind in stepInd:
-	      dat.insert(zind,[])
+        #dat = np.concatenate(dat)
+        ind_resort = unravelIndexScanSteps(inds,lens,replacements=indsdat_resort)
+        ind_resort = [tools.smartIdx(l) for l in ind_resort if len(l)>0]
+        #print [tools.smartIdx(l) for l in ind_resort if len(l)>0]
+        dat = [dat[tind_resort,...] for tind_resort in ind_resort]
+        if 0 in lens:
+          zinds = (np.asarray(lens)==0).nonzero()[0]
+          for zind in zinds:
+            if zind in stepInd:
+              dat.insert(zind,[])
 
-      self._lastCache = dict(dat=dat,stepInd=stepInd,evtInd=evtInd)	
+      self._lastCache = dict(dat=dat,stepInd=stepInd,evtInd=evtInd)        
 
     if self._showMe:
-      print "...this took %4g seconds." %(time.time()-t0)
+      logbook("...this took %4g seconds." %(time.time()-t0))
     return dat
 
     #if len(stepInd)>1:
@@ -1226,25 +1227,25 @@ class data(object):
     #TODO: 
     pass
   def _rdFromObj(self,step, evtInd):
-    if self._procObj.has_key('isCrossEvent') and self._procObj['isCrossEvent']:
+    if 'isCrossEvent' in self._procObj and self._procObj['isCrossEvent']:
       ret = applyCrossFunction(self._procObj['func'],
-	                       ixppyInput=self._procObj['ixppyInput'],
+                               ixppyInput=self._procObj['ixppyInput'],
                                time=self.time,
-			       args=self._procObj['args'],
-			       kwargs=self._procObj['kwargs'],
-			       stride = [step,evtInd])
+                               args=self._procObj['args'],
+                               kwargs=self._procObj['kwargs'],
+                               stride = [step,evtInd])
 
     else:
       ret = applyFunction(self._procObj['func'],
-			   self._procObj['args'],
-			   self._procObj['kwargs'],
-			   stride = [step,evtInd],
-			   isPerEvt = self._procObj['isPerEvt'],
-			   transposeStack = self._procObj['transposeStack'],
-			   InputDependentOutput=True,
-			   NdataOut=1,NmemdataOut=0, picky=False)
+                           self._procObj['args'],
+                           self._procObj['kwargs'],
+                           stride = [step,evtInd],
+                           isPerEvt = self._procObj['isPerEvt'],
+                           transposeStack = self._procObj['transposeStack'],
+                           InputDependentOutput=True,
+                           NdataOut=1,NmemdataOut=0, picky=False)
       if type(ret) is not tuple:
-	ret = (ret,)
+        ret = (ret,)
 
     #return [tret[self._procObj['nargSelf']] for tret in ret]
     return ret[self._procObj['nargSelf']]
@@ -1330,17 +1331,17 @@ class data(object):
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
       if totlen==0:
-	out.append(np.nan)
-	continue
+        out.append(np.nan)
+        continue
       tout = 0
       N=0
       for chunk in step:
-	if len(chunk)>0:
-	  tdr =  self[stepNo,np.ix_(chunk)][0]
-	  N += np.sum(~np.isnan(tdr),axis=0)
+        if len(chunk)>0:
+          tdr =  self[stepNo,np.ix_(chunk)][0]
+          N += np.sum(~np.isnan(tdr),axis=0)
           tout += np.nansum(tdr,axis=0)
         processedevents += len(chunk)
-	pbar.update(processedevents)
+        pbar.update(processedevents)
       #N[N==0] = np.nan
       out.append(tout/N)
     pbar.finish()
@@ -1357,17 +1358,17 @@ class data(object):
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
       if totlen==0:
-	out.append(np.nan)
-	continue
+        out.append(np.nan)
+        continue
       tout = []
       for chunk in step:
-	if len(chunk)>0:
+        if len(chunk)>0:
           tout += [(len(chunk),np.nanmedian(self[stepNo,np.ix_(chunk)][0],axis=0))]
         processedevents += len(chunk)
-	pbar.update(processedevents)
+        pbar.update(processedevents)
       if len(tout) > 1:
-	print "Cant't calc real median, will use weighted mean of medians instead."
-	out.append(np.average(np.asarray([ttout[1] for ttout in tout]),weights=np.asarray([ttout[0] for ttout in tout]),axis=0))
+        logbook("Cant't calc real median, will use weighted mean of medians instead.")
+        out.append(np.average(np.asarray([ttout[1] for ttout in tout]),weights=np.asarray([ttout[0] for ttout in tout]),axis=0))
       else:
         out.append(tout[0][1])
     pbar.finish()
@@ -1377,8 +1378,8 @@ class data(object):
     """calculate median absolute deviation
     median(abs(a - median(a))) / c
     c = 0.6745 is the constant to convert from MAD to std; it is used by
-	        default
-		    """
+                default
+                    """
     allchunks = self._memIterate()
     out = []
     # progress bar
@@ -1389,17 +1390,17 @@ class data(object):
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
       if totlen==0:
-	out.append(np.nan)
-	continue
+        out.append(np.nan)
+        continue
       tout = []
       for chunk in step:
-	if len(chunk)>0:
+        if len(chunk)>0:
           tout += [(len(chunk),tools.mad(self[stepNo,np.ix_(chunk)][0],axis=0,c=c))]
         processedevents += len(chunk)
-	pbar.update(processedevents)
+        pbar.update(processedevents)
       if len(tout) > 1:
-	print "Cant't calc real mad, will use weighted mean of medians instead."
-	out.append(np.average(np.asarray([ttout[1] for ttout in tout]),weights=np.asarray([ttout[0] for ttout in tout]),axis=0))
+        logbook("Cant't calc real mad, will use weighted mean of medians instead.")
+        out.append(np.average(np.asarray([ttout[1] for ttout in tout]),weights=np.asarray([ttout[0] for ttout in tout]),axis=0))
       else:
         out.append(tout[0][1])
     pbar.finish()
@@ -1477,18 +1478,18 @@ def applyMemdataOperator(optr,a,b,isreverse=False):
     resdat = []
     if not isreverse:
       if len(adat)==len(bdat):
-	for ta,tb in zip(adat,bdat):
-	    resdat.append(optr(ta,tb))
+        for ta,tb in zip(adat,bdat):
+            resdat.append(optr(ta,tb))
       else:
-	for ta in adat:
-	  resdat.append(optr(ta,bdat))
+        for ta in adat:
+          resdat.append(optr(ta,bdat))
     else:
       if len(adat)==len(bdat):
-	for ta,tb in zip(adat,bdat):
-	    resdat.append(optr(tb,ta))
+        for ta,tb in zip(adat,bdat):
+            resdat.append(optr(tb,ta))
       else:
-	for ta in adat:
-	  resdat.append(optr(bdat,ta))
+        for ta in adat:
+          resdat.append(optr(bdat,ta))
   
   return memdata(input=[resdat,restim],scan=scan)
       
@@ -1524,7 +1525,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
     outputtypes = NdataOut*['data'] + NmemdataOut*['memdata']
   ##### Filter timestampsin order, args first, kwargs after sorted keys
   allobjects = [(arg,0,argno) for argno,arg in enumerate(ipargs) if (isinstance(arg,data) or isinstance(arg,memdata))]
-  kwkeys = ipkwargs.keys()
+  kwkeys = list(ipkwargs.keys())
   kwkeys.sort()
   if KWignore is None:
     KWignore = []
@@ -1533,7 +1534,7 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
   for keyno,key in enumerate(kwkeys):
     if not key in KWignore:
       if (isinstance(ipkwargs[key],data) or isinstance(ipkwargs[key],memdata)):
-	allobjects.append((ipkwargs[key],1,keyno))
+        allobjects.append((ipkwargs[key],1,keyno))
   if not allobjects==[]:
     scan = allobjects[0][0].scan
     grid = allobjects[0][0].grid
@@ -1545,10 +1546,10 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
     otherargs = [(arg,0,argno) for argno,arg in enumerate(ipargs) if ( not isinstance(arg,data) and not isinstance(arg,memdata))]
     for keyno,key in enumerate(kwkeys):
       if ( not isinstance(arg,data) and not isinstance(arg,memdata)):
-	otherargs.append((ipkwargs[key],1,keyno))
+        otherargs.append((ipkwargs[key],1,keyno))
     otherlens = [(len(toa),iskey,argno) for toa,iskey,argno in otherargs if (type(toa) is not str and np.iterable(toa))]
     if not otherlens==[]:
-      lens,lensiskey,lensargno = zip(*otherlens)
+      lens,lensiskey,lensargno = list(zip(*otherlens))
       #tequallengths = np.logical_and(np.asarray(lens)==len(rtimes),np.logical_not(np.asarray(lens)==1))
       tequallengths = np.logical_and(np.asarray(lens)==len(rtimes),True)
       otherip = [otherargs[eqi] for eqi in tequallengths.nonzero()[0]]
@@ -1567,134 +1568,134 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
         procObj = dict(func=func,args=ipargs,kwargs=ipkwargs,nargSelf=nargSelf,isPerEvt=isPerEvt,transposeStack=transposeStack)
         output.append(data(time=rtimes,input=procObj,scan=scan))
       if len(output)>1:
-	output = tuple(output)
+        output = tuple(output)
       else:
-	output = output[0]
+        output = output[0]
     # case mainly when executes as data procObj
     elif ('data' in outputtypes and not stride is None) or forceCalculation:
       # in force case and when stride is not given
       if (stride is None) and forceCalculation:
-	# find smallest chunk size, will go for that...
-	dataIPchunkings = [o._memIterate() for o,dum,dum in allobjects if isinstance(o,data)]
-	chunksize = np.min([np.min([len(tchunk[1]) for tchunk in tchunks]) for tchunks in dataIPchunkings])
-	# Get step stride and event strides
-	stepstride = range(len(rtimes))
-	eventstrides = []
-	for trtimes in rtimes:
-	  evlst = range(len(trtimes))
-	  eventstrides.append([ evlst[i:i+chunksize] for i in range(0, len(evlst), chunksize) ])
+        # find smallest chunk size, will go for that...
+        dataIPchunkings = [o._memIterate() for o,dum,dum in allobjects if isinstance(o,data)]
+        chunksize = np.min([np.min([len(tchunk[1]) for tchunk in tchunks]) for tchunks in dataIPchunkings])
+        # Get step stride and event strides
+        stepstride = list(range(len(rtimes)))
+        eventstrides = []
+        for trtimes in rtimes:
+          evlst = list(range(len(trtimes)))
+          eventstrides.append([ evlst[i:i+chunksize] for i in range(0, len(evlst), chunksize) ])
       else:
-	stepstride = tools.iterfy(stride[0])
-	eventstrides = [stride[1]]*len(stepstride)
+        stepstride = tools.iterfy(stride[0])
+        eventstrides = [stride[1]]*len(stepstride)
 
       ixppyip = []
       ixppytype = []
       for o,iskey,argind in allobjects: 
-	ir,io      = filterTimestamps(rtimes,o.time)
-	
-	if isinstance(o,data):
-	  ixppytype.append('data')
-	  eventstrides_ravel = [np.ravel(tevs) for tevs in eventstrides]
+        ir,io      = filterTimestamps(rtimes,o.time)
+        
+        if isinstance(o,data):
+          ixppytype.append('data')
+          eventstrides_ravel = [np.ravel(tevs) for tevs in eventstrides]
 
-	  io = getStepShotsFromIndsTime(io,o.time,stride=eventstrides_ravel,getIncludedSteps=True)
-	if isinstance(o,memdata):
-	  ixppytype.append('memdata')
-	ixppyip.append(([o,io,iskey,argind]))
+          io = getStepShotsFromIndsTime(io,o.time,stride=eventstrides_ravel,getIncludedSteps=True)
+        if isinstance(o,memdata):
+          ixppytype.append('memdata')
+        ixppyip.append(([o,io,iskey,argind]))
 
       # generate input structures
       output_list = []
 
       for stepstrideNo,step in enumerate(stepstride):
-	eventstride = eventstrides[stepstrideNo]
-	if type(eventstride[0]) is list:
-	  print "this chunking doesn't work yet, taking first chunk only"
-	  eventstride = eventstride[0]
+        eventstride = eventstrides[stepstrideNo]
+        if type(eventstride[0]) is list:
+          logbook("this chunking doesn't work yet, taking first chunk only")
+          eventstride = eventstride[0]
 
-	targs   = list(pycopy.copy(ipargs))
-	tkwargs = pycopy.copy(ipkwargs)
-	for o,io,k,i in ixppyip:
-	  if not k:
-	    if isinstance(o,memdata):
-	      odat,stpsz = ravelScanSteps(o.data)
-	      targs[i] = odat[io[step]][eventstride]
-	    else:
-	      
-	      #tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      
-	      io,inclsteps = io
-	      tmp = np.concatenate(o._getStepsShots(io[(inclsteps==step).nonzero()[0]][0],io[(inclsteps==step).nonzero()[0]][1]),axis=0)
-	      if (not isPerEvt) and transposeStack:
+        targs   = list(pycopy.copy(ipargs))
+        tkwargs = pycopy.copy(ipkwargs)
+        for o,io,k,i in ixppyip:
+          if not k:
+            if isinstance(o,memdata):
+              odat,stpsz = ravelScanSteps(o.data)
+              targs[i] = odat[io[step]][eventstride]
+            else:
+              
+              #tmp = o._getStepsShots(io[step][0],io[step][1])[0]
+              
+              io,inclsteps = io
+              tmp = np.concatenate(o._getStepsShots(io[(inclsteps==step).nonzero()[0]][0],io[(inclsteps==step).nonzero()[0]][1]),axis=0)
+              if (not isPerEvt) and transposeStack:
                 tmp         = tools.rollaxis2end(tmp)
               targs[i] = tmp
-	      #raise NotImplementedError('Use the source, luke!')
+              #raise NotImplementedError('Use the source, luke!')
 
-	  else:
-	    tkwargs[kwkeys[i]]  = o[step][eventstride]
-	    if isinstance(o,memdata):
-	      odat,stpsz = ravelScanSteps(o.data)
-	      tkwargs[kwkeys[i]] = odat[io[step]][eventstride]
-	    else:
+          else:
+            tkwargs[kwkeys[i]]  = o[step][eventstride]
+            if isinstance(o,memdata):
+              odat,stpsz = ravelScanSteps(o.data)
+              tkwargs[kwkeys[i]] = odat[io[step]][eventstride]
+            else:
               tmp = o._getStepsShots(io[step][0],io[step][1])[0]
-	      if (not isPerEvt) and transposeStack:
+              if (not isPerEvt) and transposeStack:
                 tmp = tools.rollaxis2end(tmp)
               tkwargs[kwkeys[i]] = tmp
-	for o,k,i in otherip:
-	  if not k:
-	    targs[i] = o[step]
-	    if np.ndim(targs[i])>0 and not len(targs[i])==1:
-	      targs[i] = targs[i][...,np.newaxis]
-	  else:
-	    tkwargs[kwkeys[i]]  = o[step]
-	    if np.ndim(tkwargs[kwkeys[i]])>0 and not len(tkwargs[kwkeys[i]])==1:
-	      tkwargs[kwkeys[i]] = tkwargs[kwkeys[i]][...,np.newaxis]
-	if isPerEvt:
-	  # TODO: in case func works only for single shot
-	  tret = []
-	  for nevt in range(len(eventstride)):
+        for o,k,i in otherip:
+          if not k:
+            targs[i] = o[step]
+            if np.ndim(targs[i])>0 and not len(targs[i])==1:
+              targs[i] = targs[i][...,np.newaxis]
+          else:
+            tkwargs[kwkeys[i]]  = o[step]
+            if np.ndim(tkwargs[kwkeys[i]])>0 and not len(tkwargs[kwkeys[i]])==1:
+              tkwargs[kwkeys[i]] = tkwargs[kwkeys[i]][...,np.newaxis]
+        if isPerEvt:
+          # TODO: in case func works only for single shot
+          tret = []
+          for nevt in range(len(eventstride)):
             stargs = pycopy.copy(targs)
             stkwargs = pycopy.copy(tkwargs)
-	    for o,io,k,i in ixppyip:
-	      if not k:
+            for o,io,k,i in ixppyip:
+              if not k:
                 stargs[i] = targs[i][nevt]
-	      else:
+              else:
                 stkwargs[kwkeys[i]] = tkwargs[kwkeys[i]][nevt]
             stret = func(*stargs,**stkwargs)
-	    if type(stret) is not tuple: 
+            if type(stret) is not tuple: 
               stret = (stret,)
             tret.append(stret)
-	  tret = tuple(zip(*tret))
-	  tret = tuple([np.asarray(ttret) for ttret in tret])
+          tret = tuple(zip(*tret))
+          tret = tuple([np.asarray(ttret) for ttret in tret])
 
-	else:
+        else:
           
-	  tret = func(*targs,**tkwargs)
-	  if not type(tret) is tuple:
+          tret = func(*targs,**tkwargs)
+          if not type(tret) is tuple:
             tret = (tret,)
-	if (not isPerEvt) and transposeStack:
-	  tret = list(tret)
-	  for ono,ttret in enumerate(tret):
-	    rnk = np.ndim(ttret)
-	    if rnk>1:
-	      tret[ono]   = tools.rollaxis2beg(ttret)
-	  tret = tuple(tret)
-	output_list.append(tret)
+        if (not isPerEvt) and transposeStack:
+          tret = list(tret)
+          for ono,ttret in enumerate(tret):
+            rnk = np.ndim(ttret)
+            if rnk>1:
+              tret[ono]   = tools.rollaxis2beg(ttret)
+          tret = tuple(tret)
+        output_list.append(tret)
     ############ interprete output automatically find memdata candidates ###########
       
-      output_list = zip(*output_list)
+      output_list = list(zip(*output_list))
       output_ismemdata = [opNo  for opNo,ao in enumerate(output_list) \
-	  if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
+          if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
       for n,top in enumerate(output_list):
-	if n in output_ismemdata:
-	  output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
-	#elif top.count(top[0])==len(top):
-	  #output_list[n] = top[0]
-	#elif len(top)>1:
+        if n in output_ismemdata:
+          output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
+        #elif top.count(top[0])==len(top):
+          #output_list[n] = top[0]
+        #elif len(top)>1:
         else:
-	  output_list[n] = list(top)
+          output_list[n] = list(top)
       if len(output_list)>1:
-	output = tuple(output_list)
+        output = tuple(output_list)
       else:
-	output = output_list[0]
+        output = output_list[0]
       
 
   # "Easy" case where everything fits in memory, no data instance in input.
@@ -1710,30 +1711,30 @@ def applyFunction(func,ipargs,ipkwargs,InputDependentOutput=True, KWignore=None,
       targs   = list(pycopy.copy(ipargs))
       tkwargs = pycopy.copy(ipkwargs)
       for o,k,i in ixppyip + otherip:
-	if not k:
-	  targs[i] = o[step]
-	else:
-	  tkwargs[kwkeys[i]]  = o[step]
+        if not k:
+          targs[i] = o[step]
+        else:
+          tkwargs[kwkeys[i]]  = o[step]
       if isPerEvt:
-	# TODO: in case func works only for single shot
-	pass
+        # TODO: in case func works only for single shot
+        pass
       else:
-	tret = func(*targs,**tkwargs)
+        tret = func(*targs,**tkwargs)
       if type(tret) is not tuple: 
-	tret = (tret,)
+        tret = (tret,)
       output_list.append(tret)
   ############ interprete output automatically find memdata candidates ###########
-    output_list = zip(*output_list)
+    output_list = list(zip(*output_list))
     # check for equal output and find candidates for data/memdata instances
     output_ismemdata = [opNo  for opNo,ao in enumerate(output_list) \
-	if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
+        if [len(rtime) for rtime in rtimes] == [len(tools.iterfy(tao)) for tao in ao]]
     for n,top in enumerate(output_list):
       if n in output_ismemdata:
-	output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
+        output_list[n] = memdata(input=[top,rtimes],scan=scan,grid=grid)
       elif top.count(top[0])==len(top):
-	output_list[n] = top[0]
+        output_list[n] = top[0]
       elif len(top)>1:
-	output_list[n] = list(top)
+        output_list[n] = list(top)
     if len(output_list)>1:
       output = tuple(output_list)
     else:
@@ -1777,7 +1778,7 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
     inds.append(np.int32(np.arange(tlen)+np.sum(lens[:sNO])))
 
   if stride is None:
-    stride = [range(len(lens)),'all']
+    stride = [list(range(len(lens))),'all']
 
   output = []
   stepstride = tools.iterfy(stride[0])
@@ -1785,7 +1786,7 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
     # get the indices from this ixppy type instance and step
     tstride = stride[1]
     if tstride=='all':
-      tstride = range(lens[step])
+      tstride = list(range(lens[step]))
     nind = [inds[step][tind] for tind in tstride]
     # Read necessary data
     package = []
@@ -1807,8 +1808,8 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
     for iNo,tnind in enumerate(nind):
       ipdat = []
       for pack in package:
-	tdataDat,repack = pack
-	ipdat.append(tdataDat[tools.smartIdx(repack[iNo])])
+        tdataDat,repack = pack
+        ipdat.append(tdataDat[tools.smartIdx(repack[iNo])])
       
       td.append(func(ipdat))
 
@@ -1858,7 +1859,7 @@ class Evaluate(object):
         if isinstance(targ,data):
           continue
         else:
-          print "fund evaluating first",tarrg
+          logbook("fund evaluating first"+tarrg)
           targ.evaluate()
 
   def __call__(self,stepSlice=slice(None),evtSlice=slice(None),progress=True,force=False):
@@ -1870,18 +1871,18 @@ class Evaluate(object):
     for tstep,tstepchunk in allchunks:
       tts = [self.data.time[tstep][tchunk] for tchunk in tstepchunk if len(tchunk)>0]
       if len(tts)>0:
-	timestamps.append(np.concatenate(tts))
+        timestamps.append(np.concatenate(tts))
       else:
-	timestamps.append([])
+        timestamps.append([])
     #timestamps = [np.concatenate([self.data.time[tstep][tchunk] for tchunk in tstepchunk if len(tchunk)>0]) for tstep,tstepchunk in allchunks]
 
     ixp,path = self.data._getIxpHandle()
     if path in ixp.fileHandle and not force:
-      deleteit = 'y' == raw_input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path)
+      deleteit = 'y' == eval(input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path))
       if deleteit:
-	del ixp.fileHandle[path]
+        del ixp.fileHandle[path]
       else:
-	return
+        return
     elif path in ixp.fileHandle and force:
       del ixp.fileHandle[path]
 
@@ -1902,23 +1903,23 @@ class Evaluate(object):
       totshape = tuple([totlen] + list(eventShape))
       startind = 0
       for chunk in step:
-	if len(chunk)==0:
-	  tdat = []
-	else:
+        if len(chunk)==0:
+          tdat = []
+        else:
           tdat = self.data[stepNo,np.ix_(chunk)][0]
-	if totshape[0]==0:
-	  print stepNo,totshape
+        if totshape[0]==0:
+          logbook(stepNo,totshape)
           ixp.save([],grp,name='time/data/#%06d'%stepNo)
-	else:
-	  if len(tdat)>0:
-	    ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
-	    ds[startind:startind+len(chunk),...] = tdat
+        else:
+          if len(tdat)>0:
+            ds = grp.require_dataset('data/#%06d'%stepNo,totshape,dtype=tdat.dtype)
+            ds[startind:startind+len(chunk),...] = tdat
         processedevents += len(chunk)
         pbar.update(processedevents)
 
-	ixp.fileHandle.flush()
+        ixp.fileHandle.flush()
 
-	startind += len(chunk)
+        startind += len(chunk)
     pbar.finish()
     
     #raise NotImplementedError('Use the source, luke!')
@@ -1938,11 +1939,11 @@ class Evaluate(object):
     x = tools.iterfy(x)
     if len(x)==1:
       if n==1:
-	evtSlice = x[0]
-	stepSlice = slice(None)
+        evtSlice = x[0]
+        stepSlice = slice(None)
       else:
-	evtSlice = slice(None)
-	stepSlice = x[0]
+        evtSlice = slice(None)
+        stepSlice = x[0]
     elif len(x)==2:
       evtSlice = x[1]
       stepSlice = x[0]
@@ -2003,9 +2004,9 @@ def initmemdataraw(data):
   if data is None:
     return None,None
   if type(data) is dict:
-    dk = data.keys()
+    dk = list(data.keys())
     if not (('data' in dk) and ('time' in dk)):
-      print "Raw memdata should be dict with keys data and time of same length"
+      logbook("Raw memdata should be dict with keys data and time of same length")
       return
     dat = data['data']
     tim = data['time']
@@ -2014,9 +2015,9 @@ def initmemdataraw(data):
     tim = data[1]
   if tim is None:
 
-    print "NB: memdata instance without timestamps!"
+    logbook("NB: memdata instance without timestamps!")
   elif not len(dat)==len(tim):
-    print "data and time in raw memdata should have same length"
+    logbook("data and time in raw memdata should have same length")
     return
   return dat,tim
 
@@ -2035,7 +2036,7 @@ def ravelIndexScanSteps(ip,stepsizes,stepNo=None):
       stepNo = tools.iterfy(stepNo)
       aip = [[]]*len(stepsizes)
       for tstepNo,tip in zip(stepNo,ip): 
-	aip[tstepNo] = tip
+        aip[tstepNo] = tip
       ip = aip
     else:
       raise Exception('index list doesn\'t fit stepsizes; Extra keyword argument stepNo required.')
@@ -2088,12 +2089,12 @@ def getStepShotsFromIndsTime(inds,times,stride=None,getIncludedSteps=False):
       includedsteps.append(step)
       ts = np.vstack(added[np.ix_(ind)])
       if not stride is None:
-	if len(stride)>step and np.iterable(stride[step]):
-	  tstride = stride[step]
-	else:
-	  tstride = stride
-	if np.max(tstride)<len(ts):
-	  ts = ts[tstride]
+        if len(stride)>step and np.iterable(stride[step]):
+          tstride = stride[step]
+        else:
+          tstride = stride
+        if np.max(tstride)<len(ts):
+          ts = ts[tstride]
       tsteps = np.unique(ts[:,0])
       tshots = [ts[(ts[:,0]==n).nonzero()[0],1] for n in tsteps]
       stepShots.append([tsteps,tshots])
@@ -2193,10 +2194,10 @@ def sortTimestampFiducials(a,b,P=300,maxoff=10,remove_duplicates=False,remove_al
   Nintervals = np.ceil(max(ared)/Na) # number of search groups
   av = np.arange(Nintervals)  #this can be used for index comparison when looping through search groups
   ai = np.searchsorted(np.arange(Nintervals)*Na , ared ,side='right')-1
-  print Na,Nintervals
-  print np.floor((ats-atsmn)/maxoff)
-  print av
-  print ai
+  logbook(Na,Nintervals)
+  logbook(np.floor((ats-atsmn)/maxoff))
+  logbook(av)
+  logbook(ai)
   Sela = []
   Selbri = []
   for nInt in av:
@@ -2210,22 +2211,22 @@ def sortTimestampFiducials(a,b,P=300,maxoff=10,remove_duplicates=False,remove_al
     else:
       aindDup = np.ones(np.shape(taf),dtype=bool)
       bindDup = np.ones(np.shape(tbf),dtype=bool)
-      print 'notlookingfordoubles'
+      logbook('notlookingfordoubles')
     taf = taf[aindDup]
     tbf = tbf[bindDup]
     if not len(taf)==len(np.unique(taf)):
-      print "doubles in taf"
+      logbook("doubles in taf")
     if not len(tbf)==len(np.unique(tbf)):
-      print "doubles in tbf"
+      logbook("doubles in tbf")
 
     sela = np.in1d(taf,tbf)
     selb = np.in1d(tbf,taf)
     selbri = selb.nonzero()[0]\
-	[tbf[selb].argsort()[taf[sela].argsort().argsort()]]
+        [tbf[selb].argsort()[taf[sela].argsort().argsort()]]
     selbri = bInd.nonzero()[0][bindDup][selbri]
     aindDup[aindDup] = sela
     Sela.append(aindDup)
-    print len(aindDup)
+    logbook(len(aindDup))
     Selbri.append(selbri)
   return np.hstack(Sela),np.hstack(Selbri)
 
@@ -2245,7 +2246,7 @@ def getScanVec(instance):
   lens = np.asarray([len(scan[tname]) for tname in names])
   isbincenter = np.asarray([tname.split('_')[-1]=='bincenter' for tname in names])
   if sum(lens==leninst)<1:
-    print "Attention: no suitable scan vector found for %s !" %instance._name
+    logbook("Attention: no suitable scan vector found for %s !" %instance._name)
     #raise Exception
     return None
   elif sum(isbincenter)==1:
@@ -2253,8 +2254,8 @@ def getScanVec(instance):
     return sel_name, scan[sel_name]
   elif sum(isbincenter)>1:
     sel_name = names[isbincenter[0]][0]
-    print "Attention: More than one bincenter array found for %s, will use %s." \
-	%(instance._name,sel_name)
+    logbook("Attention: More than one bincenter array found for %s, will use %s." \
+        %(instance._name,sel_name))
     return sel_name, scan[sel_name]
   else:
     sel_name = names[lens==leninst][0]
@@ -2307,7 +2308,7 @@ def digitizeN(*args,**kwargs):
   for tname,tmesh in zip(names,meshes):
     scan[tname] = tmesh.ravel()
 
-  grid = Grid(zip(names,vecs))
+  grid = Grid(list(zip(names,vecs)))
 
 
   return memdata(name='%d-dimensional histogram'%(len(totshape)),input=[datout,timout],scan=scan,grid=grid)
@@ -2352,17 +2353,17 @@ class Grid(object):
     if not dims is None:
       adims = list(self.shape)
       for rdim in dims:
-	adims.remove(rdim)
+        adims.remove(rdim)
       trsp  = dims+tuple(adims)
       vec = vec.transpose(trsp)
     return self[:]+(vec,)
  
       #if len(adims)>0:
-	#stridestr = '[...'+len(adims)*',:'+']'
-	#if isSelection:
-	  #exec('vec'+stridestr+' = np.concatenate(vec'+stridestr+'.ravel(),axis=0)')
-	#else:
-	  #vec[len(dims)-1] = np.concatenate(vec[len(dims)-1])
+        #stridestr = '[...'+len(adims)*',:'+']'
+        #if isSelection:
+          #exec('vec'+stridestr+' = np.concatenate(vec'+stridestr+'.ravel(),axis=0)')
+        #else:
+          #vec[len(dims)-1] = np.concatenate(vec[len(dims)-1])
 
 
 
@@ -2378,7 +2379,7 @@ class Grid(object):
 
   def __getitem__(self,x):
     if type(x)==slice:
-      inds = range(*x.indices(len(self)))
+      inds = list(range(*x.indices(len(self))))
       return tuple([self._get_vec(sel=ind) for ind in inds])
     else:
       return self._get_vec(sel=x)
@@ -2399,13 +2400,13 @@ class memIterate:
   def __iter__(self):
     return self
 
-  def next(self):
+  def __next__(self):
     if self._nextStep >=self._len:
       raise StopIteration
     else:
       if not self._pbar:
         Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in self.indchunks])
-	widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+        widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
         self._pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
       out = _stepIter(self,self._nextStep)
       self._nextStep += 1
@@ -2424,7 +2425,7 @@ class _stepIter:
   def __iter__(self):
     return self
 
-  def next(self):
+  def __next__(self):
     if self._nexttouse >= len(self._memIterate_obj.indchunks[self._stepNo][1]):
       raise StopIteration
     else:
@@ -2432,14 +2433,14 @@ class _stepIter:
       out = []
       for obj in self._memIterate_obj._matched_all:
         if isinstance(obj,Data):
-	  out.append(obj[self._stepNo,ind][0])
+          out.append(obj[self._stepNo,ind][0])
         elif isinstance(obj,Memdata):
-	  out.append(obj[self._stepNo][ind])
+          out.append(obj[self._stepNo][ind])
       self._nexttouse += 1
       self._memIterate_obj._processedevents += len(ind)
       self._memIterate_obj._pbar.update(self._memIterate_obj._processedevents)
       if self._memIterate_obj._processedevents>=self._memIterate_obj._pbar.maxval:
-	self._memIterate_obj._pbar.finish()
+        self._memIterate_obj._pbar.finish()
 
     return out
 
@@ -2452,27 +2453,27 @@ class Ixp(object):
   def __init__(self,filename):
     self.fileName = filename
     if os.path.isfile(self.fileName):
-      print 'Found cached data in %s' %(self.fileName)
+      logbook('Found cached data in %s' %(self.fileName))
     self._fileHandle = None
     self._forceOverwrite = False
 
   def get_cacheFileHandle(self,reopen=False,mode='a'):
     if self._fileHandle is None:
       if reopen:
-	openNames = [th.filename for th in _ixpOpenHandles]
-	if self.fileName in openNames:
-	  exHandle = _ixpOpenHandles[openNames.index(self.fileName)]
-	  exHandle.close()
-	  _ixpOpenHandles.remove(exHandle)
+        openNames = [th.filename for th in _ixpOpenHandles]
+        if self.fileName in openNames:
+          exHandle = _ixpOpenHandles[openNames.index(self.fileName)]
+          exHandle.close()
+          _ixpOpenHandles.remove(exHandle)
       cfh = h5py.File(self.fileName,mode)
       self._fileHandle = cfh
       _ixpOpenHandles.append(cfh)
     else:
       cfh = self._fileHandle
       if reopen:
-	if cfh in _ixpOpenHandles:
-	  sfh.close()
-	  _ixpOpenHandles.remove(exHandle)
+        if cfh in _ixpOpenHandles:
+          sfh.close()
+          _ixpOpenHandles.remove(exHandle)
           self._fileHandle = h5py.File(self.fileName,mode)
       cfh = self._fileHandle
     return cfh
@@ -2484,7 +2485,7 @@ class Ixp(object):
  
   def delete(self):
     ristr ='Do you intend to permanently delete file \n  %s\n  (y/n) ' %(self.fileName)
-    if 'y'==raw_input(ristr):
+    if 'y'==eval(input(ristr)):
       os.remove(self.fileName)
 
   #def save(self, obj, filename='default', force=False):
@@ -2536,20 +2537,20 @@ class Ixp(object):
     if isgr:
       fGroup = pH.require_group(name)
       for sfield in obj._ixpsaved:
-	if not hasattr(obj,sfield[0]):
-	  print "Error: field %s in group %s is not existing!" %(sfield,name)
-	  continue
+        if not hasattr(obj,sfield[0]):
+          logbook("Error: field %s in group %s is not existing!" %(sfield,name))
+          continue
         if not sfield[1]=='no':
           self.save(obj.__dict__[sfield[0]],fGroup,name=sfield[0])
     else:
-      if name in pH.keys() and not force:
+      if name in list(pH.keys()) and not force:
         rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(name,pH.name)
-        ret = raw_input(rawstr)
+        ret = eval(input(rawstr))
         if ret=='a': del pH[name]; force = True; self._forceOverwrite = True
         if ret=='y': del pH[name]
         if ret=='n': pass
-      elif name in pH.keys() and force:
-        print "about to delete %s" %(name)
+      elif name in list(pH.keys()) and force:
+        logbook("about to delete %s" %(name))
         del pH[name]
       self.mkDset(pH,name,obj)
 
@@ -2559,13 +2560,13 @@ class Ixp(object):
     pH = parenth5handle
     if pH is None:
       pH = self.fileHandle
-    isgr = isinstance(pH,h5py.Group) and (not '_dtype' in pH.keys())
+    isgr = isinstance(pH,h5py.Group) and (not '_dtype' in list(pH.keys()))
     name = os.path.split(pH.name)[-1]
     if isgr:
       op = tools.dropObject(name=name)
-      for field in pH.keys():
-	ob = self.load(pH[field])
-	op.__setitem__(field,ob,setParent=True)
+      for field in list(pH.keys()):
+        ob = self.load(pH[field])
+        op.__setitem__(field,ob,setParent=True)
     else:
       op = self.rdDset(pH)
     return op
@@ -2573,7 +2574,7 @@ class Ixp(object):
 
   def mkH5list(self,listh):
     H5list = []
-    keylist = listh.keys()
+    keylist = list(listh.keys())
     keylist = np.sort(keylist)
     for h in keylist:
       H5list.append(listh[h])
@@ -2584,20 +2585,19 @@ class Ixp(object):
       #de=bug
     if isinstance(data,memdata):
       if hasattr(data,'_data') and hasattr(data,'data') and hasattr(data,'time'):
-	newgroup = rootgroup.require_group(name)
-	try:
-	  newgroup.create_dataset('_dtype',data='memdata')
-	  self.mkDset(newgroup,'data',data.data)
-	  self.mkDset(newgroup,'time',data.time)
-	  self.save(data.scan,newgroup,name='scan')
-	  if not data.grid is None:
-	    gridgroup = newgroup.require_group('grid')
-	    self.mkDset(gridgroup,'definition',data.grid._definition)
-	  
-	except Exception,e:
-	  print e
-	  print "could not save memdata instance %s" %name
-	  del newgroup
+        newgroup = rootgroup.require_group(name)
+        try:
+          newgroup.create_dataset('_dtype',data='memdata')
+          self.mkDset(newgroup,'data',data.data)
+          self.mkDset(newgroup,'time',data.time)
+          self.save(data.scan,newgroup,name='scan')
+          if not data.grid is None:
+            gridgroup = newgroup.require_group('grid')
+            self.mkDset(gridgroup,'definition',data.grid._definition)
+        except Exception as e:
+          logbook(e)
+          logbook("could not save memdata instance %s" %name)
+          del newgroup
 
     if type(data) is list:
       newgroup = rootgroup.require_group(name)
@@ -2618,7 +2618,7 @@ class Ixp(object):
     if type(data) is dict:
       newgroup = rootgroup.require_group(name)
       newgroup.create_dataset('_dtype',data='dict')
-      for key in data.keys():
+      for key in list(data.keys()):
         tname = '%s' %key
         self.mkDset(newgroup,tname,data[key])
     if type(data) in [np.ndarray,int,float,str,np.unicode_,
@@ -2627,7 +2627,7 @@ class Ixp(object):
                       np.uint8,np.uint16,np.uint32,np.uint64,
                       np.float,np.float32,np.float64,
                       np.complex,np.complex64,np.complex128,
-                      np.core.records.recarray	
+                      np.core.records.recarray        
                       ]:
       #if type(data) is str: print data; print rootgroup.name
       #newgroup = rootgroup.require_group(name)
@@ -2640,50 +2640,50 @@ class Ixp(object):
 
   def rdDset(self,rootgroup):
     try:
-      allkeys = rootgroup.keys()
+      allkeys = list(rootgroup.keys())
     except:
       allkeys = []
     if '_dtype' in allkeys:
       tdtype = rootgroup['_dtype'].value
       if tdtype == 'memdata':
-	name = os.path.split(rootgroup.name)[-1]
-	try:
-	  data = self.rdDset(rootgroup['data'])
-	  time = self.rdDset(rootgroup['time'])
-	  try:
-	    scan = self.load(parenth5handle=rootgroup['scan'])
-	  except Exception,e:
-	    print e
-	    scan = None
-	  if 'grid' in rootgroup.keys():
-	    try:
-	      grid = Grid(self.rdDset(rootgroup['grid']['definition']))
-	    except Exception,e:
-	      print e
-	      grid = None
-	  else:
-	    grid = None
-	  return memdata(input = [data,time], name=name, scan=scan, grid=grid)
-	except Exception,e:
-	  print e
-	  print "reading error with memdata instance %s" %name
-	  return name+"_empty_corrupt"
+        name = os.path.split(rootgroup.name)[-1]
+        try:
+          data = self.rdDset(rootgroup['data'])
+          time = self.rdDset(rootgroup['time'])
+          try:
+            scan = self.load(parenth5handle=rootgroup['scan'])
+          except Exception as e:
+            logbook(e)
+            scan = None
+          if 'grid' in list(rootgroup.keys()):
+            try:
+              grid = Grid(self.rdDset(rootgroup['grid']['definition']))
+            except Exception as e:
+              logbook(e)
+              grid = None
+          else:
+            grid = None
+          return memdata(input = [data,time], name=name, scan=scan, grid=grid)
+        except Exception as e:
+          logbook(e)
+          logbook("reading error with memdata instance %s" %name)
+          return name+"_empty_corrupt"
       if tdtype == 'data':
-	name = os.path.split(rootgroup.name)[-1]
-	try:
-	  ixpAddressData = rootgroup['data']
-	  time = self.rdDset(rootgroup['time'])
-	  return Data(time=time,ixpAddressData=ixpAddressData,name=name)
-	except Exception,e:
-	  print e
-	  print "reading error with memdata instance %s" %name
-	  return name+"_empty_corrupt"
+        name = os.path.split(rootgroup.name)[-1]
+        try:
+          ixpAddressData = rootgroup['data']
+          time = self.rdDset(rootgroup['time'])
+          return Data(time=time,ixpAddressData=ixpAddressData,name=name)
+        except Exception as e:
+          logbook(e)
+          logbook("reading error with memdata instance %s" %name)
+          return name+"_empty_corrupt"
       if tdtype == 'list':
         listkeys = [key for key in allkeys if '#' in key]
         listkeys.sort()
         data = []
         for key in listkeys:
-	  #data.append(self.rdDset(rootgroup[key]))
+          #data.append(self.rdDset(rootgroup[key]))
           keydat = self.rdDset(rootgroup[key])
           data.append(keydat)
 
@@ -2692,10 +2692,10 @@ class Ixp(object):
         listkeys.sort()
         data = []
         for key in listkeys:
-	  #data.append(self.rdDset(rootgroup[key]))
+          #data.append(self.rdDset(rootgroup[key]))
           keydat = self.rdDset(rootgroup[key])
           data.append(keydat)
-	data = tuple(data)
+        data = tuple(data)
       
       if tdtype == 'dict':
         dictkeys = [key for key in allkeys if '_dtype' not in key]
@@ -2727,12 +2727,12 @@ class Ixp(object):
     except:
       del datagroup['time/_dtype']
       datagroup['time/_dtype'] = 'list'
-    dhk = [int(tmp[1:]) for tmp in dh.keys() if tmp[0]=='#']
-    dtk = [int(tmp[1:]) for tmp in dt.keys() if tmp[0]=='#']
+    dhk = [int(tmp[1:]) for tmp in list(dh.keys()) if tmp[0]=='#']
+    dtk = [int(tmp[1:]) for tmp in list(dt.keys()) if tmp[0]=='#']
     assert dhk == dtk, "Inconsistency in data instance ixp file!"
     if step is None:
       if len(dhk)==0:
-	step = 0
+        step = 0
       else:
         step = max(dhk)+1
 
@@ -2800,10 +2800,10 @@ def rdConfiguration(fina="ixppy_config",beamline=None):
   pointDetbeamline = _interpreteDetectorConfig(dat,'pointDet',cnf['beamline'])
   pointDetcommon   = _interpreteDetectorConfig(dat,'pointDet','common')
   pointDetspecial   = _interpreteDetectorConfig(dat,'pointDet','special')
-  cnf["pointDet"] = dict(pointDetcommon.items() + pointDetbeamline.items() + pointDetspecial.items())
+  cnf["pointDet"] = dict(list(pointDetcommon.items()) + list(pointDetbeamline.items()) + list(pointDetspecial.items()))
   areaDetbeamline = _interpreteDetectorConfig(dat,'areaDet',cnf['beamline'])
   areaDetcommon   = _interpreteDetectorConfig(dat,'areaDet','common')
-  cnf["areaDet"] = dict(areaDetcommon.items() + areaDetbeamline.items())
+  cnf["areaDet"] = dict(list(areaDetcommon.items()) + list(areaDetbeamline.items()))
 
   #cnf["areaDet"] = _interpreteDetectorConfig(dat,'areaDet',cnf['beamline'])
   cnf["dataPath"] = _interpreteCnfPath(dat,cnf['beamline'],what="data_path")
@@ -2832,7 +2832,7 @@ def _interpreteCnfPath(confraw,beamline,what="data_path"):
   return cnf
 
 def _getInputDirectory(cnfFile):
-    knownhosts = cnfFile['dataPath'].keys()
+    knownhosts = list(cnfFile['dataPath'].keys())
     if gethostname() in knownhosts:
       inputDirectory = cnfFile['dataPath'][gethostname()]
     else:
@@ -2850,8 +2850,8 @@ def _interpreteDetectorConfig(confraw,detkind,beamline):
     n=0
     noofbak = dict()
     for alias in aliases: 
-      if alias in cnf.keys():
-        if alias not in noofbak.keys(): noofbak[alias] = -1
+      if alias in list(cnf.keys()):
+        if alias not in list(noofbak.keys()): noofbak[alias] = -1
         noofbak[alias] += 1 
         alias = alias + '_bak' + str(noofbak[alias])
       cnf[alias] = dict()
@@ -2895,7 +2895,7 @@ def getExperimentnumber(searchstring,newest=True,searchtitle=False):
     str =  "Found %d experiments for PI (%s):" %(len(lines),pi)
     for n in range(len(lines)):
       str += "\n  %s\t%s" %(no[n],ti[n])
-    print str
+    logbook(str)
   else:
     id = l["id"][np.ix_(lines)]
     no = l["no"][np.ix_(lines)]
@@ -2909,7 +2909,7 @@ def getExperimentList(printit=True,sortDates=True):
 
   if printit:
     for n in ind:
-      print "%s    %s    %s"  %(l['startdate'][n],l['no'][n],l['pi'][n])
+      logbook("%s    %s    %s"  %(l['startdate'][n],l['no'][n],l['pi'][n]))
   return l
 
 ############## UNDER CONSTRUCTION ###############
@@ -2958,10 +2958,10 @@ class filtDsetObj(object):
     for det in self._dset.detectors:
       td = self._dset.__dict__[det]
       if hasattr(td,'_masked_arrays'):
-	if 'data' in td._masked_arrays.keys():
-	  if not td._masked_arrays['data'] == []:
+        if 'data' in list(td._masked_arrays.keys()):
+          if not td._masked_arrays['data'] == []:
             self.__dict__[det] = filtDetObj(self._dset,det)
-    return self.__dict__.keys()
+    return list(self.__dict__.keys())
 
 class filtDetObj(object):
   def __init__(self,dset,det):
@@ -2977,7 +2977,7 @@ class filtDetObj(object):
     for channel in self._channels:
       channel = channel.strip('_')
       self.__dict__[channel] = filtChannelObj(self._dset,self._det,channel)
-    return self.__dict__.keys()
+    return list(self.__dict__.keys())
 
 class filtChannelObj(object):
   def __init__(self,dset,det,channel):
@@ -3003,14 +3003,14 @@ class filtchannelcorrobj(object):
 
   def __dir__(self):
     self.initalldetchannels()
-    return self.__dict__.keys()
+    return list(self.__dict__.keys())
   def initalldetchannels(self):
     for det in self._dset.detectors:
       td = self._dset.__dict__[det]
       if hasattr(td,'_masked_arrays'):
-	if 'data' in td._masked_arrays.keys():
-	  if not td._masked_arrays['data'] == []:
-	    self.__dict__[det] = channelcorrobj(self._dset,self._det,self._channel,det)
+        if 'data' in list(td._masked_arrays.keys()):
+          if not td._masked_arrays['data'] == []:
+            self.__dict__[det] = channelcorrobj(self._dset,self._det,self._channel,det)
 class channelcorrobj(object):
   def __init__(self,dset,det,channel,corrdet):
     self._dset = dset
@@ -3022,7 +3022,7 @@ class channelcorrobj(object):
     return self.__getattribute(inp)
   def __dir__(self):
     self._init()
-    return self.__dict__.keys()
+    return list(self.__dict__.keys())
 
     
 
@@ -3032,17 +3032,17 @@ class channelcorrobj(object):
     for cchannel in corrchannels:
       cchannel = cchannel.strip('_')
       def channelfun():
-	self._dset._initfilter()
-	return partial(parameterCorrFilt,
-					  self._dset.__dict__[self._det].__dict__['__'+self._channel](),
-					  self._dset.__dict__[self._corrdet].__dict__['__'+cchannel](),
-					  dataset=self._dset
-					  )()
+        self._dset._initfilter()
+        return partial(parameterCorrFilt,
+                                          self._dset.__dict__[self._det].__dict__['__'+self._channel](),
+                                          self._dset.__dict__[self._corrdet].__dict__['__'+cchannel](),
+                                          dataset=self._dset
+                                          )()
 
       self.__dict__[cchannel] = channelfun    
 
 ################## data manipulation #################3
-def getProfileLimitsNew(Areadet,step=0,shots=range(10),direction=False,lims=None, dname='profile'):
+def getProfileLimitsNew(Areadet,step=0,shots=list(range(10)),direction=False,lims=None, dname='profile'):
   if lims is None:
     getLims = True
   else:
@@ -3059,7 +3059,7 @@ def getProfileLimitsNew(Areadet,step=0,shots=range(10),direction=False,lims=None
     tools.nfigure('Select limits')
     pl.clf()
     tools.imagesc(I)
-    print 'Select region of interest which spans both, horizontal and vertical profile'
+    logbook('Select region of interest which spans both, horizontal and vertical profile')
     limstot = np.round(tools.getRectangleCoordinates())
     I = tools.subset(I,limstot)
 
@@ -3069,7 +3069,7 @@ def getProfileLimitsNew(Areadet,step=0,shots=range(10),direction=False,lims=None
       tools.nfigure('Select limits')
       pl.clf()
       tools.imagesc(I)
-      print 'Select horizontal region of interest'
+      logbook('Select horizontal region of interest')
       lims = np.round(tools.getSpanCoordinates('vertical'))
     if direction == 'both':
       limsver = lims
@@ -3081,7 +3081,7 @@ def getProfileLimitsNew(Areadet,step=0,shots=range(10),direction=False,lims=None
       tools.nfigure('Select limits')
       pl.clf()
       tools.imagesc(I)
-      print 'Select horizontal region of interest'
+      logbook('Select horizontal region of interest')
       lims = np.round(tools.getSpanCoordinates('horizontal'))
     if direction == 'both':
       limshor = lims
@@ -3102,7 +3102,7 @@ def getProfileLimitsNew(Areadet,step=0,shots=range(10),direction=False,lims=None
     det._add(dname,profile)
 
 
-def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, dname='profile'):
+def getProfileLimits(Areadet,step=0,shots=list(range(10)),transpose=False,lims=None, dname='profile'):
   if isinstance(Areadet,data):
     dat = Areadet
     det = None
@@ -3117,7 +3117,7 @@ def getProfileLimits(Areadet,step=0,shots=range(10),transpose=False,lims=None, d
     I = dat[step,np.ix_(shots)][0]
     tools.nfigure('Select limits')
     pl.imshow(np.mean(I,axis=0),interpolation='nearest')
-    print 'Select region of interest'
+    logbook('Select region of interest')
     lims = np.round(tools.getSpanCoordinates(direction))
   limsdict = dict(projection = direction+' range',limits=lims)
   tfun = ixppy.wrapFunc(extractProfilesFromData,transposeStack=False)
@@ -3149,11 +3149,11 @@ def extractProfilesFromData(data,profileLimits,cameraoffset=0):
       limshor = profileLimits['limits']['horizontal']
       limsver = profileLimits['limits']['vertical']
       profilehor = np.mean(data[:, 
-	min(limsver)+min(limstot[:,1]):max(limsver)+min(limstot[:,1])  ,
-	min(limstot[:,0]):max(limstot[:,0])],axis=1)
+        min(limsver)+min(limstot[:,1]):max(limsver)+min(limstot[:,1])  ,
+        min(limstot[:,0]):max(limstot[:,0])],axis=1)
       profilever = np.mean(data[:  ,
-	min(limstot[:,1]):max(limstot[:,1]), 
-	min(limshor)+min(limstot[:,0]):max(limshor)+min(limstot[:,0])],axis=2)
+        min(limstot[:,1]):max(limstot[:,1]), 
+        min(limshor)+min(limstot[:,0]):max(limshor)+min(limstot[:,0])],axis=2)
       profiles = [profilehor,profilever]
 
   return profiles
@@ -3164,8 +3164,8 @@ def extractProfilesPeakPar(profiles):
     for tprofiles in profiles:
       stack=[]
       for tprofile in tprofiles:
-	x = arange(len(tprofile))
-	stack.append(tools.peakAna(x,trpofile))
+        x = arange(len(tprofile))
+        stack.append(tools.peakAna(x,trpofile))
       res.append(np.asarray(stack))
     res = tuple(np.hstack(res).T)
     return res
@@ -3190,7 +3190,7 @@ def rdHdf5dataFromDataSet(h5datasethandle,shots='all'):
   dh = h5datasethandle
   #Assume all events/shots are to be read when 'all'
   if type(shots) is str and shots is 'all':
-    shots = range(dh.len())
+    shots = list(range(dh.len()))
   if type(shots)==np.ndarray:
     shots = list(shots)
   if type(shots) is not list:
@@ -3295,14 +3295,13 @@ def digitizeData(data,bins,prcentile=.9):
     if dims==1:
       data = [data]
     else:
-
-      print "binData: number of data structures does not fit number of bin arrays"
+      logbook("binData: number of data structures does not fit number of bin arrays")
       return
   if iterdepth(data[0])==1:
     ndata = [[td] for td in data]
     data = ndata
     issinglestep = True
-    print "in single Step!"
+    logbook("in single Step!")
 
   abins = []
   aN = []
@@ -3330,7 +3329,7 @@ def digitizeData(data,bins,prcentile=.9):
         pl.clf()
         pl.step(edg[:-1]+np.diff(edg),N,'k')
         lims = tools.getSpanCoordinates()
-        nbins = int(raw_input('Please enter number of bins: '))
+        nbins = int(eval(input('Please enter number of bins: ')))
         cbins = np.linspace(lims[0],lims[1],np.abs(nbins)+1)
 
       else:
@@ -3493,18 +3492,17 @@ def digitize(dat,bins=None,graphicalInput=True,figName=None):
     bins = None
     hs = []
     while not ip=='q':
-      ip = raw_input('Enter number of bins (integer) or bin interval (float) (q to finish) ')
+      ip = eval(input('Enter number of bins (integer) or bin interval (float) (q to finish) '))
       if ip=='q': continue
       if type(eval(ip)) is int:
-	bins = np.linspace(np.min(lims),np.max(lims),int(ip)+1)
+        bins = np.linspace(np.min(lims),np.max(lims),int(ip)+1)
       else:
-	bins = np.arange(np.min(lims),np.max(lims),float(ip))
+        bins = np.arange(np.min(lims),np.max(lims),float(ip))
       for th in hs: 
-	th.remove()
-	hs = []
+        th.remove()
+        hs = []
       hs = [pl.axvline(te) for te in bins]
-    print "Selected bins: %g, %g,  "%(np.min(lims),np.max(lims))
-  
+    logbook("Selected bins: %g, %g,  "%(np.min(lims),np.max(lims)))
   return np.digitize(dat,bins),bins
 
 def digitize_new(dat,bins=None,graphicalInput=True,figName=None):
@@ -3521,28 +3519,28 @@ def digitize_new(dat,bins=None,graphicalInput=True,figName=None):
     #for tbins in args:
       #raise NotImplementeError
       #if isinstance(tbins,memdata):
-	#print "Found memdata"
-	#res_bins_dat_tmp = []
-	#res_bins_tim_tmp = []
-	#for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
-	  #dum,tind = filterTimestamps(tbins.time,bins_tim)
-	  #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
-	  #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
-	#res_bins_dat = res_bins_dat_tmp
-	#res_bins_tim = res_bins_tim_tmp
-	#res_binvec.append(tbin.scan[tbin.scan.keys()[0]])
+        #print "Found memdata"
+        #res_bins_dat_tmp = []
+        #res_bins_tim_tmp = []
+        #for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
+          #dum,tind = filterTimestamps(tbins.time,bins_tim)
+          #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
+          #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
+        #res_bins_dat = res_bins_dat_tmp
+        #res_bins_tim = res_bins_tim_tmp
+        #res_binvec.append(tbin.scan[tbin.scan.keys()[0]])
       #else:
-	#res_bins_dat_tmp = []
-	#res_bins_tim_tmp = []
-	#for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
-	  #inds,bins = digitize(bins_dat,tbins)
-	  ## continue here ToDo
-	  #binrange = range(1,len(bins))
-	  #tind = [(inds==tbin).nonzero()[0] for tbin in binrange]
-	  #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
-	  #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
-	#res_bins_dat = res_bins_dat_tmp
-	#res_bins_tim = res_bins_tim_tmp
+        #res_bins_dat_tmp = []
+        #res_bins_tim_tmp = []
+        #for bins_dat,bins_tim in zip(res_bins_dat,res_bins_tim):
+          #inds,bins = digitize(bins_dat,tbins)
+          ## continue here ToDo
+          #binrange = range(1,len(bins))
+          #tind = [(inds==tbin).nonzero()[0] for tbin in binrange]
+          #res_bins_tim_tmp.extend([bins_tim[ttind] for ttind in tind])
+          #res_bins_dat_tmp.extend([bins_dat[ttind] for ttind in tind])
+        #res_bins_dat = res_bins_dat_tmp
+        #res_bins_tim = res_bins_tim_tmp
       #return memdata(input=[res_bins_dat,res_bins_tim])
 
 
@@ -3552,10 +3550,10 @@ def digitize_new(dat,bins=None,graphicalInput=True,figName=None):
     if type(bins) is tuple:
       Ndim = len(bins)
       for tbins in bins:
-	if isinstance(tbins,memdata):
-	  tb = tbins.ones()*np.arange(len(tbins))
-	  tbInd,stsz = ravelScanSteps(tb.data)
-	  tbTim,stsz = ravelScanSteps(tb.time)
+        if isinstance(tbins,memdata):
+          tb = tbins.ones()*np.arange(len(tbins))
+          tbInd,stsz = ravelScanSteps(tb.data)
+          tbTim,stsz = ravelScanSteps(tb.time)
 
 
 
@@ -3573,16 +3571,14 @@ def digitize_new(dat,bins=None,graphicalInput=True,figName=None):
       bins = None
       hs = []
       while not ip=='q':
-	ip = raw_input('Enter number of bins (q to finish)')
-	if ip=='q': continue
-	bins = np.linspace(np.min(lims),np.max(lims),int(ip))
-	for th in hs: 
-	  th.remove()
-	  hs = []
-	hs = [pl.axvline(te) for te in bins]
-      print "Selected bins: %g, %g,  "%(np.min(lims),np.max(lims))
-
-
+        ip = eval(input('Enter number of bins (q to finish)'))
+        if ip=='q': continue
+        bins = np.linspace(np.min(lims),np.max(lims),int(ip))
+        for th in hs: 
+          th.remove()
+          hs = []
+        hs = [pl.axvline(te) for te in bins]
+      logbook("Selected bins: %g, %g,  "%(np.min(lims),np.max(lims)))
   return np.digitize(dat,bins),bins
 
 
@@ -3645,7 +3641,7 @@ def corrFilt(par0,par1,lims=None,graphicalInput=True,scanstep=None,figName=None,
       pl.plot(par0.R,par1.R,'.k',ms=1)
     lims = tools.getRectangleCoordinates()
     lims = list(np.reshape(lims,[2,-1]))
-    print 'chosen limits are %s' %lims
+    logbook('chosen limits are %s' %lims)
 
   filt0 = par0.filter(lims=list(lims[0])).ones()
   filt1 = par1.filter(lims=list(lims[1])).ones()
@@ -3666,16 +3662,14 @@ def getRunInfo(run,epicsPVs=[]):
     output['shots_per_step'] = [len(time[n]) for n in range(output['noofsteps'])]
     output['starttime'] = datetime.datetime.fromtimestamp(time[0][0][0])
     output['endtime'] = datetime.datetime.fromtimestamp(time[-1][-1][0])
-    if 'scanMot' in d.__dict__.keys():
+    if 'scanMot' in list(d.__dict__.keys()):
       output['scanmot'] = d.__dict__['scanMot']
     else:
       output['scanmot'] = ''
-
-    if 'scanVec' in d.__dict__.keys():
+    if 'scanVec' in list(d.__dict__.keys()):
       output['scanvec'] = d.__dict__['scanVec']
     else:
       output['scanvec'] = []
-
     pvs = []
     for PV in epicsPVs:
       if 'PVnames' in d.epics.__dict__:
@@ -3686,13 +3680,10 @@ def getRunInfo(run,epicsPVs=[]):
       else:
         pvs.append((PV,[]))
     output['epics'] = pvs
-
-
     return output,d
-
   except:
-    print "Could not load run"
-    print run
+    logbook("Could not load run")
+    print(run)
 
 def printRunInfo(exp,runnos,epicsPVs=[],mode='ascii'):
   totlist = []
@@ -3742,7 +3733,7 @@ def printRunInfo(exp,runnos,epicsPVs=[],mode='ascii'):
       outplist.append(', '.join(info['detectors']))
       totlist.append(outplist)
     except:
-      print 'Failure with Run %d'%(run)
+      logbook('Failure with Run %d'%(run))
 
   if mode is 'ascii' or 'print':
     maxsz = []
@@ -3759,7 +3750,7 @@ def printRunInfo(exp,runnos,epicsPVs=[],mode='ascii'):
     for outplist in totlist:
       outpstring += fmt %tuple(outplist)
       outpstring += '\n'
-    print outpstring
+    logbook(outpstring)
 
   return titles,outplist,outpstring
 
@@ -3769,7 +3760,7 @@ def saveRunsToCache(exp,runnos,dets=[]):
       d = dataset((exp,runno),dets)
       d.save(force=True)
     except:
-      print "Could not save run %d in %s" %(runno,exp)
+      logbook("Could not save run %d in %s" %(runno,exp))
 
 
 
@@ -3822,7 +3813,7 @@ def _compress(*args):
   return dout
 
 def _getInputDirectory(cnfFile):
-    knownhosts = cnfFile['defaultPath'].keys()
+    knownhosts = list(cnfFile['defaultPath'].keys())
     if gethostname() in knownhosts:
       inputDirectory = cnfFile['defaultPath'][gethostname()]
     else:
@@ -3860,7 +3851,7 @@ class _Lcls_beamline(object):
         #explist.append(exp)
     self.explist = explist
     output =  copy(explist)
-    output.extend(self.__dict__.keys())
+    output.extend(list(self.__dict__.keys()))
     for exp in explist:
       self.__dict__[exp] = _Experiment(exp,self.cnfFile)
     #print output
@@ -3881,7 +3872,7 @@ class _Experiment(object):
     runlist = ['run%04d'%runno for runno in runlistnum]
     self.runlist = runlistnum
     output =  copy(runlist)
-    output.extend(self.__dict__.keys())
+    output.extend(list(self.__dict__.keys()))
     for run in runlistnum:
       runname = 'run%04d'%run
       self.__dict__[runname] = _Run(self.exp,run,beamline=self.cnfFile['beamline'])
@@ -3898,21 +3889,21 @@ class _Run(object):
   def __dir__(self):
     exp = self.exp
     run = self.run
-    print "Loading dataset information..."
+    logbook("Loading dataset information...")
     d = dataset((exp,run),beamline=self.beamline)
-    print "done!"
+    logbook("done!")
     self.dataset = d
     detectors = d.detectors
     self.detectors = copy(detectors)
-    if 'epics' in d.__dict__.keys():
+    if 'epics' in list(d.__dict__.keys()):
       detectors.append('epics')
-    if 'scanMot' in d.__dict__.keys():
+    if 'scanMot' in list(d.__dict__.keys()):
       detectors.append('scanMot')
-    if 'scanVec' in d.__dict__.keys():
+    if 'scanVec' in list(d.__dict__.keys()):
       detectors.append('scanVec')
     
     output =  copy(detectors)
-    output.extend(self.__dict__.keys())
+    output.extend(list(self.__dict__.keys()))
     for det in detectors:
       self.__dict__[det] = d.__dict__[det]
     #print output
@@ -3923,7 +3914,7 @@ class _Run(object):
 
 def findDatasetsInHdf5(filehandle):
   rundset = filehandle['Configure:0000']['Run:0000']
-  ccname = rundset.keys()[0]
+  ccname = list(rundset.keys())[0]
   dsets = crawlforDatasets(rundset[ccname])
   return dsets
 
@@ -3956,10 +3947,10 @@ def crawlforDatasets(group,skipEpics = True, skipEvr = True):
     return found
   if 'Evr' in group.name:
     return found
-  itemnames  = group.keys()
-  if u'time' in itemnames:
+  itemnames  = list(group.keys())
+  if 'time' in itemnames:
     if isinstance(group['time'],h5py.Dataset):
-      if u'image' in itemnames:
+      if 'image' in itemnames:
         if isinstance(group['image'],h5py.Dataset):
           if group['time'].shape[0] == group['image'].shape[0]:
             dset = dict()
@@ -3967,7 +3958,7 @@ def crawlforDatasets(group,skipEpics = True, skipEvr = True):
             dset['dset_time'] =  group['time'].name
             #dset['dset_type'] =  'areadet'
             found.extend([dset])
-      elif u'data' in itemnames:
+      elif 'data' in itemnames:
         if isinstance(group['data'],h5py.Dataset):
           if group['time'].shape[0] == group['data'].shape[0]:
             dset = dict()
@@ -4001,11 +3992,11 @@ beamline = cnfFile['beamline']
 #  exec('rd'+det[0].upper()+det[1:]+'AllData = partial(_rdDetAllData,det=det)')
 
 # initialize areadet readers
-for det in cnfFile['areaDet'].keys():
+for det in list(cnfFile['areaDet'].keys()):
   exec('rd'+det[0].upper()+det[1:]+'StepData = partial(_rdDetStepData,det=det)')
 
-point_detectors = cnfFile['pointDet'].keys()
-area_detectors = cnfFile['areaDet'].keys()
+point_detectors = list(cnfFile['pointDet'].keys())
+area_detectors = list(cnfFile['areaDet'].keys())
 detectors = point_detectors
 detectors.extend(area_detectors)
 

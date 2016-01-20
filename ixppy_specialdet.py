@@ -54,7 +54,7 @@ class timeTool(object):
         dsetstring = self.config.base._mkScanStepDataSetString(datasets[0],0)
         dset = self.config.fileHandle[dsetstring]
         tdatasets = datasets
-        print "found good timetool dataset %s" %datasets[0]
+        logbook("found good timetool dataset %s" %datasets[0])
         break
       except:
         continue
@@ -75,7 +75,7 @@ class timeTool(object):
           dsetNO+=1
         except:
           dsetNO+=1
-          print "sht"
+          logbook("sht")
           continue
         #except:
           #print "NB: older version of Timing too data format!"
@@ -90,7 +90,7 @@ class timeTool(object):
 
 
   def rdStepData(self):
-    print 'Not implemented!!'
+    logbook('Not implemented!!',func="ixppy_specialdet/rdStepData")
 
 
 class example(object):

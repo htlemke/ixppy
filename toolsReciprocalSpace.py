@@ -1,11 +1,10 @@
+from __future__ import print_function
 import numpy as np
 from numpy import sin,cos,deg2rad,rad2deg,tan,pi
 from toolsVarious import iterfy,dict2class
 from toolsVecAndMat import rotmat3D
 from toolsConstsAndConv import lam2E,E2lam
-
-
-
+from toolsLog import logbook
 
 class crystal(object):
   def __init__(self,uc={'a':2*pi,'b':2*pi,'c':2*pi,'alpha':90,'beta':90,'gamma':90},crystalRotMat=np.asmatrix(np.eye(3))):
@@ -125,7 +124,7 @@ class crystal(object):
     if self.packing is 'cubic':
         isallowed = True
     else:
-      print "crystal structure not implemented (yet)"
+      logbook("crystal structure not implemented (yet)")
 
   #def setCrystalRotationFromEtaRotationAxis(self):
     #"""Calculates the rotation matrix to get from the standard ctystal rotation (normal axis to uc ab plane) to the phiRotationAxis"""
@@ -306,8 +305,8 @@ class xray(object):
   def printGeomHkl(self,hkl,crystal=None):
     phi,phiE = self.getPhiRotationhkl(hkl,crystal)
     hklstr = '[%s]' % ', '.join(map(str, hkl))
-    print 'Reflection %s at phi = %f deg from preset orientation' % (hklstr,phi+phiE)
-    print '  phiE = %f deg;  phi = %f deg' % (phiE,phi)
+    logbook('Reflection %s at phi = %f deg from preset orientation' % (hklstr,phi+phiE))
+    logbook('  phiE = %f deg;  phi = %f deg' % (phiE,phi))
 
     self.getRobotAnglesHkl(hkl,crystal=None)
 
@@ -322,8 +321,8 @@ class xray(object):
 
     az = az*180/pi
     el = el*180/pi
-    print 'Detector azimuth = %f deg and elevation = %f deg in Sample system' %(az0*180/pi,el0*180/pi)
-    print 'Detector azimuth = %f deg and elevation = %f deg in Robot system' %(az,el)
+    print('Detector azimuth = %f deg and elevation = %f deg in Sample system' %(az0*180/pi,el0*180/pi))
+    print('Detector azimuth = %f deg and elevation = %f deg in Robot system' %(az,el))
     return az,el
 
   #def _getDiffrationAnglesHkl_(self,C,hkl):
@@ -359,7 +358,7 @@ def gamdel2Qfibold(gamma,delta,alpha,lam):
   shpgam = np.shape(gamma)
   shpdel = np.shape(delta)
   if not shpgam==shpdel:
-    print "gamma and delta array must have same shape!"
+    logbook("gamma and delta array must have same shape!")
     return
   gamma = gamma.ravel()
   delta = delta.ravel()
@@ -380,7 +379,7 @@ def gamdel2Qfib(gamma,delta,alpha,lam):
   shpgam = np.shape(gamma)
   shpdel = np.shape(delta)
   if not shpgam==shpdel:
-    print "gamma and delta array must have same shape!"
+    logbook("gamma and delta array must have same shape!")
     return
   gamma = gamma.ravel()
   delta = delta.ravel()

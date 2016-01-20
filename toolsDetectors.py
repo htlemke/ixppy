@@ -35,9 +35,9 @@ def corrNonlinGetPar(data,correct,order=2,data_0=0,correct_0=0,
     pass
   p =  np.polyfit(data,correct,order)
   if order>=2 and p[-3]<0:
-    print("corrNonlinGetPar: consistency problem, second order coefficient should \
+    logbook("corrNonlinGetPar: consistency problem, second order coefficient should \
     be > 0, please double check result (plot=True) or try inverting the data and the\
-    correct arguments")
+    correct arguments",level=2,func="toolsDetectors.corrNonlinGetPar")
   p[-1] = p[-1]-correct_0
   if plot:
     d = corrNonlin(data,p,data_0=data_0,correct_0=correct_0)
@@ -59,7 +59,7 @@ def addScanVecToSingleShotReadings(scanv,tt):
   """ tt must be either a list of vectors or a matrix; now it
   is not needed as mem data natively supports that:
   d.timeTool.pos + d.scan.lxt"""
-  print("this funciton is obsolete: please use d.timeTool.pos + d.scan.lxt")
+  logbook("this funciton is obsolete: please use d.timeTool.pos + d.scan.lxt")
   if isinstance(tt,list):
     return [scanv[i]+tt[i][:] for i in range(len(scanv))]
   elif (tt.shape[0] == len(scanv)):
@@ -81,7 +81,7 @@ class nonLinearCorrection(object):
     .....
   """
   def __init__(self):
-    print("This funciton is obsolete, please use: corrNonlinGetPar and corrNonlin")
+    logbook("This funciton is obsolete, please use: corrNonlinGetPar and corrNonlin")
     pass
 
   def calibrate(self,mon,dio,plot=False):

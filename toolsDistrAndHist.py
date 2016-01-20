@@ -1,3 +1,5 @@
+from __future__ import print_function
+from toolsLog import logbook
 import numpy as np
 import scipy as sp
 import numpy.linalg as linalg
@@ -107,7 +109,7 @@ def weighted_percentiles(data, wt, percentiles):
           sw = np.take(wt, i, axis=0) 
           aw = np.add.accumulate(sw) 
           if not aw[-1] > 0: 
-                  raise ValueError, "Nonpositive weight sum" 
+                  raise ValueError("Nonpositive weight sum")
           w = (aw-0.5*sw)/aw[-1] 
           spots = np.searchsorted(w, percentiles) 
           o = [] 
@@ -268,12 +270,12 @@ def gauss(par=dict(A=[],pos=[],sig=[]),dat=[]):
 
 def erfstep(par=dict(h=1,pos=0,sig=1,offs=0),dat=np.linspace(-5,5,100)):
 	#res = par['h']*np.exp(-(dat-par['pos'])**2/par['sig']**2/2)
-        res = par['h']*(erf((dat-par['pos'])/np.sqrt(2) /par['sig']) + 1)/2 + par['offs']
-	return res
+  res = par['h']*(erf((dat-par['pos'])/np.sqrt(2) /par['sig']) + 1)/2 + par['offs']
+  return res
 
 def gauss_amp(X,xdat):
-	ydat = X[0]*np.exp(-(xdat-X[1])**2/2/X[2]**2)
-	return ydat
+  ydat = X[0]*np.exp(-(xdat-X[1])**2/2/X[2]**2)
+  return ydat
 
 #def gauss_norm(X,xdat):
 #	ydat = 1./sqrt(2.*pi*X[2]**2)*X[0]*exp(-(xdat-X[1])**2/2/X[2]**2)
@@ -327,9 +329,9 @@ def histogramSmart(x,fac=20.,include=-1,remove=0,maxints=1000000):
     interval = xdmn
     
   if (hmx-hmn)/interval>maxints:
-    print "Warning: the assigned binwidth %g leads to more bins than assigned in maxint (%g)." %(interval,maxints)
+    logbook("Warning: the assigned binwidth %g leads to more bins than assigned in maxint (%g)." %(interval,maxints),level=2)
     interval = (hmx-hmn)/maxints
-    print "binwidth is set to %g." %(interval)
+    logbook("binwidth is set to %g." %(interval))
   edges = np.arange(hmn,hmx,interval)
   h,dum = np.histogram(x,bins=edges)
   return h,edges
@@ -371,7 +373,7 @@ def histogram2dSmart(x,y,fac=400,include=-1,remove=0,maxints=500):
       removesingle = np.abs(remove[0])
       xhmn,xhmx = np.percentile(x,[removesingle,100-removesingle])
       yhmn,yhmx = np.percentile(y,[removesingle,100-removesingle])
-      print "here",removesingle
+      logbook("here",removesingle)
     elif len(remove)==2:
       remove[0] = iterfy(remove[0])
       remove[1] = iterfy(remove[1])
@@ -406,13 +408,13 @@ def histogram2dSmart(x,y,fac=400,include=-1,remove=0,maxints=500):
   if ydmn>intervaly:
     intervaly = ydmn
   if (xhmx-xhmn)/intervalx>maxints:
-    print "Warning: the assigned x binwidth %g leads to more bins than assigned in maxint (%g)." %(intervalx,maxints)
+    logbook("Warning: the assigned x binwidth %g leads to more bins than assigned in maxint (%g)." %(intervalx,maxints),level=2)
     intervalx = (xhmx-xhmn)/maxints
-    print "binwidth is set to %g." %(intervalx)
+    logbook("binwidth is set to %g." %(intervalx),level=2)
   if (yhmx-yhmn)/intervaly>maxints:
-    print "Warning: the assigned y binwidth %g leads to more bins than assigned in maxint (%g)." %(intervaly,maxints)
+    logbook("Warning: the assigned y binwidth %g leads to more bins than assigned in maxint (%g)." %(intervaly,maxints),level=2)
     intervaly = (yhmx-yhmn)/maxints
-    print "binwidth is set to %g." %(intervaly)
+    logbook("binwidth is set to %g." %(intervaly),level=2)
   edgesx = np.arange(xhmn,xhmx,intervalx)
   edgesy = np.arange(yhmn,yhmx,intervaly)
   h,dumx,dumy = np.histogram2d(x,y,[edgesx,edgesy])

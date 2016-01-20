@@ -70,7 +70,7 @@ class ColorMapCreator:
 
         # print out the colormap of save it to file named filename
         if filename == "":
-	  self.colorMapReturnData = colorMap
+          self.colorMapReturnData = colorMap
 	  #for c in colorMap:
 		    #print "{0}, {1}, {2}".format(c[0], c[1], c[2])
         else:
