@@ -2,6 +2,7 @@ from __future__ import print_function
 import numpy as np
 import pylab as plt
 import toolsPlot
+from toolsLog import logbook
 
 def corrNonlin(data,polypar,data_0=0,correct_0=0):
   """ unses parameters found by corrNonlinGetPar to correct data;
@@ -68,7 +69,9 @@ def addScanVecToSingleShotReadings(scanv,tt):
     return [scanv[i]+tt[:,i] for i in range(len(scanv))]
 
 class nonLinearCorrection(object):
-  """ Class to be used for correcting detector non linearity
+  """ 
+  This funciton is obsolete, please use: corrNonlinGetPar and corrNonlin
+  Class to be used for correcting detector non linearity
   The reason why is a class and not a simple fucntion is to be able
   to apply calculate the correction factors for certain calibcycles
   (like without laser or for negative time delays) and then use the
