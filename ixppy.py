@@ -941,6 +941,11 @@ class data(object):
     odat = [np.ones(len(tim)) for tim in self.time]
     return memdata(input=[odat,self.time],scan=self.scan)
 
+  def ravel(self):
+    """ return an array version of the object, careful may need 
+    a LOT of memory"""
+    return np.vstack(self[:,:])
+
   def __repr__(self):
       return "`data` object %s, %d steps, %d events per step" % (self.name, self.__len__(),np.median(self._lens))
 
