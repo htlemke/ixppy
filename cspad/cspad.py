@@ -760,7 +760,10 @@ def getUnbondedPixelOffset(img):
 def correctImageUsingUnbondedPixels(img,makeCopy=False):
   dark = getUnbondedPixelOffset(img)
   # broadcast
-  dark = dark[:,np.newaxis,np.newaxis]
+  if img.ndim == 3:
+    dark = dark[:,np.newaxis,np.newaxis]
+  elif img.ndim == 4:
+    dark = dark[:,np.newaxis,np.newaxis,np.newaxis]
   if makeCopy:
     img = copy.copy(img) - dark
   else:
@@ -858,9 +861,9 @@ nanify = wrapFunc(_nanify,isPerEvt=False,transposeStack=True)
 def correct(data,dark=None,mask=None,NpxEdgeMask=1,correctCommonMode=True,gainAv=30,nbSwitchFactor=3,Ntiles=32):
   if dark is not None:
     if np.shape(dark)[-1] is not 1: dark=dark[...,np.newaxis]
-    darkcorrect = 1.*np.data-dark
+    darkcorrect = data.astype(np.float)-dark
   else:
-    darkcorrect = 1.*data
+    darkcorrect = data.astype(np.float)
   maskub = createMaskUnbonded(Ntiles)
   maskedg = maskEdges(Ntiles,offset=NpxEdgeMask)
   maskcomb = np.logical_or(mask,maskub)
@@ -868,7 +871,8 @@ def correct(data,dark=None,mask=None,NpxEdgeMask=1,correctCommonMode=True,gainAv
   if np.shape(maskcomb)[-1] is not 1: maskcomb=maskcomb[...,np.newaxis]
 
   if correctCommonMode:
-    corr0 = commonModeCorrect(darkcorrect,mask=maskcomb,gainAv=gainAv,nbSwitchFactor=3,unbPx=maskub[0])
+    corr0 = commonModeCorrect(darkcorrect,mask=maskcomb,gainAv=gainAv,
+      nbSwitchFactor=nbSwitchFactor,unbPx=maskub[0])
   else:
     corr0 = darkcorrect
   corr0 = nanify(1.*corr0,maskcomb)

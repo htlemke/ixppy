@@ -56,7 +56,7 @@ def nfigure(name="noname",figsize=None,**figprops):
                   fig = pl.figure(figsize=figsize,**figprops)
           if name is not None:
             fig.canvas.set_window_title(name)
-  figure(fig.number)
+  pl.figure(fig.number)
   return fig
 
 def draw_verticalline(pos=0,linespec='k'):
