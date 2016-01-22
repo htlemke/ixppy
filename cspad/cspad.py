@@ -765,10 +765,20 @@ def correctImageUsingUnbondedPixels(img,makeCopy=False):
   elif img.ndim == 4:
     dark = dark[:,np.newaxis,np.newaxis,np.newaxis]
   if makeCopy:
-    img = copy.copy(img) - dark
+    img = copy.copy(img) - dark.astype( img.dtype )
   else:
     img -= dark.astype( img.dtype )
   return img
+
+def correctImagesUsingUnbondedPixels(imgs,makeCopy=False):
+  if makeCopy:
+    out = copy.copy(imgs)
+  else:
+    out = imgs
+  for i,img in enumerate(out):
+    correctImageUsingUnbondedPixels(img,makeCopy=False)
+  return out
+
 
 def corrAreadetNonlin_getComponents(areadet,I0,digibins=None):
   print "finding intensity intervals for component determination"
