@@ -2470,7 +2470,11 @@ class Ixp(object):
           exHandle = _ixpOpenHandles[openNames.index(self.fileName)]
           exHandle.close()
           _ixpOpenHandles.remove(exHandle)
-      cfh = h5py.File(self.fileName,mode)
+      try:
+        cfh = h5py.File(self.fileName,mode)
+      except IOError:
+        cfh = h5py.File(self.fileName,"r")
+        logbook('Opening cache file in readonly mode (no write permission)')
       self._fileHandle = cfh
       _ixpOpenHandles.append(cfh)
     else:
