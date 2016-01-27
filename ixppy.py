@@ -1901,7 +1901,6 @@ def initmemdataraw(data):
     dat = data[0]
     tim = data[1]
   if tim is None:
-
     logbook("NB: memdata instance without timestamps!")
   elif not len(dat)==len(tim):
     logbook("data and time in raw memdata should have same length")
@@ -2436,7 +2435,7 @@ class Ixp(object):
     else:
       if name in list(pH.keys()) and not force:
         rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(name,pH.name)
-        ret = eval(input(rawstr))
+        ret = raw_input(rawstr)
         if ret=='a': del pH[name]; force = True; self._forceOverwrite = True
         if ret=='y': del pH[name]
         if ret=='n': pass
