@@ -720,6 +720,32 @@ class memdata(object):
   def __invert__(self):
     return applyDataOperator(operator.invert,self)
 
+
+class datawrap(object):
+  """ Hack to wrap a list of arrays in a way compatible with the data object """
+  def __init__(self,list_of_arrays):
+    self._data = list_of_arrays
+    
+  def __call__(self,calibSlice,stepSlice):
+    if isinstance(calibSlice,int):
+      calibSlice = (calibSlice,)
+    return [ self._data[c][stepSlice] for c in calibSlice]
+
+def asData(name=None,time=None,input=None,scan=None,ixpAddressData=None,
+    parent=None,grid=None):
+  """ wraps list of arrays with a __call__ method to be suitable as data object;
+      used for 1D curves; data should be a list of arrays; for every array, the
+      first index should be the one running trough the shots;
+      Typical use, assuming that az is a list of arrays, each (nShots,nQ); 
+      with nShots that might change from calibcycle to calibcycle
+      d.cspad["AzAv"] = asData(name="AzAv",time=d.cspad.data.time,data=az,
+      parent=d.cspad,scan=d.scan)
+  """
+  if input is not None: input = datawrap(input)
+  return data(name=name,time=time,input=input,scan=scan,ixpAddressData=ixpAddressData,
+    parent=parent,grid=grid)
+  
+
 class data(object):
   def __init__(self,name=None,time=None,input=None,scan=None,ixpAddressData=None,parent=None,grid=None):
     self.name = name
@@ -1702,25 +1728,6 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
 
     output.append((np.asarray(td),))
   return output
-
-
-    
-
-
-
-
-
-
-      
-
-
-
-
-
-   
-
-
-  pass
 
 def get_common_timestamps(allobjects):
   times = None
