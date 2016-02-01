@@ -1904,7 +1904,7 @@ def initmemdataraw(data):
       return
     dat = data['data']
     tim = data['time']
-  elif type(data) is list:
+  elif (type(data) is list) or (type(data) is tuple):
     dat = data[0]
     tim = data[1]
   if tim is None:
