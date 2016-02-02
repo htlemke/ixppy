@@ -7,5 +7,14 @@
 #export XPPFOLDER=/reg/g/xpp/xppcode/python/
 
 #ipython -i --no-banner --deep-reload -c "%run '$XPPFOLDER/ixppy/ixppy_startup.py'" --pdb --pylab
+hn=$HOSTNAME                                                                    
+if [[ $hn == ps* ]]                                                             
+then                                                                            
+        export PATH="/reg/g/xpp/xppcode/python/anaconda2/bin:$PATH"             
+        export PYTHONPATH="/reg/g/xpp/xppcode/python:$PYTHONPATH"               
+                                                                                
+else echo 0;                                                                    
+fi     
+
 ipython --pylab --no-banner -i -c 'from ixppy.interactive_env import *'
 #ipython --pylab --no-banner -i -c 'run /home/lemke/mypy/ixppy/interactive_env.py'

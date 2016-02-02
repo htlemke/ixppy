@@ -143,14 +143,14 @@ def getSpanCoordinates(direction='horizontal',axh=None,fig=None,data=None):
       self.lims = [tmin,tmax]
       if self.boxh: self.boxh.remove()
       if self.direction is 'horizontal':
-        self.boxh = pl.axvspan(tmin,tmax,facecolor='r',alpha=0.5)
+        self.boxh = self.axh.axvspan(tmin,tmax,facecolor='r',alpha=0.5)
         delta = tmax-tmin
         axh.set_xlim([tmin-0.2*delta, tmax+0.2*delta])
         if data is not None:
           dat = data[1]
 
       if self.direction is 'vertical':
-        self.boxh = pl.axhspan(tmin,tmax,facecolor='r',alpha=0.5)
+        self.boxh = self.axh.axhspan(tmin,tmax,facecolor='r',alpha=0.5)
         delta = tmax-tmin
         axh.set_ylim([tmin-0.2*delta, tmax+0.2*delta])
       fig.canvas.draw()

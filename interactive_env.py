@@ -5,8 +5,7 @@ print '|  \  \/  /\____ \\\\____ <   |  |'
 print '|  |>    < |  |_> >  |_> >___  |'
 print '|__/__/\_ \|   __/|   __// ____|'
 print '         \/|__|   |__|   \/     '
-print 'Interactive X-ray Pulse Python Environemt\n\n'
-import banner
+print 'Interactive X-ray Pulse Python Environment\n\n'
 import numpy as np
 import matplotlib.pyplot as plt
 import ixppy
