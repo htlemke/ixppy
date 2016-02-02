@@ -1,0 +1,47 @@
+# default beamline
+#* beamline
+bl3
+
+# default hdf5 file path for instrument meant for lcls file system (beamline name will be added)
+#* default_datapath
+bl3 /reg/d/psdm
+
+# data paths for certain hosts for instrument
+#* default_datapath_hosts
+xpp userlaptop /media/super_disk/data
+
+# data paths for data cache. This holds preanalyzed data that can be copied between computers and are read additionally/instead the real datafile.
+#* cache_directory
+xpp default /reg/d/psdm/xpp/xppc3614/scratch/ixp
+
+# Scan step (mnemonic,data)
+#* scan_step
+scan      ControlData*pvControls
+scanMon     ControlData*pvMonit
+
+# Epics data dataset paths (mnemonic,data)
+#* epics_dset
+epics   EpicsArch.0:NoDevice.0
+
+# XPP point detector configuration, label first, then line of different fields:
+#* detector alias, dataset link to data, dataset link to time, dataset for configuration.
+#* pointDet_bl3
+bm1   event_info/bm_1_signal_in_coulomb    event_info/tag_number_list   notused
+bm2   event_info/bm_2_signal_in_coulomb    event_info/tag_number_list   notused
+time   event_info/time_stamp    event_info/tag_number_list   notused
+
+# XPP area detectors, label as #*line, then line of alias, and data, time, and config datasets
+# internally every * is substituted with "\S+"
+# for areaDet you need to specify /data or /image, etc.
+#* areaDet_bl3
+ccd1   detector_2d_1   notused     notused 
+#opal2 Camera::Frame*/XppEndstation.0:Opal1000.2/image notused notused
+
+
+# Common point detectors
+#* pointDet_common
+phasec  BldDataPhaseCavity/PhaseCavity notused notused
+
+
+#* areaDet_common
+xtcav Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/image Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/time dummy
