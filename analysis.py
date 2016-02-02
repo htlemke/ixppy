@@ -1,4 +1,5 @@
 import numpy as np
+from toolsLog import logbook
 from tools import getEdges,histVec
 from toolsExternalWrapped import nansum
 import ixppy
@@ -90,7 +91,7 @@ class PumpProbeNDarray(object):
         self._monitor = self.res[self._dsNamePrefix+'_nansum_i0']
       except:
         self.res[self._dsNamePrefix+'_nansum_raw'] = nansum(self.data)
-        print "Extracting I0 from radial profile..."
+        logbook("Extracting I0 from radial profile...")
         self.res[self._dsNamePrefix+'_nansum_raw'].evaluate()
         self.res[self._dsNamePrefix+'_nansum_i0'] = \
 	    self.res[self._dsNamePrefix+'_nansum_raw'].get_memdata()[0]

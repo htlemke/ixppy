@@ -1,4 +1,5 @@
 """ HDF5 UTILS """
+from __future__ import print_function
 import numpy as np
 from toolsLog import logbook
 import toolsVarious
@@ -107,11 +108,10 @@ def getDataset_hack(h5handle,reRead=False):
     for key in handle.keys():
       okey = handle[key]
       if isinstance(okey,h5py.Dataset):
-	out.append(okey.name)
+        out.append(okey.name)
       elif isinstance(okey,h5py.Group):
-	checkkeys(okey)
+        checkkeys(okey)
   checkkeys(h5handle)
-
   globals()["_datasetsInHdf5File"][h5handle]=out
   return out
 
@@ -161,14 +161,14 @@ def readDataset(dataset,sliceSel=None,chunksize=300):
     # subdivide indices in chunksize
     start,stop,step = sliceSel.indices(n)
     nC = int(float(stop-start)/step/chunksize+0.5)
-    print nC
+    print(nC)
     args = []
     for i in range(nC):
       s1 = start+i*(chunksize*step)
       s2 = start+(i+1)*(chunksize*step)
-      print i,s1,s2
+      print(i,s1,s2)
       args.append( (dataset,slice(s1,s2,step) ) )
-    print args
+    print(args)
     raw_input("Not working yet, use chunksize = 1")
     p = Pool(4); # 16-43 ms overhead
     res = p.map(_readDataset,args)
@@ -187,14 +187,14 @@ def datasetToNumpy(dataset,sliceSel=None,chunksize=1):
     # subdivide indices in chunksize
     start,stop,step = sliceSel.indices(n)
     nC = int(float(stop-start)/step/chunksize+0.5)
-    print nC
+    print(nC)
     args = []
     for i in range(nC):
       s1 = start+i*(chunksize*step)
       s2 = start+(i+1)*(chunksize*step)
-      print i,s1,s2
+      print(i,s1,s2)
       args.append( (dataset,slice(s1,s2,step) ) )
-    print args
+    print(args)
     raw_input("Not working yet, use chunksize = 1")
     p = Pool(); # 16-43 ms overhead
     res = p.map_async(f,args,chunksize=1)
@@ -213,7 +213,7 @@ def getHdf5Format(fileNames):
     try:
       if tformat is 'lclsH5':
 	h5format = int(np.asarray(['Configure:0000' in fh.keys() for fh in fileHandles]).all())*tformat
-	print h5format
+	print(h5format)
       elif tformat is 'saclaH5':
 	#h5format = int(np.asarray([fh['file_info/format_type'].value == 'run_dat_format' for fh in fileHandles]).all())*tformat
 	h5format = int(np.asarray(['file_info' in fh.keys() for fh in fileHandles]).all())*tformat

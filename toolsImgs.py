@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 try:
   import Image
@@ -30,7 +31,7 @@ def edgeMask(imgOrShape,nPixels):
       m[:,-nPixels:] = False
       m[-nPixels:,:] = False
   else:
-    print "Cannot make mask"
+    print("Cannot make mask")
   return mask
 
 def loadImg(file):

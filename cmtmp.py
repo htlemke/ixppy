@@ -1,4 +1,4 @@
-
+from __future__ import print_function
 from matplotlib.colors import LinearSegmentedColormap
 from numpy import nan, inf
 
