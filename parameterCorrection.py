@@ -1,3 +1,4 @@
+from toolsLog import logbook
 from ixppy import tools,wrapFunc,dataset
 import pylab as plt
 import numpy as np
@@ -190,9 +191,9 @@ class CorrPar(object):
 
   def getRefIntensity(self,imagemask=None):
     self.Iref = self.refDataFilter * nansum(self.data)
-    fina = 'tmp_getRefIntensity_' \
-	+ datetime.datetime.now().isoformat() + '.ixp.h5'
-    print fina
+    fina = 'tmp_getRefIntensity_' + \
+	  datetime.datetime.now().isoformat() + '.ixp.h5'
+    logbook(fina)
     self.Iref.setFile(fina)
     self.Iref.evaluate()
     self.Iref = self.Iref.get_memdata()[0]
@@ -205,7 +206,7 @@ class CorrPar(object):
     if evaluate:
       fina = 'tmp_getImat_' \
 	  + datetime.datetime.now().isoformat() + '.ixp.h5'
-      print fina
+      logbook(fina)
       self.Imat.setFile(fina)
       self.Imat.evaluate()
       self.Imat = np.asarray(self.Imat.mean())

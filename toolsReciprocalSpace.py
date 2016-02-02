@@ -1,11 +1,11 @@
+from __future__ import print_function
 import numpy as np
-from numpy import sin,cos,deg2rad,rad2deg,tan,pi
+from numpy import sin,cos,deg2rad,rad2deg,tan,pi,sqrt
 from toolsVarious import iterfy,dict2class
-from toolsVecAndMat import rotmat3D
+from toolsVecAndMat import rotmat3D,rotmat3Dfrom2vectors
 from toolsConstsAndConv import lam2E,E2lam
-
-
-
+import matplotlib.pyplot as plt
+from toolsLog import logbook
 
 class crystal(object):
   def __init__(self,uc={'a':2*pi,'b':2*pi,'c':2*pi,'alpha':90,'beta':90,'gamma':90},crystalRotMat=np.asmatrix(np.eye(3))):
@@ -46,10 +46,10 @@ class crystal(object):
   def reclattvectors(self):
     av,bv,cv = self.ucvectors()
     av=av.ravel();bv=bv.ravel();cv=cv.ravel();
-    Vc=dot(av, cross(bv,cv));
-    avr=2*pi/Vc*cross(bv, cv);
-    bvr=2*pi/Vc*cross(cv, av);
-    cvr=2*pi/Vc*cross(av, bv);
+    Vc=np.dot(av, np.cross(bv,cv));
+    avr=2*pi/Vc*np.cross(bv, cv);
+    bvr=2*pi/Vc*np.cross(cv, av);
+    cvr=2*pi/Vc*np.cross(av, bv);
     return avr,bvr,cvr
 
   def reclattvectors0(self):
@@ -125,7 +125,7 @@ class crystal(object):
     if self.packing is 'cubic':
         isallowed = True
     else:
-      print "crystal structure not implemented (yet)"
+      logbook("crystal structure not implemented (yet)")
 
   #def setCrystalRotationFromEtaRotationAxis(self):
     #"""Calculates the rotation matrix to get from the standard ctystal rotation (normal axis to uc ab plane) to the phiRotationAxis"""
@@ -158,8 +158,8 @@ class crystal(object):
     av,bv,cv = self.reclattvectors()
     import matplotlib as mpl
     from mpl_toolkits.mplot3d import Axes3D
-    ion()
-    fig = figure()
+    plt.ion()
+    fig = plt.figure()
     ax = fig.gca(projection='3d')
     ax.plot([0,av[0]],[0,av[1]],[0,av[2]],'r',label='a*')
     ax.plot([0,bv[0]],[0,bv[1]],[0,bv[2]],'g',label='b*')
@@ -167,9 +167,9 @@ class crystal(object):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')
-    axis('equal')
-    legend()
-    draw() 
+    plt.axis('equal')
+    plt.legend()
+    plt.draw() 
 
 class xray(object):
   def __init__ (self,Ephot=lam2E(1),XrayDirection=[0,1,0],phiRotationAxis=[0,0,1],etaRotationAxis=[1,0,0],sampleIsVertical = False,crystal = None):
@@ -264,7 +264,7 @@ class xray(object):
     return Qn,Qp
 
   def getQnorm(self,Q):
-    Qnorm = numpy.linalg.norm(Q)
+    Qnorm = np.linalg.norm(Q)
     return Qnorm
 
   def getPhiRotation(self,Qcryst):
@@ -273,10 +273,10 @@ class xray(object):
 
   def _getPhiRotation(self,Qcryst):
     Qnorm = self.getQnorm(Qcryst)
-    Qn = dot(Qcryst,np.array([0,0,1]))
-    Qp = sqrt(Qnorm**2-Qn**2)
-    phi = -numpy.arctan2(Qcryst[1],Qcryst[0])
-    phiE = -arcsin(Qnorm**2/(2*self.K*Qp*cos(self.eta))-Qn/Qp*tan(self.eta))
+    Qn = np.dot(Qcryst,np.array([0,0,1]))
+    Qp = np.sqrt(Qnorm**2-Qn**2)
+    phi = -np.arctan2(Qcryst[1],Qcryst[0])
+    phiE = -np.arcsin(Qnorm**2/(2*self.K*Qp*np.cos(self.eta))-Qn/Qp*np.tan(self.eta))
     return phi,phiE
 
   def getPhiERotation_QnQp(self,Qn,Qp):
@@ -306,8 +306,8 @@ class xray(object):
   def printGeomHkl(self,hkl,crystal=None):
     phi,phiE = self.getPhiRotationhkl(hkl,crystal)
     hklstr = '[%s]' % ', '.join(map(str, hkl))
-    print 'Reflection %s at phi = %f deg from preset orientation' % (hklstr,phi+phiE)
-    print '  phiE = %f deg;  phi = %f deg' % (phiE,phi)
+    logbook('Reflection %s at phi = %f deg from preset orientation' % (hklstr,phi+phiE))
+    logbook('  phiE = %f deg;  phi = %f deg' % (phiE,phi))
 
     self.getRobotAnglesHkl(hkl,crystal=None)
 
@@ -322,8 +322,8 @@ class xray(object):
 
     az = az*180/pi
     el = el*180/pi
-    print 'Detector azimuth = %f deg and elevation = %f deg in Sample system' %(az0*180/pi,el0*180/pi)
-    print 'Detector azimuth = %f deg and elevation = %f deg in Robot system' %(az,el)
+    print('Detector azimuth = %f deg and elevation = %f deg in Sample system' %(az0*180/pi,el0*180/pi))
+    print('Detector azimuth = %f deg and elevation = %f deg in Robot system' %(az,el))
     return az,el
 
   #def _getDiffrationAnglesHkl_(self,C,hkl):
@@ -348,8 +348,8 @@ class xray(object):
     Q = rotmat3D(np.array([0,0,1]),(phi+phiE))*np.asmatrix(Q).ravel().transpose()
     Q = rotmat3D(self.etaRotationAxis,self.eta)*np.asmatrix(Q).ravel().transpose()
     kout = self.Kvec+np.asarray(Q).ravel().transpose()
-    el = arcsin(kout[2]/self.K)
-    az = -1*arctan2(kout[0],kout[1])
+    el = np.arcsin(kout[2]/self.K)
+    az = -1*np.arctan2(kout[0],kout[1])
     return az,el
 
 def gamdel2Qfibold(gamma,delta,alpha,lam):
@@ -359,7 +359,7 @@ def gamdel2Qfibold(gamma,delta,alpha,lam):
   shpgam = np.shape(gamma)
   shpdel = np.shape(delta)
   if not shpgam==shpdel:
-    print "gamma and delta array must have same shape!"
+    logbook("gamma and delta array must have same shape!")
     return
   gamma = gamma.ravel()
   delta = delta.ravel()
@@ -380,7 +380,7 @@ def gamdel2Qfib(gamma,delta,alpha,lam):
   shpgam = np.shape(gamma)
   shpdel = np.shape(delta)
   if not shpgam==shpdel:
-    print "gamma and delta array must have same shape!"
+    logbook("gamma and delta array must have same shape!")
     return
   gamma = gamma.ravel()
   delta = delta.ravel()

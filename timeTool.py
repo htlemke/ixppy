@@ -1,27 +1,12 @@
+from __future__ import print_function
 import pylab as pl
-#import h5py
 import os
-#from os.path import expanduser
-#from socket import gethostname
-#import dateutil
-#import sys
 import numpy as np
-#import ixppy_specialdet
 import tools
-#from toolsVarious import addToObj
-#import toolsHdf5 as tH5
-#from toolsHdf5 import datasetRead as h5r
-#from functools import partial,wraps
 from copy import copy
-#import re
-#import examples
 import ixppy
-#import datetime
-#import operator
 import time
-#import lclsH5
-#import copy as pycopy
-
+from toolsLog import logbook
 
 standFilter = None
 
@@ -85,13 +70,13 @@ def TTteachFilter(profiles,):
   nfh = tools.nfigure('Digital filter design: Select noise region')
   pl.clf()
   pl.plot(profiles.transpose())
-  print "select lower limit of noise area (NB: has same width as signal range!)"
+  logbook("select lower limit of noise area (NB: has same width as signal range!)")
   noiselim = pl.ginput(1)
   noiselim = round(noiselim[0][0])+np.array([0,np.diff(np.array(siglim))[0]])
   pl.axvspan(noiselim[0],noiselim[1],facecolor='r',alpha=0.5)
   pl.axvline(noiselim[0],color='r')
   pl.axvline(noiselim[1],color='r')
-  print noiselim
+  logbook(noiselim)
   nacl = []
   for p in profiles:
     yn = p[noiselim[0]:noiselim[1]]
@@ -139,7 +124,7 @@ def applyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings
       beloh = (f<tamp/2).nonzero()[0]-mpr
       tfwhm = abs(beloh[beloh<0][-1]-beloh[beloh>0][0])
     except:
-      print "FWHM not applied"
+      logbook("FWHM not applied",level=0)
       tfwhm = np.nan
     pos.append(tpos)
     amp.append(tamp)
@@ -149,236 +134,6 @@ def applyFilter(data,filtsettings,plotOutput=False,polysettings=None,erfsettings
   amp  = np.asarray(amp)
   fwhm = np.asarray(fwhm)
   returntuple = [pos,amp,fwhm]
-  return tuple(returntuple)
-
-def applyFilterOld(data,filtsettings,plotOutput=False,polysettings=None,erfsettings=None,saveplots=False,kind="stepUp"):
-  weights = np.array(filtsettings['weights']).ravel()
-  #stepoffs = filtsettings['stepoffs'] 
-  lf = len(weights)
-  halfrange = round(lf/10)
-  pos = []
-  amp = []
-  fwhm = []
-  runningno = 0
-  if polysettings:
-    poly_pos = []
-    poly_cen = []
-  for d in data:
-    #print runningno
-    #runningno+=1
-    try:
-      if max(abs(d))>5:
-        raise Exception("Strange array!")
-      f0 = np.convolve(np.array(weights).ravel(),d,'same')
-      f = f0[lf/2:len(f0)-lf/2-1]
-      if (kind=="stepUp"):
-        mpr = f.argmax()
-      else:
-        mpr = f.argmin()
-    #if True:
-      xd = np.arange(max(0,mpr-halfrange),min(mpr+halfrange,len(f)-1))
-      yd = f[max(0,mpr-halfrange):min(mpr+halfrange,len(f)-1)]
-      p2 = np.polyfit(xd,yd,2)
-      
-      tpos = -p2[1]/2./p2[0]
-      tamp = np.polyval(p2,tpos)
-      try:
-        beloh = (f<tamp/2).nonzero()[0]-mpr
-        tfwhm = abs(beloh[beloh<0][-1]-beloh[beloh>0][0])
-      except:
-        print "FWHM not applied"
-        tfwhm = np.nan
-
-      #tools.nfigure('test')
-      #pl.subplot(211)
-      #pl.plot(d)
-      #pl.hold(True)
-      #pl.axvline(tpos)
-      ##pl.axvline(tpos+lf/2+stepoffs,color='r')
-      #pl.axvline(tpos+lf/2,color='r')
-      #pl.axvline(tpos+lf/2)
-      #pl.axvline(tpos+lf)
-      #pl.hold(False)
-      #pl.subplot(212)
-      #pl.plot(f0)
-      #pl.hold(True)
-      #pl.axvline(tpos)
-      ##pl.axvline(tpos+lf/2+stepoffs,color='r')
-      #pl.axvline(tpos+lf/2,color='r')
-      #pl.axvline(tpos+lf/2)
-      #pl.axvline(tpos+lf)
-      #pl.hold(False)
-      #pl.draw()
-      #pl.waitforbuttonpress()
-
-      if polysettings:
-        tcen = tpos+lf/2
-        rpts = polysettings['rpts']
-        cpts = polysettings['cpts']
-        # make region for polyfit
-        pxd = np.arange(int(tcen-rpts),int(tcen+rpts))
-        pyd = d[int(tcen-rpts):int(tcen+rpts)]
-        #import pdb;pdb.set_trace() 
-        # do the fit to find step on first order
-        p10 = np.polyfit(pxd,pyd,10)
-        dp10= np.polyder(p10)
-        cpxd = pxd[cpts:-cpts]
-        cpyd = pyd[cpts:-cpts]
-        pkpos0_ind = np.polyval(dp10,cpxd).argmax()
-
-        # go for extrema
-        ddp10 = np.polyder(dp10)
-        
-        zs = np.roots(ddp10) - cpxd[pkpos0_ind]
-        zs = zs[np.imag(zs)==0]
-        zs = np.real(zs)
-        pkpos_ind = np.argmin(np.abs(zs))
-        pkpos = zs[pkpos_ind]  + cpxd[pkpos0_ind]
-        #limits for erf fit
-        #print np.roots(dp10) -cpxd[pkpos0_ind]
-        zs = np.roots(dp10) - cpxd[pkpos0_ind]
-        zs = zs[np.imag(zs)==0]
-        zs = np.real(zs)
-        rp = np.min(zs[zs>0]) + cpxd[pkpos0_ind]
-        lp = np.max(zs[zs<0]) + cpxd[pkpos0_ind]
-        tpoly_pos = pkpos
-        tpoly_cen = (rp+lp)/2.
-        #print lp,rp
-        if False:
-          steprad = (rp-lp)/2
-          efx = np.float64( np.arange(int(lp-steprad),int(rp+steprad)))
-          efy = d[int(lp-steprad):int(rp+steprad)]
-          #de=bug
-          startpar = [np.mean(efy[-3:])-np.mean(efy[:3]),
-                                   np.mean(efx),
-                                   (rp-lp)/10.,
-                                   np.mean(efy[:3])]
-          mfh = tools.minuitfit(tools.erfstep,startpar,efx,efy)
-          mfh.migrad()
-          #erffitres = mfh.values
-        # find maximum on finer procedure (should be not necessary in a while)
-
-        #ccpxd = cpxd[pkpos0_ind-5:pkpos0_ind+5]
-        #ccpyd = cpyd[pkpos0_ind-5:pkpos0_ind+5]
-        #pp2 = np.polyfit(ccpxd,ccpyd,2)
-        #tpoly_pos = -pp2[1]/2./pp2[0]
-        #poly_pos.append(tpoly_pos)
-         
-        ### PLOTTING
-        print plotOutput
-        if plotOutput:
-          tools.nfigure('test')
-          mah = pl.subplot(211)
-          pl.plot(d)
-          pl.hold(True)
-          pl.plot(pxd,np.polyval(p10,pxd),'r--')
-          pl.plot(pxd,
-                  np.polyval(dp10,pxd)/np.max(np.abs(np.polyval(dp10,pxd)))*.04,
-                  'm')
-          pl.axvline(tpos,ls='--')
-          #pl.axvline(tpos+lf/2+stepoffs,color='r')
-          pl.axvline(tpos+lf/2,ls='--')
-          pl.axhline(0,color='k')
-
-          pl.axvline(tpos+lf,ls='--')
-          pl.axvline(pkpos,color='c')
-          pl.axvline(lp,color='y')
-          pl.axvline(rp,color='y')
-          #pl.plot(efx,tools.erfstep(par=dict(h=startpar[0],
-                                      #pos=startpar[1],
-                                      #sig=startpar[2],
-                                      #offs=startpar[3]),dat=efx),'r')
-          #pl.plot(efx,efy,'m')
-          pl.hold(False)
-          
-          pl.subplot(212,sharex = mah)
-          pl.plot(f0)
-          pl.hold(True)
-          pl.axvline(tpos)
-          #pl.axvline(tpos+lf/2+stepoffs,color='r')
-          pl.axvline(tpos+lf/2)
-          pl.axvline(pkpos,color='c')
-          pl.axvline(lp,color='y')
-          pl.axvline(rp,color='y')
-          pl.hold(False)
-          pl.draw()
-
-
-
-        ### PLOTTING
-      
-      if plotOutput:
-        tools.nfigure('filter')
-        mah = pl.subplot(211)
-        pl.plot(d)
-        pl.hold(True)
-        pl.axvline(tpos)
-        #pl.axvline(tpos+lf/2+stepoffs,color='r')
-        pl.axvline(tpos+lf/2,color='r')
-        pl.axvline(tpos+lf/2)
-        pl.axvline(tpos+lf)
-        pl.hold(False)
-	pl.ylabel('Rel. transmission change')
-        pl.subplot(212,sharex = mah)
-
-        yf = np.polyval(p2,xd)
-        pl.plot(f,'k')
-        pl.hold(True)
-        pl.plot(xd,yf,'r')
-        pl.axvline(mpr,color='k')
-        pl.axvline(tpos,color='r')
-        pl.axhline(tamp,color='r')
-        pl.axhline(tamp/2,color='k')
-        pl.axhline(0,color='k')
-        pl.axvline(mpr-lf/2,color='g')
-        pl.axvline(mpr+lf/2,color='g')
-        pl.axvline(mpr-lf/4,color='c')
-        pl.axvline(mpr+lf/4,color='c')
-        if not np.isnan(tfwhm):
-          pl.axvline(beloh[beloh<0][-1]+mpr,color='b')
-          pl.axvline(beloh[beloh>0][0]+mpr,color='b')
-        if polysettings:
-          pl.axvline(pkpos-lf/2,color='y')
-          pl.axvline(rp-lf/2,color='y')
-          pl.axvline(lp-lf/2,color='y')
-
-        pl.hold(False)
-	pl.ylabel('Filtered')
-	pl.xlabel('Spectral bin / px')
-        pl.draw()
-	if saveplots:
-	  pl.gcf().savefig('%s_%04d.png'%(saveplots,runningno))
-	else:
-          pl.waitforbuttonpress()
-
-    except Exception, e:
-      print e
-    #else:
-      tpos = 0
-      tamp = 0
-      tfwhm = 0
-      if polysettings:
-        tpoly_pos = 0
-        tpoly_cen = 0
-
-    pos.append(tpos)
-    amp.append(tamp)
-    fwhm.append(tfwhm)
-    if polysettings:
-      poly_pos.append(tpoly_pos)
-      poly_cen.append(tpoly_cen)
-    runningno+=1
-
-  pos = np.array(pos)
-  amp = np.array(amp)
-  fwhm = np.array(fwhm)
-  returntuple = [pos,amp,fwhm]
-  if polysettings:
-    poly_pos = np.array(poly_pos)
-    poly_cen = np.array(poly_cen)
-    returntuple.append(poly_pos)
-    returntuple.append(poly_cen)
-
   return tuple(returntuple)
 
 def TTextractFilterPositions(Areadet,filtsettings=None,polysettings=None):
@@ -394,7 +149,7 @@ def TTextractFilterPositions(Areadet,filtsettings=None,polysettings=None):
     poly_cen = []
   ccN = 0
   for ds in Areadet.TTtraces:
-    print '...extracting from cc %d'%(ccN)
+    logbook('...extracting from cc %d'%(ccN))
     data = ds[:]
     if polysettings:
       tpos,tamp,tppos,tpcen = TTapplyFilter(data,filtsettings,polysettings=polysettings)
@@ -499,9 +254,9 @@ def extractProfilesOnly(Areadet, profileLimits=None, transpose=False,dataset_nam
 def extractFromRunList(runlist,exp,datasetname='opal2',profileLimits=None,xrayoffCode=None,laseroffCode=None,filter=None,save=False):
   for run in runlist:
     d = ixppy.dataset((exp,run))
-    print "TT extracting from run %d" %run
+    logbook("TT extracting from run %d" %run)
     extractFromRun(d,datasetname=datasetname,profileLimits=profileLimits,xrayoffCode=xrayoffCode,laseroffCode=laseroffCode,filter=filter,save=save)
-    print "done!"
+    logbook("done!")
 
     
 

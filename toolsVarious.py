@@ -7,7 +7,7 @@ from itertools import takewhile
 from toolsVecAndMat import smooth
 import ixppy
 from scipy.io import loadmat,savemat
-
+from toolsLog import logbook
 #from ixppy import wrapFunc
 
 def allnamesequal(name):
@@ -39,7 +39,7 @@ class dropObject(object):
       try:
         self[name]._parent = self
       except:
-	pass
+        pass
   def _get_keys(self):
     return [tk for tk in self.__dict__.keys() if not tk[0]=='_']
 
@@ -105,7 +105,7 @@ def addToObj(obj,name,value,overWrite=True,ixpsaved=False, setParent=True):
       where.__dict__[parent] = dropObject(name=parent,parent=where)
     if ixpsaved:
       if not hasattr(where,'_ixpsaved'):
-	where._ixpsaved = []
+        where._ixpsaved = []
       if not (parent in [ix[0] for ix in where._ixpsaved]):
         where._ixpsaved.append((parent,'auto'))
     where =  where.__dict__[parent]
@@ -119,15 +119,15 @@ def addToObj(obj,name,value,overWrite=True,ixpsaved=False, setParent=True):
       try:
         where.__dict__[temp]._parent = where
       except:
-	pass
+        pass
   return obj
 
 def fileExists(fname):
-	return os.path.exists(fname)
+        return os.path.exists(fname)
 
 def removeFileIfExists(fname):
-	if (fileExists(fname)):
-		os.remove(fname)
+        if (fileExists(fname)):
+                os.remove(fname)
 
 def h5GroupToObj(d):
   import h5py
@@ -180,7 +180,7 @@ def strucArrayToObj(data):
     for fieldname in data[0].dtype.names:
       c._add(fieldname,data[fieldname])
   else:
-    print "No clue on how to make an object out handle ",data
+    logbook("No clue on how to make an object out handle ",data)
   return c
 
 def dictToObj(d):
@@ -251,72 +251,72 @@ atan2d = arctan2d
 
 
 def round_err(value,err,asstring=False):
-	""" returns value and err rounded to the number of
-			significant digits of err """
-	if (not (np.isfinite(err))):
-		err = np.abs(value/1e3)
-	if (err != 0):
-		ndigerr = -int(np.floor(np.log10(err)))
-		if (ndigerr<1): ndigerr=2
-		v =np.around(value,ndigerr)
-		e =np.around(err,ndigerr)
-	else:
-		v=value
-		e=err
-	if (asstring):
-		return "%s" % v,"%s" % e
-	else:
-		return v,e
+        """ returns value and err rounded to the number of
+                        significant digits of err """
+        if (not (np.isfinite(err))):
+                err = np.abs(value/1e3)
+        if (err != 0):
+                ndigerr = -int(np.floor(np.log10(err)))
+                if (ndigerr<1): ndigerr=2
+                v =np.around(value,ndigerr)
+                e =np.around(err,ndigerr)
+        else:
+                v=value
+                e=err
+        if (asstring):
+                return "%s" % v,"%s" % e
+        else:
+                return v,e
 
 def saveTXT(fname,x,Ys,form="%+.6g",sep=" ",header=None,headerv=None):
-	""" Write data to file 'fname' in text format.
-			Inputs:
-				x = x vector
-				Ys = vector(or array or list of vectors) for the Ys
-				form = format to use
-				sep = separator
-				header = text header (must be a string)
-				headerv = vector to be used as header, it is convienient when
-					the output must be of the form
-						Ncol 252 253 254
-						x1   y11 y12 y13
-						.......
-					In this case headerv should be [252,253,254]
-	"""
-	if (type(x) != np.ndarray): x=np.array(x)
-	if (type(Ys) != np.ndarray): Ys=np.array(Ys)
-	if (len(Ys.shape)==1):
-		Ys=Ys.reshape(Ys.shape[0],1)
-	nx = len(x)
-	if (Ys.shape[0] == nx):
-		ny=Ys.shape[1]
-	elif (Ys.shape[1] == nx):
-		ny=Ys.shape[0]
-		Ys=np.transpose(Ys)
-	else:
-		raise Exception("dimension of x (%d) does not match any of the dimensions of Ys (%d,%d)" % (nx,Ys.shape[0],Ys.shape[1]))
-	try:
-		import codecs
-		f=codecs.open(fname,encoding='utf-8',mode="w")
-	except ImportError:
-		f=open(fname,"w")
-	if (header is not None):
-		f.write(header.strip()+"\n")
-	if (headerv is not None):
-		f.write("%d" % (ny+1))
-		for i in range(ny):
-			f.write(sep)
-			f.write(form % headerv[i])
-		f.write("\n")
-	for i in range(nx):
-		f.write(form % x[i])
-		f.write(sep)
-		for j in range(ny-1):
-			f.write(form % Ys[i,j])
-			f.write(sep)
-		f.write(form % Ys[i,-1])
-		f.write("\n")
-	f.close()
+        """ Write data to file 'fname' in text format.
+                        Inputs:
+                                x = x vector
+                                Ys = vector(or array or list of vectors) for the Ys
+                                form = format to use
+                                sep = separator
+                                header = text header (must be a string)
+                                headerv = vector to be used as header, it is convienient when
+                                        the output must be of the form
+                                                Ncol 252 253 254
+                                                x1   y11 y12 y13
+                                                .......
+                                        In this case headerv should be [252,253,254]
+        """
+        if (type(x) != np.ndarray): x=np.array(x)
+        if (type(Ys) != np.ndarray): Ys=np.array(Ys)
+        if (len(Ys.shape)==1):
+                Ys=Ys.reshape(Ys.shape[0],1)
+        nx = len(x)
+        if (Ys.shape[0] == nx):
+                ny=Ys.shape[1]
+        elif (Ys.shape[1] == nx):
+                ny=Ys.shape[0]
+                Ys=np.transpose(Ys)
+        else:
+                raise Exception("dimension of x (%d) does not match any of the dimensions of Ys (%d,%d)" % (nx,Ys.shape[0],Ys.shape[1]))
+        try:
+                import codecs
+                f=codecs.open(fname,encoding='utf-8',mode="w")
+        except ImportError:
+                f=open(fname,"w")
+        if (header is not None):
+                f.write(header.strip()+"\n")
+        if (headerv is not None):
+                f.write("%d" % (ny+1))
+                for i in range(ny):
+                        f.write(sep)
+                        f.write(form % headerv[i])
+                f.write("\n")
+        for i in range(nx):
+                f.write(form % x[i])
+                f.write(sep)
+                for j in range(ny-1):
+                        f.write(form % Ys[i,j])
+                        f.write(sep)
+                f.write(form % Ys[i,-1])
+                f.write("\n")
+        f.close()
 
 
 def dictMerge(a, b):
@@ -375,15 +375,6 @@ def dict2class(d):
         c.__dict__[elem] = d[elem]
     return c
 
-def corrNonlinGetPar(data,correct,order=2,data_0=0,correct_0=0):
-  p =  np.polyfit(data,correct,order)
-  p[-1] = p[-1]-correct_0
-  return p
-
-def corrNonlin(data,polypar,data_0=0,correct_0=0):
-  m = 1/np.polyval(np.polyder(polypar),data_0)
-  return m*(np.polyval(polypar,data)-correct_0) + data_0
-
 
 def applyPeriodically(func,x,x0,dx,period,including=[True,False],nrep_kw=None,startpar_kw=None,**kwargs):
   out = np.zeros_like(x)
@@ -391,8 +382,8 @@ def applyPeriodically(func,x,x0,dx,period,including=[True,False],nrep_kw=None,st
   xmn = np.min(x)
   ns = np.arange((xmn-x0)//period,(xmx-x0)//period+1)
   x0s = ns*period + x0
-  print ns
-  print x0s
+  #print ns
+  #print x0s
   incld = [[gt,gt][int(including[0])] , [lt,le][int(including[1])]]
   for n,tx0 in zip(ns,x0s):
     ind = np.logical_and( incld[0](x,max(xmn,tx0)), incld[1](x,tx0+dx))
@@ -429,9 +420,9 @@ def readDataFile(fina,fieldname=None):
   else:
     try:
       return np.loadtxt(fina)
-    except Exception,e:
-      print "could not read that file. \nError ---->\n "
-      print e
+    except Exception(e):
+      logbook("could not read that file. \nError ---->\n ")
+      logbook(e)
 
 def readReferenceToRunNumber(searchstring,runno,comparator='le',wildcard='*'):
   comparator = operator.__dict__[comparator]
@@ -439,7 +430,7 @@ def readReferenceToRunNumber(searchstring,runno,comparator='le',wildcard='*'):
   nums = np.asarray(numbers)
   nums = nums[comparator(nums,runno).nonzero()[0]]
   if len(nums)==0:
-    print "Warning: Could not find reference run, will try to read closest runnumber instead!"
+    logbook("Warning: Could not find reference run, will try to read closest runnumber instead!")
     nums = np.asarray(numbers)
   refrunno = np.min(np.abs(nums-runno))
   idx = numbers.index(refrunno)

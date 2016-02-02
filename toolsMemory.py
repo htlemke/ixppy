@@ -99,23 +99,3 @@ class mem(object):
   free = property(updatefree)
 
 
-
-def msg(s,newline=True):
-  sys.stdout.write(s)
-  if (newline):
-    sys.stdout.write("\n")
-  sys.stdout.flush()
-
-class codeBlock(object):
-  def __init__(self,what,level=0):
-    self.mem = mem()
-    self.t0=time.time()
-    self.space = "  "*level
-    s=self.space+what+" (%.1f Gb)..." % (self.mfree())
-    msg(s,newline=False)
-  def done(self):
-    t=time.time()-self.t0
-    msg("...  done (%.1f Gb, %.1f sec)" % (self.mfree(),t))
-  def mfree(self):
-    
-    return self.mem.free/1024./1024./1024.

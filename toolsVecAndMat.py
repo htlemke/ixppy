@@ -50,18 +50,18 @@ def subset(a,lims):
   return a[min(lims[:,1]):max(lims[:,1]) , min(lims[:,0]):max(lims[:,0])]
 
 def filtWithPercentile(v,low,high):
-	""" return indeces that satisty the property that
-	values for this indeces are within `low` and `high` in the probability 
-	distribution """
-	lims = percentile(v, (low,high) )
-	return filtvec(v,lims)
+        """ return indeces that satisty the property that
+        values for this indeces are within `low` and `high` in the probability 
+        distribution """
+        lims = percentile(v, (low,high) )
+        return filtvec(v,lims)
 
 def filterWithMad(v,fac=1,mad=None):
-	""" returns boolean indeces that are true when they satify the
-	relation of 'v' being within its median +/- 'fac' times the RMS calculated
-	with the MAD """
-	if (mad is None): mad = toolsDistrAndHist.mad(v)
-	return (np.abs(v-np.median(v))<fac*mad)
+        """ returns boolean indeces that are true when they satify the
+        relation of 'v' being within its median +/- 'fac' times the RMS calculated
+        with the MAD """
+        if (mad is None): mad = toolsDistrAndHist.mad(v)
+        return (np.abs(v-np.median(v))<fac*mad)
 
 class AverageProfile(object):
   def __init__(self,xs,xe,dx):
@@ -98,7 +98,7 @@ class AverageProfile(object):
         nout[i] = 0 
       else:
         temp = np.asarray(self.y[i])
-				# temp[:,0] are Ys, temp[:,1] are sigmas
+                                # temp[:,0] are Ys, temp[:,1] are sigmas
         yout[i] = np.sum(temp[:,0]/(temp[:,1]**2))/np.sum(1./(temp[:,1]**2)) 
         nout[i] = len(self.y[i]) 
         sout[i] = np.sqrt(1./np.sum(1./(temp[:,1]**2)))
@@ -168,12 +168,12 @@ def rotmat3Dfrom2vectors(v0,v1):
   """calculate 3D rotation matrix that rotates from v0 to v1"""
   v0 = v0/linalg.norm(v0)
   v1 = v1/linalg.norm(v1)
-  ax = linalg.cross(v0,v1)
+  ax = np.cross(v0,v1)
   if not linalg.norm(ax)==0.:
     ax = ax/linalg.norm(ax)
-    ve = linalg.cross(ax,v0)
-    cx = linalg.dot(v1,v0)
-    cy = linalg.dot(v1,ve)
+    ve = np.cross(ax,v0)
+    cx = np.dot(v1,v0)
+    cy = np.dot(v1,ve)
     ang = np.arctan2(cy,cx)
     rotmat = rotmat3D(ax,ang)
   else:
@@ -216,72 +216,72 @@ def oversample(v,fac=None,interval=None):
 
 
 class ArrayWithMasks(np.ndarray):
-	""" to try it:
-	a=np.arange(100).reshape(20,5)
-	b=ArrayWithMasks(a)
-	b.addMask("m1",b>19)
-	b.addMask("m2",b<60)
-	print b.m1; # masked using only mask `m1`
-	print b.m2;
-	print b.mdata; # masked with all masks ..
-	"""
-	def __new__(cls, input_array):
+        """ to try it:
+        a=np.arange(100).reshape(20,5)
+        b=ArrayWithMasks(a)
+        b.addMask("m1",b>19)
+        b.addMask("m2",b<60)
+        print b.m1; # masked using only mask `m1`
+        print b.m2;
+        print b.mdata; # masked with all masks ..
+        """
+        def __new__(cls, input_array):
     # Input array is an already formed ndarray instance
     # We first cast to be our class type
-		obj = np.asarray(input_array).view(cls)
+                obj = np.asarray(input_array).view(cls)
     # add the new attribute to the created instance
     # Finally, we must return the newly created object:
-		return obj 
+                return obj 
 
-	def __init__(self,a):
-		self.mdata  = a
-		self.mask   = np.ones(a.shape,dtype=np.bool)
-		self._masks = {}
-		self._infos = {}
-		self._fracs = {}
+        def __init__(self,a):
+                self.mdata  = a
+                self.mask   = np.ones(a.shape,dtype=np.bool)
+                self._masks = {}
+                self._infos = {}
+                self._fracs = {}
 
 
-	def addMask(self,name,mask,info=None):
-		self._masks[name]=mask
-		self._infos[name]=info
-		self._fracs[name]=np.sum(mask)/float(self.size)
-		self.__dict__["mdata_%s"%name] = self[mask]
-		self.mask = self.mask & mask; # update total mask
-		self.mdata = self[self.mask]
+        def addMask(self,name,mask,info=None):
+                self._masks[name]=mask
+                self._infos[name]=info
+                self._fracs[name]=np.sum(mask)/float(self.size)
+                self.__dict__["mdata_%s"%name] = self[mask]
+                self.mask = self.mask & mask; # update total mask
+                self.mdata = self[self.mask]
 
-	def getArray(self,masks="all"):
-		if (masks is None):
-			return self
-		elif (masks == "all"):
-			return self.mdata
-		elif (masks in self._masks):
-			return self.__dict__[masks]
-		else:
-			mask = np.ones(self.shape,dtype=np.bool)
-			for m in masks:
-				mask = mask & self._masks[m]
-			return self[mask]
+        def getArray(self,masks="all"):
+                if (masks is None):
+                        return self
+                elif (masks == "all"):
+                        return self.mdata
+                elif (masks in self._masks):
+                        return self.__dict__[masks]
+                else:
+                        mask = np.ones(self.shape,dtype=np.bool)
+                        for m in masks:
+                                mask = mask & self._masks[m]
+                        return self[mask]
 
-	def getMaskNames(self):
-		return self._masks.keys()
+        def getMaskNames(self):
+                return self._masks.keys()
 
-	def getMask(self,mask="all"):
-		if (mask =="all"):
-			return self.mask
-		elif (mask in self._masks):
-			return self._masks[mask]
-		else:
-			logbook("mask %s not present, returning None" % mask)
-			return None
+        def getMask(self,mask="all"):
+                if (mask =="all"):
+                        return self.mask
+                elif (mask in self._masks):
+                        return self._masks[mask]
+                else:
+                        logbook("mask %s not present, returning None" % mask)
+                        return None
 
-	def getInfo(self):
-		s = ""
-		for m in self.getMaskNames():
-			if ( self._infos[m] is not None ):
-				s+="# mask %s, true for %s, %s\n" % (m,self._fracs[m],self._infos[m])
-			else:
-				s+="# mask %s, true for %s\n" % (m,self._fracs[m])
-		return s[0:-1]
+        def getInfo(self):
+                s = ""
+                for m in self.getMaskNames():
+                        if ( self._infos[m] is not None ):
+                                s+="# mask %s, true for %s, %s\n" % (m,self._fracs[m],self._infos[m])
+                        else:
+                                s+="# mask %s, true for %s\n" % (m,self._fracs[m])
+                return s[0:-1]
 
 def rollingFunction(v,fun,ptrad=10,truncate=False):
   v = np.array(v)
@@ -297,13 +297,13 @@ def rollingAverage(a, n=3):
 
 def smooth(x,window_len=11,window='hanning'):
         if x.ndim != 1:
-                raise ValueError, "smooth only accepts 1 dimension arrays."
+                raise ValueError("smooth only accepts 1 dimension arrays.")
         if x.size < window_len:
-                raise ValueError, "Input vector needs to be bigger than window size."
+                raise ValueError("Input vector needs to be bigger than window size.")
         if window_len<3:
                 return x
         if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-                raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+                raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
         s=np.r_[2*x[0]-x[window_len-1::-1],x,2*x[-1]-x[-1:-window_len:-1]]
         if window == 'flat': #moving average
                 w=np.ones(window_len,'d')
@@ -339,7 +339,7 @@ def rebin(a, *args):
              ['args[%d],factor[%d],'%(i,i) for i in range(lenShape)] + \
              [')'] + ['.sum(%d)'%(i+1) for i in range(lenShape)] + \
              ['/factor[%d]'%i for i in range(lenShape)]
-    print ''.join(evList)
+    print(''.join(evList))
     return eval(''.join(evList))
 
 def polyVal(comps,i0):                                                          
@@ -426,7 +426,7 @@ class _ApplyClosestN(object):
   def step(self,x):
     while (self.presLst[-1]-x) < (x-self.presLst[0]):
       if self.presLst[-1]>=len(self.x0):
-	break
+        break
       if (self.x0[self.presInd[-1]+1] - x) > (x-self.presLst[0]):
         self.res.append(self.func(self.D0[self.x0_sortind[np.ix(self.presInd)]]))
         return

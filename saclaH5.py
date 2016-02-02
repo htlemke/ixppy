@@ -1,17 +1,15 @@
-from __future__ import print_function
 import h5py
 import tools
 import toolsHdf5 as tH5
 import time
 import re
 import numpy as np
-from toolsLog import logbook
 #import lclsH5methods as mmm
 from toolsHdf5 import datasetRead as h5r
 from functools import partial
 import os
 
-class lclsH5(object):
+class SaclaH5(object):
   """Class to be defined once to do all hdf5 specific stuff for lcls H5 files."""
   def __init__(self,files,cnf):
     self.fileNames = files
@@ -35,11 +33,12 @@ class lclsH5(object):
     if (detectors != "parse"):
       # _findDetectors tries to match datasets found in files with mnemonic given in config
       t0 = time.time()
-      logbook("Finding data in hdf5 file ...",end="")
+      print "Finding data in hdf5 file ...",
       self.findDatasets(detectors=detectors,exclude=exclude)
-      logbook(" ... done (%.1f) ms" % ((time.time()-t0)*1e3),time=False)
+      print " ... done (%.1f) ms" % ((time.time()-t0)*1e3)
+
     else:
-      logbook("Starting to look in the file")
+      print "Starting to look in the file"
       # parsing look in the file for dataset ...
       # use first (data or cached) file to find detectors to use
       h = self.fileHandles[0]
@@ -50,7 +49,7 @@ class lclsH5(object):
         self.pointDet = cnf['pointDet'].keys()
         self.detectors = cnf['areaDet'].keys()+cnf['pointDet'].keys()
       except KeyError:
-        logbook("Failed to find detectors in ", h.filename)
+        print "Failed to find detectors in ", h.filename
 
   def findDatasets(self,detectors=None,exclude=None):
     """finds datasets from a cnf that contains aliases, if no aliases are defined the file is parsed and the hdf5 names are returned as names.
@@ -66,98 +65,53 @@ class lclsH5(object):
     if exclude is not None:
       exclude = tools.iterfy(exclude)
       for tex in exclude:
-        while True:
-          try:
+	while True:
+	  try:
             subSelection.remove(tex)
-            continue
-          except:
-            break
-    h = self.fileHandles[0]
+	    continue
+	  except:
+	    break
+    #h = self.fileHandles[0]
+    h = self.fileHandles
    
     # Getting all Detector path strings in CCs and config
-    try:
-      # try to use only CalibCycle0
-      # bad for MEC as some calib cycles don't contain amything... look for longest dataset for now, later look in all
-
-      base = "Configure:0000/Run:0000/"
-      bases = h[base].keys()
-      lens = np.array([len(h[base][key].keys()) for key in bases])
-      base = base + bases[lens.argmax()] +'/'
-      h5names = tH5.getDataset_hack(h[base])
-      #h5names = [base+x for x in h5names]
-      # find all confs
-      base = "Configure:0000/"
-      confs = h[base].keys()
-      h5confs = []
-      for c in confs:
-        if (c.find("Run")==0):
-          continue
-        else:
-          temp = tH5.getDataset(h[base][c])
-          for t in temp:
-            h5confs.append(base+c+"/"+t)
-    except KeyError:
-      h5names = tH5.getDataset(h)
+    h5names = [tH5.getDataset(th) for th in h]
 
     
 
-    #raise NotImplementedError('Use the source, luke!')
     ret = {}
-    ## *** start EpicsPV *** #
-    ## look for epics name
-    #epicsFound=False
-    #if ("epics_dset" in self.cnf):
-      #epicsMne = self.cnf["epics_dset"][0]
-      #epicsReg = self.cnf["epics_dset"][1]
-      #epicsH5Names=[x for x in h5names if (x.find(epicsReg)>-1)]
-      ## common Epics path:
-      #ntemp = min([len(x.split("/")) for x in epicsH5Names])
-      #epicsCommon = "/".join(epicsH5Names[0].split("/")[0:ntemp])
-      ## epics var
-      #self._epicsPaths = {}
-      #for d in h[epicsCommon]:
-        #dpath = d
-        #d = d.replace(':','_')
-        #d = d.replace('-','_')
-        #d = d.replace(' ','_')
-        #d = d.replace('.','_')
-        #mne = "%s.%s" % (epicsMne.split("/")[0],d)
-        #self._epicsPaths[mne]={}
-        #self._epicsPaths[mne]["data"] = epicsCommon.replace('CalibCycle:0000','CalibCycle:%04d')+"/"+dpath+"/data"
-        #self._epicsPaths[mne]["time"] = epicsCommon.replace('CalibCycle:0000','CalibCycle:%04d')+"/"+dpath+"/time"
-        #self._epicsPaths[mne]["conf"] = []
-      #self._epicsNames = self._epicsPaths.keys()
-    #else:
-      #self._epicsNames = []
-    ## *** stop EpicsPV *** #
+    
     pointDet = self.cnf["pointDet"]
     for (mnemonic,name) in pointDet.iteritems():
       if (mnemonic.find("nops")>-1) and (mnemonic.find("*")>-1):
         continue
-      mnemonic = mnemonic.split('_bak')[0]
       # skip if not in the group we want to read
       if mnemonic not in subSelection:
         continue
       nameData = name["data"].replace("*","\S+")
-      detDataset = [x for x in h5names if (re.search(nameData,x) is not None)]
+      detDataset = [[x for x in th5names if (re.search(nameData,x) is not None)] for th5names in h5names]
       nameConf = name["conf"].replace("*","\S+")
       try:
         detConf    = [x for x in h5confs if (re.search(nameConf,x) is not None)]
       except:
-              detConf=[]
-      data = [x for x in detDataset if x[-5:]=="/data" or x[-8:]=="/evrData" or x[-13:]=="/channelValue"]
-      time = [x for x in detDataset if x[-5:]=="/time"]
-      if ( (len(data) != 0) and (len(time) != 0) ):
+	detConf=[]
+      nameTime = name["timestamp"].replace("*","\S+")
+      try:
+        detTime    = [[x for x in th5names if (re.search(nameTime,x) is not None)] for th5names in h5names]
+      except:
+	detTime=[]
+      data = [x for x in detDataset]
+      time = [x for x in detTime ]
+
+      if ( (sum([len(tdata) for tdata in data]) != 0) \
+	  and (sum([len(time) for ttime in time]) != 0) ):
         ret[mnemonic] = {}
-        #ret[mnemonic]["data"] = data[0].replace('CalibCycle:0000','CalibCycle:%04d')
-        #ret[mnemonic]["time"] = time[0].replace('CalibCycle:0000','CalibCycle:%04d')
-        ret[mnemonic]["data"] = [replaceCalibCycleString(tdat) for tdat in data]
-        ret[mnemonic]["time"] = [replaceCalibCycleString(ttim) for ttim in time]
+        ret[mnemonic]["data"] = data
+        ret[mnemonic]["time"] = time
         if len(detConf)>0:
           ret[mnemonic]["conf"] = detConf[0]
     self._pointDetPaths = ret
     self.pointDetNames = ret.keys()
-
 
 
     areaDet = self.cnf["areaDet"]
@@ -170,41 +124,35 @@ class lclsH5(object):
       if mnemonic not in subSelection:
         continue
       name = name["data"].replace("*","\S+")
-      name_nodata = "/".join(name.split("/")[0:-1])
-      detDataset = [x for x in h5names if (re.search(name_nodata,x) is not None)]
+      detDataset = [[x for x in th5names if (re.search(name,x) is not None)] for th5names in h5names]
+
       conf = [ ]
-      data = [x for x in detDataset if (re.search(name,x) is not None)]
-      time = [x for x in detDataset if x[-5:]=="/time"]
-      #raise NotImplementedError('Use the source, luke!')
-      if ( (len(data) != 0) and (len(time) !=0) ):
+      data = [[x for x in tdetDataset if 'tag_' in x and x[-13:]=='detector_data'] for tdetDataset in detDataset]
+      if ( (len(data) != 0)):
         ret[mnemonic] = {}
-        ret[mnemonic]["data"] = [replaceCalibCycleString(tdat) for tdat in data]
-        ret[mnemonic]["time"] = [replaceCalibCycleString(ttim) for ttim in time]
-        ret[mnemonic]["conf"] = conf
+        ret[mnemonic]["data"] = [data]
     self._areaDetPaths = ret
     self.areaDetNames = ret.keys()
     self._detectorsPaths = tools.dictMerge(self._pointDetPaths,self._areaDetPaths)
     self.detectorsNames = self.pointDetNames + self.areaDetNames
     # *** start scan variables *** #
-    logbook("Finding scan variables in hdf5 file ...",end="")
-    temp = dict()
-    if (len(self.cnf["scan_step"])>0):
-      for scan_var in self.cnf["scan_step"]:
-        mne,reg = scan_var
-        reg  = reg.replace("*","\S+") 
-        data = [x for x in h5names if (re.search(reg,x) is not None)]
-        if len(data)>1:
-          logbook("\nWarning: in lclsH5:findDatasets, multiple path matching regex, using only first",reg)
-          logbook("Paths are:",data)
-        path = replaceCalibCycleString(data[0])
-        obj = scanVar(self.fileHandles,mne,path)
-        temp[mne] = obj
-    self.scanVars = temp
-    names_to_displ = [ x.name for x in temp.values() \
-      if hasattr(x,"name")]
-    names_to_displ = ",".join(names_to_displ)
-    logbook(" ... done, scanVar found:",names_to_displ, \
-      time=False)
+    #temp = dict()
+    #if (len(self.cnf["scan_step"])>0):
+      #for scan_var in self.cnf["scan_step"]:
+	#mne,reg = scan_var
+	#reg  = reg.replace("*","\S+")
+	#data = [x for x in h5names if (re.search(reg,x) is not None)]
+#
+	#if not data==[]:
+	  #path = replaceCalibCycleString(data[0])
+	  ##try:
+	  #obj = scanVar(self.fileHandles,mne,path)
+	 # 
+	  ##tools.addToObj(self,mne,obj)
+	  #temp[mne] = obj
+	  #except:
+	    #pass
+    #self.scanVars = temp
     # *** stop scan variables *** #
     return
 
@@ -215,37 +163,35 @@ class lclsH5(object):
 
     # START POINT DETECTORS
     t0 = time.time()
-    logbook("defining pointDet (with memory cache) ...",end="")
+    print "defining pointDet (with memory cache) ...",
     #if (rdPointDetectorsImmediately):
       #print " (pre-reading all) ",
     for dname in self.pointDetNames:
       #TODO: here dtector dependent modules from a folder are to be used in special cases, like a plugin. Not working because of importing issues. Commented out for now.
       if dname in pluginNames:
-        tdclass = eval('detector_'+dname)
+	tdclass = eval('detector_'+dname)
       else:
-        tdclass = detector
+	tdclass = detector
       det = tdclass(self.fileHandles,dname,self._detectorsPaths[dname],useMemoryCache=True,isPointDet=True)
       self.detectors[dname] =det
 
       #if (rdPointDetectorsImmediately):
-        #for i in range(len(self.fileHandles)):
-          #det.readData(stepSlice=range(det._numOfScanSteps[i]),fileSlice=i)
+	#for i in range(len(self.fileHandles)):
+	  #det.readData(stepSlice=range(det._numOfScanSteps[i]),fileSlice=i)
       #tools.addToObj( self,dname,det )
 
-    logbook(" ... done (%.1f) ms, %d detectors" % 
-      ((time.time()-t0)*1e3,len(self.pointDetNames)),time=False)
+    print " ... done (%.1f) ms, %d detectors" % ((time.time()-t0)*1e3,len(self.pointDetNames))
     
     # DONE POINT DETECTORS
 
     # START AREA DETECTORS
     t0 = time.time()
-    logbook("defining areaDet (without memory cache) ...",end="")
+    print "defining areaDet (without memory cache) ...",
     for dname in self.areaDetNames:
       det = detector(self.fileHandles,dname,self._detectorsPaths[dname],useMemoryCache=False)
       self.detectors[dname] =det
       #tools.addToObj( self,dname,det )
-    logbook(" ... done (%.1f) ms, %d detectors" %
-      ((time.time()-t0)*1e3,len(self.areaDetNames)),time=False)
+    print " ... done (%.1f) ms, %d detectors" % ((time.time()-t0)*1e3,len(self.areaDetNames))
     # DONE AREA DETECTORS
     # consistency check (when daq crashes, last calibs may not have all detectors)
     #self._checkCalibConsistency()
@@ -265,14 +211,12 @@ class lclsH5(object):
     for d in tocheck:
       # print out most limiting detector
       if (list(NcMin) == list(d._numOfScanSteps)) and (list(NcMin)!=list(NcMax)):
-        logbook("WARNING: Detector/Scan ",d,"is limiting the number of Calybcycle to",str(NcMin),"instead of ",str(NcMax))
+        print "WARNING: Detector/Scan ",d,"is limiting the number of Calybcycle to",str(NcMin),"instead of ",str(NcMax)
       d._numOfScanSteps = list(NcMin)
     self.numOfScanSteps = list(NcMin)
     if len(NcMin) ==1:
       self.numOfScanSteps = self.numOfScanSteps[0]
 
-  
-  
 class detector(object):
    
   #def __dir__(self):
@@ -285,7 +229,7 @@ class detector(object):
     self._paths = paths
     self._useMemoryCache=useMemoryCache
     self._isPointDet = isPointDet
-    self._numOfScanStepsFile = self._checkNcalib()
+    self._numOfScanStepsFile = [1]*len(self._h5s)
     #if not isauto:
       #self.__init__heavy()
     if self._isPointDet:
@@ -307,45 +251,71 @@ class detector(object):
   
   def _initPointDet(self):
     if self._isPointDet and self._useMemoryCache:
-      if len(self._paths['data'])>1:
-        if len(self._paths['data'])>50:
-          # this seems the epics case
-          logbook("crazy amount of point counters in %s, force full reading initialization with..." %(self.name))
-        else:
-        # this might be the tt case
-          for datapath,timepath in zip(self._paths['data'],self._paths['time']):
-            datapath = getPath(datapath)
-            timepath = getPath(timepath)
-            name = getDetNamefromPath(datapath)
-            dat,fields = self._readPointDataGeneral(datapath)
-            times = self._readTime(timepath)
-            if not fields==[] and not hasattr(self,'fields'):
-              self.fields = dict()
-            for field,tdat in zip(fields,dat):
-              tname = name+'_'+field
-              data = [tdat,times]
-              self.fields[tname] = data 
-        	#memdata(tname,data)
-      else:
-         # this might be the ipm case
-        datapath = self._paths['data'][0]
-        timepath = self._paths['time'][0]
-        datapath = getPath(datapath)
-        timepath = getPath(timepath)
-        dat,fields = self._readPointDataGeneral(datapath)
-        times = self._readTime(timepath)
+      data = []
+      time = []
+      for th5,datapath, timepath  in zip(self._h5s,self._paths['data'],self._paths['time']):
+	data.append(th5[datapath[0]][:])
+	time.append(th5[timepath[0]][:])
 
-        if not fields==[]:
-          self.fields = dict()
-          for field,tdat in zip(fields,dat):
-            tname = field
-            data = [tdat,times]
-            self.fields[tname] = data 
+      self.fields = {'data':[data,time]}	
+
+
+
+      #if len(self._paths['data'])>1:
+        #if len(self._paths['data'])>50:
+	  ## this seems the epics case
+	  #print "crazy amount of point counters in %s, force full reading initialization with..." %(self.name)
+        #else:
+	  ## this might be the tt case
+	  #for datapath,timepath in zip(self._paths['data'],self._paths['time']):
+	    #datapath = getPath(datapath)
+	    #timepath = getPath(timepath)
+	    #name = getDetNamefromPath(datapath)
+            #dat,fields = self._readPointDataGeneral(datapath)
+            #times = self._readTime(timepath[0])
+	    #if not fields==[] and not hasattr(self,'fields'):
+	      #self.fields = dict()
+	    #for field,tdat in zip(fields,dat):
+	      #tname = name+'_'+field
+	      #data = [tdat,times]
+	      #self.fields[tname] = data 
+		##memdata(tname,data)
+      #else:
+	 ## this might be the ipm case
+	#datapath = self._paths['data'][0]
+	#timepath = self._paths['time'][0]
+	#datapath = getPath(datapath)
+	#timepath = getPath(timepath)
+	#dat,fields = self._readPointDataGeneral(datapath)
+	#times = self._readTime(timepath)
+
+	#if not fields==[]:
+	  #self.fields = dict()
+	  #for field,tdat in zip(fields,dat):
+	    #tname = field
+	    #data = [tdat,times]
+	    #self.fields[tname] = data 
+
 
   def _initAreaDet(self):
-    self.time = self._readTime(getPath(self._paths['time'][0]))
-    self.readData = self._readDataGeneral
-    self._numOfScanStepsFile = self._checkNcalib()
+    time = []
+    datpath = []
+    for step in self._paths['data'][0]:
+      stime = []
+      sdatpath = []
+      for s in step:
+	start,temp = s.split('tag_')
+	ttime,end  = temp.split('/')
+	stime.append(int(ttime))
+	if not start+'tag_%d/'+end in sdatpath:
+	  sdatpath.append(start+'tag_%d/'+end)
+      time.append(stime)
+      datpath.append(sdatpath)
+
+    self.time = time
+    self._paths['data'] = datpath
+    #self._numOfScanStepsFile = len(self._h5s)
+    self._numOfScanStepsFile = [1]*len(self._h5s)
     self.readData = self._readDataGeneral
 
 
@@ -366,16 +336,16 @@ class detector(object):
     outS = []
     for stepNum in stepSlice:
       fileNum,FstepNum = self._getFileStep(stepNum)
-      cpath = path % FstepNum # really beautiful, same for python 3 ?
+      cpath = path
       cpath = getPath(cpath)
       data = h5r(self._h5s[fileNum],cpath)
       try:
-        if (shotSlice is None):
-          data = data[...]
-        else:
-                data = data[shotSlice]
+	if (shotSlice is None):
+	  data = data[...]
+	else:
+	  data = data[shotSlice]
       except:
-        data = np.array([])
+	data = np.array([])
 
       outS.append(data)
 
@@ -383,39 +353,43 @@ class detector(object):
     outSind = 0
     for toutS in outS:
       if len(toutS)>0:
-        break
+	break
       outSind+=1
 
     if outS[outSind].dtype.names:
       if not field is None:
-        index = ''
-        while not field in outS[outSind].dtype.names:
-          index = field[-1] + index
-          field = field[:-1]
-        index = int(index)
+	index = ''
+	while not field in outS[outSind].dtype.names:
+	  index = field[-1] + index
+	  field = field[:-1]
+	index = int(index)
         fields = [field]
       else:
         fields = outS[outSind].dtype.names
-        index = None
+	index = None
       
       pret = [[dd[tfield] if len(dd)>0 else np.array([]) for dd in outS ] for tfield in fields]
       ret = []
       retfields = []
       for tret,tfield in zip(pret,fields):
-        if tret[0].ndim==2:
+
+	if tret[0].ndim==2:
           noofvecs = np.shape(outS[0][tfield])[1]
-          if not index is None:
-            indices = [index]
-          else:
-            indices = range(noofvecs)
-          for tindex in indices:
-            strfmt = '%0' + '%dd' %(1+np.floor(np.log10(noofvecs)))
-            tname = tfield + strfmt %(tindex)
-            ret.append([sd[:,tindex] if np.ndim(sd)==2 else np.asarray([]) for sd in tret ])
-            retfields.append(tname)
-        else:
-          ret.append(tret)
-          retfields.append(tfield)
+	  if not index is None:
+	    indices = [index]
+	  else:
+	    indices = range(noofvecs)
+	  for tindex in indices:
+	    strfmt = '%0' + '%dd' %(1+np.floor(np.log10(noofvecs)))
+	    tname = tfield + strfmt %(tindex)
+	    ret.append([sd[:,tindex] if np.ndim(sd)==2 else np.asarray([]) for sd in tret ])
+	    retfields.append(tname)
+	else:
+	  ret.append(tret)
+	  retfields.append(tfield)
+    else:
+      ret = [outS]
+      retfields = ['data']
     
     return ret,retfields
       
@@ -431,7 +405,7 @@ class detector(object):
       self._guessDetType()
       self._numOfScanStepsFile = self._checkNcalib()
       if (self._useMemoryCache):
-        self.readData(stepSlice=0,shotSlice=None,fileSlice=0)
+	self.readData(stepSlice=0,shotSlice=None,fileSlice=0)
 
   #def __repr__(self):
     #if (self._useMemoryCache):
@@ -466,7 +440,7 @@ class detector(object):
     self._numOfScanStepsFile = []
     for n in range(len(self._h5s)):
       if nccs[n] > numOfScanStepsFile[n]:
-        logbook("More calibcycle structures than detectors, will lead to empty detector steps...")
+	print "More calibcycle structures than detectors, will lead to empty detector steps..."
         self._numOfScanStepsFile.append(nccs[n])
       else:
         self._numOfScanStepsFile.append(numOfScanStepsFile[n])
@@ -510,10 +484,10 @@ class detector(object):
     times = []
     for stepNum in stepSlice:
       fileNum,FstepNum = self._getFileStep(stepNum)
-      tpath = path % FstepNum
+      tpath = path
       time = h5r(self._h5s[fileNum],tpath)
       try:  
-        if (shotSlice is None):
+	if (shotSlice is None):
           time = time[...]
         else:
           time = time[shotSlice]
@@ -599,36 +573,37 @@ class detector(object):
       addr = address(fileNum,stepNum,"shotSlice")
       if (not self._existsInSelf(addr)) or (len(tools.iterDiff( self._getFromSelf(addr), shotSlice) )==0):
 
-        path = self._paths["data"][0] % FstepNum
-        path = getPath(path)
-        data = h5r(self._h5s[fileNum],path)
-        if (shotSlice is None):
-          data = data[...]
-        else:
-          if isinstance(shotSlice,np.ndarray) and shotSlice.dtype is np.dtype(int):
-            tshotSlice = np.zeros([data.len()],dtype=bool)
-            tshotSlice[shotSlice]=True
-            shotSlice=tshotSlice
+	path = self._paths["data"][FstepNum][0]
+	path = getPath(path)
+	#de=bug
+	if (shotSlice is None):
+	  data = [h5r(self._h5s[fileNum],path)[...] % tt for tt in self.time[stepNum]]
+	else:
+	  if isinstance(shotSlice,np.ndarray) and shotSlice.dtype is np.dtype(int):
+	    data = np.asarray([h5r(self._h5s[fileNum],path % self.time[stepNum][ts])[...] for ts in shotSlice])
+	    #tshotSlice = np.zeros([data.len()],dtype=bool)
+	    #tshotSlice[shotSlice]=True
+	    #shotSlice=tshotSlice
 
-          data = data[shotSlice]
+	  #data = data[shotSlice]
       else:
-          data = self._getFromSelf(address(fileNum,stepNum,"_data"))
+	  data = self._getFromSelf(address(fileNum,stepNum,"_data"))
     # store is asked to use memory cache
       if (self._useMemoryCache):
-        # save in .fileNum.stepNum._data
-        self._addToSelf(address(fileNum,stepNum,"_data"),data)
-        self._addToSelf(address(fileNum,stepNum,"shotSlice"),shotSlice)
+	# save in .fileNum.stepNum._data
+	self._addToSelf(address(fileNum,stepNum,"_data"),data)
+	self._addToSelf(address(fileNum,stepNum,"shotSlice"),shotSlice)
       if (isinstance(data.dtype.names,tuple)):
-        for fieldname in data.dtype.names:
-          self._addToSelf(address(fileNum,stepNum,fieldname),data[fieldname])
-          if ( not (fieldname in self.__dict__) ):
-            timeStampObj = memdata(self,"timestamp",fileNum)
-            dataObj = memdata(self,fieldname,fileNum,timeStampObj)
-            self._addToSelf(fieldname,dataObj)
+	for fieldname in data.dtype.names:
+	  self._addToSelf(address(fileNum,stepNum,fieldname),data[fieldname])
+	  if ( not (fieldname in self.__dict__) ):
+	    timeStampObj = memdata(self,"timestamp",fileNum)
+	    dataObj = memdata(self,fieldname,fileNum,timeStampObj)
+	    self._addToSelf(fieldname,dataObj)
       #else: 
-        #timeStampObj = memdata(self,"timestamp",fileNum)
-        #dataObj = memdata(self,"_data",fileNum,timeStampObj)
-        #tools.addToObj(self,"_data",dataObj)
+	#timeStampObj = memdata(self,"timestamp",fileNum)
+	#dataObj = memdata(self,"_data",fileNum,timeStampObj)
+	#tools.addToObj(self,"_data",dataObj)
       outS.append(data)
     return outS
 
@@ -777,7 +752,7 @@ class detector_epics(detector):
 
       rdAllFunc = partial(self._readEpicsAllData,datapath,timepath)
       if not hasattr(self,'fields'):
-        self.fields = dict()
+	self.fields = dict()
       self.fields[name] = rdAllFunc
 
   def _readEpicsAllData(self,datapath,timepath):
