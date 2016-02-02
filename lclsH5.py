@@ -186,18 +186,25 @@ class lclsH5(object):
     self._detectorsPaths = tools.dictMerge(self._pointDetPaths,self._areaDetPaths)
     self.detectorsNames = self.pointDetNames + self.areaDetNames
     # *** start scan variables *** #
+    logbook("Finding scan variables in hdf5 file ...",end="")
     temp = dict()
     if (len(self.cnf["scan_step"])>0):
       for scan_var in self.cnf["scan_step"]:
         mne,reg = scan_var
-        reg  = reg.replace("*","\S+")
+        reg  = reg.replace("*","\S+") 
         data = [x for x in h5names if (re.search(reg,x) is not None)]
-
-    if not data==[]:
-      path = replaceCalibCycleString(data[0])
-      obj = scanVar(self.fileHandles,mne,path)
-      temp[mne] = obj
+        if len(data)>1:
+          logbook("\nWarning: in lclsH5:findDatasets, multiple path matching regex, using only first",reg)
+          logbook("Paths are:",data)
+        path = replaceCalibCycleString(data[0])
+        obj = scanVar(self.fileHandles,mne,path)
+        temp[mne] = obj
     self.scanVars = temp
+    names_to_displ = [ x.name for x in temp.values() \
+      if hasattr(x,"name")]
+    names_to_displ = ",".join(names_to_displ)
+    logbook(" ... done, scanVar found:",names_to_displ, \
+      time=False)
     # *** stop scan variables *** #
     return
 

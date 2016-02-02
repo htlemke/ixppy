@@ -101,7 +101,6 @@ class dataset(object):
 
     
     if 'h5' in self.config.filestrategy:
-      #<<<<<<< HEAD
       h5format = getHdf5Format(self.config.fileNamesH5)
       if h5format is 'lclsH5':
 	self.config.lclsH5obj= lclsH5.lclsH5(self.config.fileNamesH5,self.config.cnfFile)
@@ -161,39 +160,6 @@ class dataset(object):
 	    #self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
 	    addToObj(self,detName+'.data',data(name=detName,time=det.time,input = det.readData,scan=scan),ixpsaved=True,setParent=True)
       postInitProc.process(self)
-	  
-#=======
-      #self.config.lclsH5obj= lclsH5.lclsH5(self.config.fileNamesH5,self.config.cnfFile)
-     # 
-      #self.config.lclsH5obj.checkFiles()
-      #self.config.lclsH5obj.findDetectors(detectors,exclude=exclude)
-      #self.config.lclsH5obj.initDetectors()
-      #if hasattr(self.config.lclsH5obj,'scanVars'):
-	#for name in list(self.config.lclsH5obj.scanVars.keys()):
-	  #tVar = self.config.lclsH5obj.scanVars[name]
-	  #if not hasattr(tVar,'names'): continue
-	  #for vname,vdat in zip(tVar.names,np.asarray(tVar.data).T):
-	    #vname = getValidFieldname(vname,lowerit=True) 
-	    #addToObj(self,name+'.'+vname,vdat,ixpsaved=True)
-      #if hasattr(self,'scan'):
-	#scan=self.scan
-      #else:
-	#scan=None
-#
-      #for detName in self.config.lclsH5obj.detectorsNames:
-	#det = self.config.lclsH5obj.detectors[detName]
-	#if det._isPointDet:
-	  #if hasattr(det,'fields'):
-	    #for fieldName in list(det.fields.keys()):
-	      #addToObj(self,detName+'.'+fieldName,memdata(name=fieldName,input = det.fields[fieldName],scan=scan),ixpsaved=True)
-	#else:
-	  ##self[detName] = tools.dropObject(parent=self)
-	  ##self[detName].data = data(name=detName,time=det.time,input = det.readData,parent=self[detName],scan=scan)
-	  #addToObj(self,detName+'.data',data(name=detName,time=det.time,input = det.readData,scan=scan),ixpsaved=True,setParent=True)
-    #postInitProc.process(self)
-#
-	 # 
-#>>>>>>> 0fbe6e72fb74e9352b3deed1c9bd3db9ecf208d2
 
   def _add(self,name,data,ixpsaved='auto'):
     self.__dict__[name]=data
@@ -266,125 +232,128 @@ class dataset(object):
     if len(NcMin) ==1:
       self.numOfScanSteps = self.numOfScanSteps[0]
 
-  def _findData(self,subSelection=[]):
-    """ Finds detectors in hdf5 file matching with mnemonic given in config file;
-    the matching mnemonic names are as dictionaries (self.pointDet and self.areaDet)
-    The 
-    """
-    if (subSelection==[]) or (subSelection is None):
-      subSelection = list(self.config.cnfFile["pointDet"].keys()) + list(self.config.cnfFile["areaDet"].keys())
-    h = self.config.fileHandlesH5[0]
-    pointDet = self.config.cnfFile["pointDet"]
-    # try to use only CalibCycle0
-    try:
-      base = "Configure:0000/Run:0000/CalibCycle:0000/"
-      h5names = tH5.getDataset(h[base])
-      h5names = [base+x for x in h5names]
-      # find all confs
-      base = "Configure:0000/"
-      confs = list(h[base].keys())
-      h5confs = []
-      for c in confs:
-        if (c.find("Run")==0):
-          continue
-        else:
-          temp = tH5.getDataset(h[base][c])
-          for t in temp:
-            h5confs.append(base+c+"/"+t)
-    except KeyError:
-      h5names = tH5.getDataset(h)
-    ret = {}
-    # *** start EpicsPV *** #
-    # look for epics name
-    epicsFound=False
-    if ("epics_dset" in self.config.cnfFile):
-      epicsMne = self.config.cnfFile["epics_dset"][0]
-      epicsReg = self.config.cnfFile["epics_dset"][1]
-      epicsH5Names=[x for x in h5names if (x.find(epicsReg)>-1)]
-      # common Epics path:
-      ntemp = min([len(x.split("/")) for x in epicsH5Names])
-      epicsCommon = "/".join(epicsH5Names[0].split("/")[0:ntemp])
-      # epics var
-      self._epicsPaths = {}
-      for d in h[epicsCommon]:
-        dpath = d
-        d = d.replace(':','_')
-        d = d.replace('-','_')
-        d = d.replace(' ','_')
-        d = d.replace('.','_')
-        mne = "%s.%s" % (epicsMne.split("/")[0],d)
-        self._epicsPaths[mne]={}
-        self._epicsPaths[mne]["data"] = epicsCommon.replace('CalibCycle:0000','CalibCycle:%04d')+"/"+dpath+"/data"
-        self._epicsPaths[mne]["time"] = epicsCommon.replace('CalibCycle:0000','CalibCycle:%04d')+"/"+dpath+"/time"
-        self._epicsPaths[mne]["conf"] = []
-      self._epicsNames = list(self._epicsPaths.keys())
+  def _rdConfiguration(self,beamline,fina=None):
+    if not beamline is None:
+      self.config.beamline = beamline
+      self.config.cnfFile = rdConfiguration(beamline=beamline,fina=fina)
     else:
-      self._epicsNames = []
-    # *** stop EpicsPV *** #
-    for (mnemonic,name) in list(pointDet.items()):
-      if (mnemonic.find("epics")>-1) and (mnemonic.find("*")>-1):
-        continue
-      mnemonic = mnemonic.split('_bak')[0]
-      # skip if not in the group we want to read
-      if mnemonic not in subSelection:
-        continue
-      nameData = name["data"].replace("*","\S+")
-      detDataset = [x for x in h5names if (re.search(nameData,x) is not None)]
-      nameConf = name["conf"].replace("*","\S+")
-      detConf    = [x for x in h5confs if (re.search(nameConf,x) is not None)]
-      data = [x for x in detDataset if x[-5:]=="/data"]
-      time = [x for x in detDataset if x[-5:]=="/time"]
-      if ( (len(data) != 0) and (len(time) != 0) ):
-        ret[mnemonic] = {}
-        ret[mnemonic]["data"] = data[0].replace('CalibCycle:0000','CalibCycle:%04d')
-        ret[mnemonic]["time"] = time[0].replace('CalibCycle:0000','CalibCycle:%04d')
-        if len(detConf)>0:
-          ret[mnemonic]["conf"] = detConf[0]
-    self._pointDetPaths = ret
-    self.pointDetNames = list(ret.keys())
-    areaDet = self.config.cnfFile["areaDet"]
-    ret = {}
-    # 3D detectors need special care because data are written differently 
-    # /data, /image, /waveform
-    for (mnemonic,name) in list(areaDet.items()):
-      mnemonic = mnemonic.split('_bak')[0]
-      # skip if not in the group we want to read
-      if mnemonic not in subSelection:
-        continue
-      name = name["data"].replace("*","\S+")
-      name_nodata = "/".join(name.split("/")[0:-1])
-      detDataset = [x for x in h5names if (re.search(name_nodata,x) is not None)]
-      conf = [ ]
-      data = [x for x in detDataset if (re.search(name,x) is not None)]
-      time = [x for x in detDataset if x[-5:]=="/time"]
-      if ( (len(data) != 0) and (len(time) !=0) ):
-        ret[mnemonic] = {}
-        ret[mnemonic]["data"] = data[0].replace('CalibCycle:0000','CalibCycle:%04d')
-        ret[mnemonic]["time"] = time[0].replace('CalibCycle:0000','CalibCycle:%04d')
-        ret[mnemonic]["conf"] = conf
-    self._areaDetPaths = ret
-    self.areaDetNames = list(ret.keys())
-    self._detectorsPaths = tools.dictMerge(self._pointDetPaths,self._areaDetPaths)
-    self.detectorsNames = self.pointDetNames + self.areaDetNames
-    # *** start scan variables *** #
-    temp = []
-    if (len(self.config.cnfFile["scan_step"])>0):
-      for scan_var in self.config.cnfFile["scan_step"]:
-        mne,reg = scan_var
-        reg  = reg.replace("*","\S+")
-        data = [x for x in h5names if (re.search(reg,x) is not None)]
-        path = data[0].replace('CalibCycle:0000','CalibCycle:%04d')
-        try:
-          obj = scanVar(self.config.fileHandlesH5,mne,path)
-          tools.addToObj(self,mne,obj)
-          temp.append(obj)
-        except:
-          pass
-    self._scanVars = temp
-    # *** stop scan variables *** #
-    return
+      self.config.cnfFile = rdConfiguration(fina=fina)
+      self.config.beamline = self.config.cnfFile['beamline']
+    # setup path for data and cached files
+    self.config.hostname = gethostname()
+    knownhosts = list(self.config.cnfFile['dataPath'].keys())
+    if self.config.hostname in knownhosts:
+       self.config.dataPath = self.config.cnfFile['dataPath'][self.config.hostname]
+    else:
+       self.config.dataPath = os.path.join(self.config.cnfFile['dataPath']['default'],self.config.beamline)
+    knownhosts = list(self.config.cnfFile['cachePath'].keys())
+    if self.config.hostname in knownhosts:
+       self.config.cachePath = self.config.cnfFile['cachePath'][self.config.hostname]
+    else:
+       self.config.cachePath = os.path.join(self.config.cnfFile['cachePath']['default'])
 
-  def _rdConfiguration(self,beamline,fina='ixppy_config'):
+  def _getFilename(self,inputFilesOrExpRunTuple):
+    # use a shorter local name
+    f = inputFilesOrExpRunTuple
+    # interprets input (either filename or
+    # check if all string
+    StrOrStrList = np.alltrue(tools.iterate(f,isinstance,str))
+    if (StrOrStrList):
+      filenames = f
+    elif type(f) is tuple:
+      if type(f[0]) is str:
+        """ you are just passing the experiment name, e.g. 'xpp66613' as first arg of f"""
+        self.config.experiment = f[0]
+      if type(f[0]) is int:
+        """ you are just passing the experiment number, e.g. 66613 as first arg of f"""
+        self.config.experiment = self.config.beamline+str(f[0])
+        
+      self.config.run = f[1]
+      filenames = self._makeFilenameFromExpRun()
+    filenamesH5 =tools.iterfy(filenames)
+
+    # TODO: replace "isavailable" by properties checking for empty list
+    for f in filenamesH5:
+      if (not os.path.exists(f)):
+        logbook("Asked to read file %s, but is does not exist" % f)
+        self.config.daqHdf5file_available = False
+      else:
+        self.config.daqHdf5file_available = True
+    
+    # TODO get according xtc path and check if present.
+    filenamesXtc = []
+    
+    # check if cached files are present
+    if len(filenamesH5)==1 and filenamesH5[0][-7:]=='.ixp.h5':
+      filenamesIxp = filenamesH5
+      filenamesH5 = []
+    else:
+
+      filenamesIxp = []
+      for f in filenamesH5:
+        cached_filename = os.path.join(self.config.cachePath,os.path.basename(f))
+        cached_filename = os.path.splitext(cached_filename)[0] + '.ixp.h5'
+        if tools.fileExists(cached_filename):
+          filenamesIxp.append(cached_filename)
+      
+    return (filenamesH5,filenamesXtc,filenamesIxp)
+
+
+  def _makeFilenameFromExpRun(self):
+    if type(self.config.run) is not list:
+      run = [self.config.run]
+    else:
+      run = self.config.run
+    filenames = []
+    for trun in run:
+      tpath = '%s/hdf5'  %(self.config.experiment)
+      tfile = '%s-r%04d.h5'  %(self.config.experiment,trun)
+      filenames.append(os.path.join(self.config.dataPath,tpath,tfile))
+    return filenames
+
+  def _getFileStrategy(self):
+    if self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
+      self.config.filestrategy = ['ixp']
+    if not self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
+      if self.config.readCachedData:
+        logbook("found ixp file in cache, will try to use it (override with readCachedData keyword)")
+        self.config.filestrategy = ['h5','ixp']
+      else:
+        logbook("found ixp file in cache, will not be used, but might get overridden!!")
+        self.config.filestrategy = ['h5']
+
+    elif self.config.fileNamesH5 == [] and not self.config.fileNamesIxp==[]:
+      self.config.filestrategy = ['ixp']
+    elif not self.config.fileNamesH5 == [] and self.config.fileNamesIxp==[]:
+      self.config.filestrategy = ['h5']
+
+############## DATA TYPES #########################
+
+class memdata(object):
+  def __init__(self,name=None,input=None,scan=None,grid=None):
+    self._name = name
+    self.scan = scan
+    self.grid = grid
+    if input is None:
+      raise Exception("memdata can not be initialized as no datasources were defined.")
+    if hasattr(input,'isevtObj') and input.isevtObj:
+      self._evtObj = input
+      self._rdAllData = None
+    elif hasattr(input,'__call__'):
+      self._rdAllData = input
+      self._evtObj = None
+    else:
+      self._evtObj = None
+      self._rdAllData = None
+      self._data,self._time = initmemdataraw(input)
+
+      lens = [len(td) for td in self._data]
+      self._filter = unravelScanSteps(np.arange(np.sum(lens)),lens)
+      self._Nsteps = len(lens)
+    self._expand = False
+    self.interp  = interp(self)
+    
+    #if not self._evtObj is None:
     if not beamline is None:
       self.config.beamline = beamline
       self.config.cnfFile = rdConfiguration(fina=fina,beamline=beamline)
@@ -902,6 +871,32 @@ class memdata(object):
   
   def __invert__(self):
     return applyDataOperator(operator.invert,self)
+
+
+class datawrap(object):
+  """ Hack to wrap a list of arrays in a way compatible with the data object """
+  def __init__(self,list_of_arrays):
+    self._data = list_of_arrays
+    
+  def __call__(self,calibSlice,stepSlice):
+    if isinstance(calibSlice,int):
+      calibSlice = (calibSlice,)
+    return [ self._data[c][stepSlice] for c in calibSlice]
+
+def asData(name=None,time=None,input=None,scan=None,ixpAddressData=None,
+    parent=None,grid=None):
+  """ wraps list of arrays with a __call__ method to be suitable as data object;
+      used for 1D curves; data should be a list of arrays; for every array, the
+      first index should be the one running trough the shots;
+      Typical use, assuming that az is a list of arrays, each (nShots,nQ); 
+      with nShots that might change from calibcycle to calibcycle
+      d.cspad["AzAv"] = asData(name="AzAv",time=d.cspad.data.time,data=az,
+      parent=d.cspad,scan=d.scan)
+  """
+  if input is not None: input = datawrap(input)
+  return data(name=name,time=time,input=input,scan=scan,ixpAddressData=ixpAddressData,
+    parent=parent,grid=grid)
+  
 
 class data(object):
   def __init__(self,name=None,time=None,input=None,scan=None,ixpAddressData=None,parent=None,grid=None):
@@ -1886,25 +1881,6 @@ def applyCrossFunction(func,ixppyInput=[], time=None, args=None,kwargs=None, str
     output.append((np.asarray(td),))
   return output
 
-
-    
-
-
-
-
-
-
-      
-
-
-
-
-
-   
-
-
-  pass
-
 def get_common_timestamps(allobjects):
   times = None
   for o in allobjects:
@@ -2080,11 +2056,10 @@ def initmemdataraw(data):
       return
     dat = data['data']
     tim = data['time']
-  elif type(data) is list:
+  elif (type(data) is list) or (type(data) is tuple):
     dat = data[0]
     tim = data[1]
   if tim is None:
-
     logbook("NB: memdata instance without timestamps!")
   elif not len(dat)==len(tim):
     logbook("data and time in raw memdata should have same length")
@@ -2535,7 +2510,11 @@ class Ixp(object):
           exHandle = _ixpOpenHandles[openNames.index(self.fileName)]
           exHandle.close()
           _ixpOpenHandles.remove(exHandle)
-      cfh = h5py.File(self.fileName,mode)
+      try:
+        cfh = h5py.File(self.fileName,mode)
+      except IOError:
+        cfh = h5py.File(self.fileName,"r")
+        logbook('Opening cache file in readonly mode (no write permission)')
       self._fileHandle = cfh
       _ixpOpenHandles.append(cfh)
     else:
@@ -2615,7 +2594,7 @@ class Ixp(object):
     else:
       if name in list(pH.keys()) and not force:
         rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(name,pH.name)
-        ret = eval(input(rawstr))
+        ret = raw_input(rawstr)
         if ret=='a': del pH[name]; force = True; self._forceOverwrite = True
         if ret=='y': del pH[name]
         if ret=='n': pass
@@ -3399,7 +3378,7 @@ def digitizeData(data,bins,prcentile=.9):
         pl.clf()
         pl.step(edg[:-1]+np.diff(edg),N,'k')
         lims = tools.getSpanCoordinates()
-        nbins = int(eval(input('Please enter number of bins: ')))
+        nbins = int(eval(raw_input('Please enter number of bins: ')))
         cbins = np.linspace(lims[0],lims[1],np.abs(nbins)+1)
 
       else:
@@ -3557,12 +3536,13 @@ def digitize(dat,bins=None,graphicalInput=True,figName=None):
     pl.clf()
     N,edg = tools.histogramSmart(dat)
     pl.step(edg[:-1]+np.diff(edg),N,'k')
+    pl.draw_if_interactive()
     lims = tools.getSpanCoordinates()
     ip = 0
     bins = None
     hs = []
     while not ip=='q':
-      ip = eval(input('Enter number of bins (integer) or bin interval (float) (q to finish) '))
+      ip = raw_input('Enter number of bins (integer) or bin interval (float) (q to finish) ')
       if ip=='q': continue
       if type(eval(ip)) is int:
         bins = np.linspace(np.min(lims),np.max(lims),int(ip)+1)
@@ -3572,6 +3552,7 @@ def digitize(dat,bins=None,graphicalInput=True,figName=None):
         th.remove()
         hs = []
       hs = [pl.axvline(te) for te in bins]
+      pl.draw_if_interactive()
     logbook("Selected bins: %g, %g,  "%(np.min(lims),np.max(lims)))
   return np.digitize(dat,bins),bins
 
@@ -3641,7 +3622,7 @@ def digitize_new(dat,bins=None,graphicalInput=True,figName=None):
       bins = None
       hs = []
       while not ip=='q':
-        ip = eval(input('Enter number of bins (q to finish)'))
+        ip = raw_input('Enter number of bins (q to finish)')
         if ip=='q': continue
         bins = np.linspace(np.min(lims),np.max(lims),int(ip))
         for th in hs: 
