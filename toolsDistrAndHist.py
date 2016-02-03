@@ -50,7 +50,36 @@ def digitize2D(x1,x2,bins1,bins2):
 	bn = bnmat[bn1,bn2]
 	return bn
 
-#def mad(a, c=0.6745, axis=0):
+
+def digitizeND(positions, binnings, maskInput=True):
+  mask = np.zeros(np.prod(positions[0].shape),dtype=bool)
+  shape = []
+  inds_unravelled = []
+  for pos,bins in zip(positions,binnings):
+    inds = np.digitize(pos.ravel(),bins)
+    if maskInput:
+      #de=bug
+      mask |= (inds==0)
+      mask |= (inds==len(bins))
+      inds -=1
+      shape.append(len(bins)-1)
+    else:
+      shape.append(len(bins)+1)
+    inds_unravelled.append(inds)
+  if maskInput:
+    inds_unravelled = [ti[~mask] for ti in inds_unravelled]
+  inds_ravelled = np.ravel_multi_index(inds_unravelled,shape)
+  return inds_ravelled,tuple(shape),mask.reshape(positions[0].shape)   
+
+def bincountND(inds_ravelled,shape,mask=None,weights=None):
+  if not weights is None:
+    if not mask is None:
+      weights = weights[~mask]
+    weights = weights.ravel()
+  return np.bincount(inds_ravelled,
+      weights=weights,
+      minlength=np.prod(shape)).reshape(shape)
+   #def mad(a, c=0.6745, axis=0):
 	#"""
 	#Median Absolute Deviation along given axis of an array:
 	#median(abs(a - median(a))) / c
