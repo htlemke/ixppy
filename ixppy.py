@@ -1004,7 +1004,12 @@ class data(object):
   def ravel(self):
     """ return an array version of the object, careful may need 
     a LOT of memory"""
-    return np.vstack(self[:,:])
+    temp = self[:,:]
+    nCalib = len(temp)
+    temp = [l for l in temp if len(l)>0]
+    if len(temp) != nCalib:
+      logbook("Attention !!, in data.ravel some calib are empty")
+    return np.vstack(temp)
 
   def __repr__(self):
       return "`data` object %s, %d steps, %d events per step" % (self.name, self.__len__(),np.median(self._lens))
