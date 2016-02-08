@@ -1924,7 +1924,7 @@ class Evaluate(object):
 
     ixp,path = self.data._getIxpHandle()
     if path in ixp.fileHandle and not force:
-      deleteit = 'y' == eval(input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path))
+      deleteit = 'y' == raw_input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path)
       if deleteit:
         del ixp.fileHandle[path]
       else:
@@ -3515,6 +3515,7 @@ def filter(dat,lims=None,graphicalInput=True,figName=None,perc=False):
     pl.clf()
     N,edg = tools.histogramSmart(dat)
     pl.step(edg[:-1]+np.diff(edg),N,'k')
+    pl.draw_if_interactive()
     lims = tools.getSpanCoordinates()
   elif perc:
     lims = np.percentile(dat,lims)
