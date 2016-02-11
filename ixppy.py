@@ -1396,8 +1396,11 @@ class data(object):
     # progress bar
     Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in allchunks])
     processedevents = 0
-    widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
-    pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+    try:
+      widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+      pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+    except:
+      print("Progressbar not working, empty scan steps?")
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
       if totlen==0:
@@ -1411,10 +1414,16 @@ class data(object):
           N += np.sum(~np.isnan(tdr),axis=0)
           tout += np.nansum(tdr,axis=0)
         processedevents += len(chunk)
-        pbar.update(processedevents)
+	try:
+          pbar.update(processedevents)
+	except:
+	  pass
       #N[N==0] = np.nan
       out.append(tout/N)
-    pbar.finish()
+    try:
+      pbar.finish()
+    except:
+      pass
     return out
   
   def median(self):
