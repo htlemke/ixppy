@@ -918,6 +918,7 @@ def histOverview(data,clearFig=True):
     #plt.title(str(n))
   print "Continous BLUE line: unbounded pixels"
   print "Continous RED line: from histogram"
+  plt.xlim(-50,50)
   fig.subplots_adjust(hspace=0)
 
 
