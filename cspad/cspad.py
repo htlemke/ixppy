@@ -898,6 +898,7 @@ def histOverview(data,clearFig=True):
   binvec = np.arange(np.round(np.min(data.ravel())),np.round(np.max(data.ravel())),1)
   ah = []
   for n,tdat in enumerate(data):
+    hist = getCommonModeFromHist(tdat)
     #tdat = commonModeCorrectTile(tdat)[0]
     unbpx = tdat[unb]
     tdat = tdat[~msk]
@@ -908,10 +909,15 @@ def histOverview(data,clearFig=True):
     h = np.histogram(tdat,bins=binvec)
     lh = plt.step(binvec[:-1],h[0],where='pre')
     lh = lh[0]
-    plt.axvline(np.median(unbpx),color=lh.get_color())
+    ub = np.median(unbpx)
+    plt.axvline(ub,color=lh.get_color())
     plt.axvline(np.median(tdat),linestyle='--',color=lh.get_color())
+    plt.axvline(hist,color="red")
+    print "Tile %02d, unbonded %-.2f, hist %-.2f" % (n,ub,hist)
     plt.text(.5,.8,str(n),horizontalalignment='center',transform=ah[-1].transAxes)
     #plt.title(str(n))
+  print "Continous BLUE line: unbounded pixels"
+  print "Continous RED line: from histogram"
   fig.subplots_adjust(hspace=0)
 
 
