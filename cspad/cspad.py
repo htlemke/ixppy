@@ -807,7 +807,7 @@ def getCommonModeFromHist(im,gainAv=30,searchRadiusFrac=.4,debug=False):
   im = im.ravel()
   bins = np.arange(-2*gainAv,3*gainAv)
   hst,dum = np.histogram(im.ravel(),bins)
-  bins = bins[:-1]+.5
+  bins = bins[:-1]
   rad = np.round(gainAv*searchRadiusFrac)
   idx = filtvec(bins,[-rad,rad])
   pk = bins[idx][hst[idx].argmax()]
