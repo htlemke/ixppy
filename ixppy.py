@@ -1396,8 +1396,11 @@ class data(object):
     # progress bar
     Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in allchunks])
     processedevents = 0
-    widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
-    pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+    try:
+      widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+      pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+    except:
+      print("Progressbar not working, empty scan steps?")
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
       if totlen==0:
@@ -1411,10 +1414,16 @@ class data(object):
           N += np.sum(~np.isnan(tdr),axis=0)
           tout += np.nansum(tdr,axis=0)
         processedevents += len(chunk)
-        pbar.update(processedevents)
+	try:
+          pbar.update(processedevents)
+	except:
+	  pass
       #N[N==0] = np.nan
       out.append(tout/N)
-    pbar.finish()
+    try:
+      pbar.finish()
+    except:
+      pass
     return out
   
   def median(self):
@@ -1929,7 +1938,7 @@ class Evaluate(object):
 
     ixp,path = self.data._getIxpHandle()
     if path in ixp.fileHandle and not force:
-      deleteit = 'y' == eval(input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path))
+      deleteit = 'y' == raw_input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path)
       if deleteit:
         del ixp.fileHandle[path]
       else:
@@ -3520,6 +3529,7 @@ def filter(dat,lims=None,graphicalInput=True,figName=None,perc=False):
     pl.clf()
     N,edg = tools.histogramSmart(dat)
     pl.step(edg[:-1]+np.diff(edg),N,'k')
+    pl.draw_if_interactive()
     lims = tools.getSpanCoordinates()
   elif perc:
     lims = np.percentile(dat,lims)
