@@ -1006,7 +1006,7 @@ class data(object):
     a LOT of memory"""
     temp = self[:,:]
     nCalib = len(temp)
-    temp = [l for l in temp if len(l)>0]
+    temp = [self[i,:][0] for i in range(nCalib) if len(self[i,:])>0]
     if len(temp) != nCalib:
       logbook("Attention !!, in data.ravel some calib are empty")
     return np.vstack(temp)
