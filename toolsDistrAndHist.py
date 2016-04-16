@@ -10,7 +10,7 @@ import time
 import types
 import numpy.ma as ma
 #from toolsVarious import iterfy
-from tools import *
+#from tools import *
 import ixppy
 
 def iterfy(iterable):
@@ -40,6 +40,42 @@ def poiss_prob(x,count):
 #def gauss_norm(X,xdat):
 #	ydat = 1./sqrt(2.*pi*X[2]**2)*X[0]*exp(-(xdat-X[1])**2/2/X[2]**2)
 #	return ydat
+#
+def gauss(dat,A,pos,sig):
+  res = A*np.exp(-(dat-pos)**2/sig**2/2)
+  return res
+
+def photonPeaks(x,amps=None,sigma=1,gain=5):
+  res = np.zeros_like(x)
+  if np.iterable(amps[0]):
+    ns,amps = zip(*amps)
+  else:
+    ns = xrange(len(amps))
+  if np.iterable(sigma):
+    for n,amp,sig in zip(ns,amps,sigma):
+      res += gauss(x,amp,n*gain,sig)
+  else:
+    for n,amp in zip(ns,amps):
+      res += gauss(x,amp,n*gain,sigma)
+  return res
+
+def photonPeaksPoisson(x,count=1.5,gain=5,sigma=1,fracCutoff=.001):
+  assert count>=0, 'poisson Count needs to be greater or equal than zero.'
+  mx = np.max(poiss_prob(np.floor(count),count),poiss_prob(np.floor(count),count))
+  lolim = np.floor(count)
+  while lolim >0 and poiss_prob(lolim,count)>fracCutoff*mx:
+    lolim -=1
+  print(lolim)
+  hilim = np.ceil(count)
+  while poiss_prob(hilim,count)>fracCutoff*mx:
+    hilim +=1
+  print(hilim)
+  return photonPeaks(x,amps=zip(np.arange(lolim,hilim+1),poiss_prob(np.arange(lolim,hilim+1),count)),gain=gain,sigma=sigma)
+
+
+  
+  
+
 
 def digitize2D(x1,x2,bins1,bins2):
 	bn1 = np.digitize(x1,bins1)
@@ -51,6 +87,7 @@ def digitize2D(x1,x2,bins1,bins2):
 	return bn
 
 
+<<<<<<< HEAD
 def digitizeND(positions, binings, maskInput=True):
   mask = np.zeros_like(positions[0].shape,dtype=bool)
   shape = []
@@ -58,6 +95,16 @@ def digitizeND(positions, binings, maskInput=True):
   for pos,bins in zip(positions,binnings):
     inds = digitize(pos.ravel(),bins)
     if maskInput:
+=======
+def digitizeND(positions, binnings, maskInput=True):
+  mask = np.zeros(np.prod(positions[0].shape),dtype=bool)
+  shape = []
+  inds_unravelled = []
+  for pos,bins in zip(positions,binnings):
+    inds = np.digitize(pos.ravel(),bins)
+    if maskInput:
+      #de=bug
+>>>>>>> 693984f96318e4cfc2e221cb48b00858456dec2f
       mask |= (inds==0)
       mask |= (inds==len(bins))
       inds -=1
@@ -67,6 +114,7 @@ def digitizeND(positions, binings, maskInput=True):
     inds_unravelled.append(inds)
   if maskInput:
     inds_unravelled = [ti[~mask] for ti in inds_unravelled]
+<<<<<<< HEAD
   inds_ravelled = np.ravel_multi_index(inds,shape)
   return inds_ravelled,shape,mask 
 
@@ -81,6 +129,20 @@ def bincountND(inds_ravelled,shape,mask=None,weights=None):
 	minlength=np.prod(shape)).reshape(shape)
 
 #def mad(a, c=0.6745, axis=0):
+=======
+  inds_ravelled = np.ravel_multi_index(inds_unravelled,shape)
+  return inds_ravelled,tuple(shape),mask.reshape(positions[0].shape)   
+
+def bincountND(inds_ravelled,shape,mask=None,weights=None):
+  if not weights is None:
+    if not mask is None:
+      weights = weights[~mask]
+    weights = weights.ravel()
+  return np.bincount(inds_ravelled,
+      weights=weights,
+      minlength=np.prod(shape)).reshape(shape)
+   #def mad(a, c=0.6745, axis=0):
+>>>>>>> 693984f96318e4cfc2e221cb48b00858456dec2f
 	#"""
 	#Median Absolute Deviation along given axis of an array:
 	#median(abs(a - median(a))) / c
@@ -294,9 +356,9 @@ def COM1d(I,xv=[],firstOnly=True):
   return cm
 
 
-def gauss(par=dict(A=[],pos=[],sig=[]),dat=[]):
-	res = par['A']*np.exp(-(dat-par['pos'])**2/par['sig']**2/2)
-	return res
+#def gauss(par=dict(A=[],pos=[],sig=[]),dat=[]):
+	#res = par['A']*np.exp(-(dat-par['pos'])**2/par['sig']**2/2)
+	#return res
 
 def erfstep(par=dict(h=1,pos=0,sig=1,offs=0),dat=np.linspace(-5,5,100)):
 	#res = par['h']*np.exp(-(dat-par['pos'])**2/par['sig']**2/2)

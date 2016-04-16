@@ -1004,7 +1004,12 @@ class data(object):
   def ravel(self):
     """ return an array version of the object, careful may need 
     a LOT of memory"""
-    return np.vstack(self[:,:])
+    temp = self[:,:]
+    nCalib = len(temp)
+    temp = [self[i,:][0] for i in range(nCalib) if len(self[i,:])>0]
+    if len(temp) != nCalib:
+      logbook("Attention !!, in data.ravel some calib are empty")
+    return np.vstack(temp)
 
   def __repr__(self):
       return "`data` object %s, %d steps, %d events per step" % (self.name, self.__len__(),np.median(self._lens))
@@ -1391,8 +1396,11 @@ class data(object):
     # progress bar
     Nevtot = np.sum([ np.sum([len(tchunk) for tchunk in step]) for stepNo,step in allchunks])
     processedevents = 0
-    widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
-    pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+    try:
+      widgets = ['Evaluating mean: ', pb.Percentage(), ' ', pb.Bar(),' ', pb.ETA(),'  ']
+      pbar = pb.ProgressBar(widgets=widgets, maxval=Nevtot).start()
+    except:
+      print("Progressbar not working, empty scan steps?")
     for stepNo,step in allchunks:
       totlen = np.sum([len(x) for x in step])
       if totlen==0:
@@ -1406,10 +1414,16 @@ class data(object):
           N += np.sum(~np.isnan(tdr),axis=0)
           tout += np.nansum(tdr,axis=0)
         processedevents += len(chunk)
-        pbar.update(processedevents)
+	try:
+          pbar.update(processedevents)
+	except:
+	  pass
       #N[N==0] = np.nan
       out.append(tout/N)
-    pbar.finish()
+    try:
+      pbar.finish()
+    except:
+      pass
     return out
   
   def median(self):
@@ -1924,7 +1938,7 @@ class Evaluate(object):
 
     ixp,path = self.data._getIxpHandle()
     if path in ixp.fileHandle and not force:
-      deleteit = 'y' == eval(input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path))
+      deleteit = 'y' == raw_input("Dataset %s exists in ixp file, would you like to delete it? (y/n) "%path)
       if deleteit:
         del ixp.fileHandle[path]
       else:
@@ -2501,6 +2515,7 @@ class Ixp(object):
       logbook('Found cached data in %s' %(self.fileName))
     self._fileHandle = None
     self._forceOverwrite = False
+    self._forceNotOverwrite = False
 
   def get_cacheFileHandle(self,reopen=False,mode='a'):
     if self._fileHandle is None:
@@ -2572,13 +2587,17 @@ class Ixp(object):
         #self.mkDset(fGroup,sfield,self.config.base.__dict__[field].__dict__[sfield])
     #cfh.close()
   
-  def save(self, obj, parenth5handle, name=None, force=None):
+  def save(self, obj, parenth5handle, name=None, force=None, forceNotOverwrite=None):
     if hasattr(obj,'_isIxp') and obj._isIxp():
       return
     if force is None:
       force = self._forceOverwrite
     else:
       self._forceOverwrite = force
+    if forceNotOverwrite is None:
+      forceNotOverwrite = self._forceNotOverwrite
+    else:
+      self._forceNotOverwrite = forceNotOverwrite
     pH = parenth5handle
     isgr = hasattr(obj,'_ixpsaved')
     if name is None:
@@ -2593,14 +2612,21 @@ class Ixp(object):
           self.save(obj.__dict__[sfield[0]],fGroup,name=sfield[0])
     else:
       if name in list(pH.keys()) and not force:
-        rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(name,pH.name)
-        ret = raw_input(rawstr)
-        if ret=='a': del pH[name]; force = True; self._forceOverwrite = True
-        if ret=='y': del pH[name]
-        if ret=='n': pass
+	if not forceNotOverwrite:
+	  pass
+	else:
+	  
+	  rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(name,pH.name)
+	  ret = raw_input(rawstr)
+	  if ret=='a': del pH[name]; force = True; self._forceOverwrite = True
+	  if ret=='y': del pH[name]
+	  if ret=='n': self._forceNotOverwrite = True; return
+	  #if ret=='na': pass
+      
       elif name in list(pH.keys()) and force:
         logbook("about to delete %s" %(name))
         del pH[name]
+
       self.mkDset(pH,name,obj)
 
 
@@ -3112,7 +3138,7 @@ def getProfileLimitsNew(Areadet,step=0,shots=list(range(10)),direction=False,lim
     limstot = np.round(tools.getRectangleCoordinates())
     I = tools.subset(I,limstot)
 
-  raise NotImplementedError('Use the source, luke!')
+  #raise NotImplementedError('Use the source, luke!')
   if direction == 'horizontal' or direction == 'both':
     if getLims:
       tools.nfigure('Select limits')
@@ -3140,7 +3166,7 @@ def getProfileLimitsNew(Areadet,step=0,shots=list(range(10)),direction=False,lim
   if direction == 'both':
     limsdict = dict(projection='box',limits=dict(total=limstot,vertical=limsver,horizontal=limshor))
 
-  tfun = ixppy.wrapFunc(extractProfilesFromData)
+  tfun = wrapFunc(extractProfilesFromData)
   profile = tfun(dat,limsdict)
   if det is None:
     return limsdict,profile
@@ -3169,7 +3195,7 @@ def getProfileLimits(Areadet,step=0,shots=list(range(10)),transpose=False,lims=N
     logbook('Select region of interest')
     lims = np.round(tools.getSpanCoordinates(direction))
   limsdict = dict(projection = direction+' range',limits=lims)
-  tfun = ixppy.wrapFunc(extractProfilesFromData,transposeStack=False)
+  tfun = wrapFunc(extractProfilesFromData,transposeStack=False)
   profile = tfun(dat,limsdict)
   if det is None:
     return limsdict,profile
@@ -3515,6 +3541,7 @@ def filter(dat,lims=None,graphicalInput=True,figName=None,perc=False):
     pl.clf()
     N,edg = tools.histogramSmart(dat)
     pl.step(edg[:-1]+np.diff(edg),N,'k')
+    pl.draw_if_interactive()
     lims = tools.getSpanCoordinates()
   elif perc:
     lims = np.percentile(dat,lims)

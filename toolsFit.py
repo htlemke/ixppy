@@ -380,3 +380,21 @@ def fitCircle(x,y,w=1.):
   R  = Ri.mean()
   residu   = np.sum((Ri - R)**2)
   return xc, yc, R, residu
+
+
+
+def findPeakEdges(x,y,ptsBG=3,peakfac=.1):
+  if ptsBG>0:
+    p = np.polyfit(np.hstack([x[:ptsBG],x[-ptsBG:]]),np.hstack([y[:ptsBG],y[-ptsBG:]]),1)
+    y -= np.polyval(p,x)
+  mx = np.max(y)
+  indabove = (y>mx*peakfac).nonzero()
+  li = np.min(indabove)
+  left = np.interp(peakfac*mx,y[li-1:li+1],x[li-1:li+1])
+  ri = np.max(indabove)
+  right = np.interp(peakfac*mx,y[slice(ri+1,ri-1,-1)],x[slice(ri+1,ri-1,-1)])
+
+  return left,right,[li,ri]
+
+
+

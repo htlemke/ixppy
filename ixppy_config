@@ -24,7 +24,7 @@ xpp lap /home/marcoc/slac/experiments/TRABS_Oct10/data
 # data paths for data cache. This holds preanalyzed data that can be copied between computers and are read additionally/instead the real datafile.
 #* cache_directory
 #xpp lap /home/marcoc/ixppy_cache
-#xpp default /reg/neh/home1/lemke/ixppy_cache
+xpp default /reg/neh/home1/lemke/ixppy_cache
 #xpp default /reg/neh/home1/marcoc/ixppy_cache
 #xpp default /reg/d/
 #xpp default /reg/neh/home/lemke/ixppy_cache
@@ -130,6 +130,11 @@ adc	Gsc16ai::DataV*/XppEndstation.0:Gsc16ai.0/channelValue  Gsc16ai::DataV*/XppE
 johannint  ndarray*/XppGon.0:Cspad2x2.*__Johann_int/data  ndarray*/XppGon.0:Cspad2x2.*__Johann_int/time  dummy
 vonHamosProf  ndarray*/XppGon.0:Cspad2x2.*__vonHamos_yproj/data  ndarray*/XppGon.0:Cspad2x2.*__vonHamos_yproj/time  dummy
 vonHamosRoi  ndarray*/XppGon.0:Cspad2x2.*__vonHamos_ROIarea/data  ndarray*/XppGon.0:Cspad2x2.*__vonHamos_ROIarea/time  dummy
+proj   ndarray*/*__Projection/data  ndarray*/*__Projection/time  dummy
+cs140_raw   ndarray*/*_raw_images/data  ndarray*/*_raw_images/time  dummy
+simple_proj  ndarray*/*_simple_projection/data  ndarray*/*_simple_projection/time  dummy
+simple_projA  ndarray*/*_simple_projection_domainA/data  ndarray*/*_simple_projection_domainA/time  dummy
+simple_projB  ndarray*/*_simple_projection_domainB/data  ndarray*/*_simple_projection_domainB/time  dummy
 
 # XCS area detectors, label as #*line, then line of alias, and data, time, and config datasets
 #* pointDet_xcs
