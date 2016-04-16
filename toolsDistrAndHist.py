@@ -10,7 +10,7 @@ import time
 import types
 import numpy.ma as ma
 #from toolsVarious import iterfy
-from tools import *
+#from tools import *
 import ixppy
 
 def iterfy(iterable):
@@ -40,6 +40,42 @@ def poiss_prob(x,count):
 #def gauss_norm(X,xdat):
 #	ydat = 1./sqrt(2.*pi*X[2]**2)*X[0]*exp(-(xdat-X[1])**2/2/X[2]**2)
 #	return ydat
+#
+def gauss(dat,A,pos,sig):
+  res = A*np.exp(-(dat-pos)**2/sig**2/2)
+  return res
+
+def photonPeaks(x,amps=None,sigma=1,gain=5):
+  res = np.zeros_like(x)
+  if np.iterable(amps[0]):
+    ns,amps = zip(*amps)
+  else:
+    ns = xrange(len(amps))
+  if np.iterable(sigma):
+    for n,amp,sig in zip(ns,amps,sigma):
+      res += gauss(x,amp,n*gain,sig)
+  else:
+    for n,amp in zip(ns,amps):
+      res += gauss(x,amp,n*gain,sigma)
+  return res
+
+def photonPeaksPoisson(x,count=1.5,gain=5,sigma=1,fracCutoff=.001):
+  assert count>=0, 'poisson Count needs to be greater or equal than zero.'
+  mx = np.max(poiss_prob(np.floor(count),count),poiss_prob(np.floor(count),count))
+  lolim = np.floor(count)
+  while lolim >0 and poiss_prob(lolim,count)>fracCutoff*mx:
+    lolim -=1
+  print(lolim)
+  hilim = np.ceil(count)
+  while poiss_prob(hilim,count)>fracCutoff*mx:
+    hilim +=1
+  print(hilim)
+  return photonPeaks(x,amps=zip(np.arange(lolim,hilim+1),poiss_prob(np.arange(lolim,hilim+1),count)),gain=gain,sigma=sigma)
+
+
+  
+  
+
 
 def digitize2D(x1,x2,bins1,bins2):
 	bn1 = np.digitize(x1,bins1)
@@ -293,9 +329,9 @@ def COM1d(I,xv=[],firstOnly=True):
   return cm
 
 
-def gauss(par=dict(A=[],pos=[],sig=[]),dat=[]):
-	res = par['A']*np.exp(-(dat-par['pos'])**2/par['sig']**2/2)
-	return res
+#def gauss(par=dict(A=[],pos=[],sig=[]),dat=[]):
+	#res = par['A']*np.exp(-(dat-par['pos'])**2/par['sig']**2/2)
+	#return res
 
 def erfstep(par=dict(h=1,pos=0,sig=1,offs=0),dat=np.linspace(-5,5,100)):
 	#res = par['h']*np.exp(-(dat-par['pos'])**2/par['sig']**2/2)
