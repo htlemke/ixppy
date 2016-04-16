@@ -24,7 +24,7 @@ xpp lap /home/marcoc/slac/experiments/TRABS_Oct10/data
 # data paths for data cache. This holds preanalyzed data that can be copied between computers and are read additionally/instead the real datafile.
 #* cache_directory
 #xpp lap /home/marcoc/ixppy_cache
-#xpp default /reg/neh/home1/lemke/ixppy_cache
+xpp default /reg/neh/home1/lemke/ixppy_cache
 #xpp default /reg/neh/home1/marcoc/ixppy_cache
 #xpp default /reg/d/
 #xpp default /reg/neh/home/lemke/ixppy_cache
