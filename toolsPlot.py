@@ -533,9 +533,12 @@ def subplots(*args,**kwargs):
       #tax.set_xticklabels([])
       #xticklabels += tax.get_xticklabels()
     #plt.setp(xticklabels, visible=False)
-    nbins = len(ax[0].get_xticklabels()) # added 
-    for tax in ax[1:]:
-      tax.yaxis.set_major_locator(MaxNLocator(nbins=nbins, prune='upper')) # added 
+    try:
+      nbins = len(ax[0].get_xticklabels()) # added 
+      for tax in ax[1:]:
+	tax.yaxis.set_major_locator(MaxNLocator(nbins=nbins, prune='upper')) # added 
+    except:
+      pass
   return fig,ax
 
 

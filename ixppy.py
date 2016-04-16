@@ -2515,6 +2515,7 @@ class Ixp(object):
       logbook('Found cached data in %s' %(self.fileName))
     self._fileHandle = None
     self._forceOverwrite = False
+    self._forceNotOverwrite = False
 
   def get_cacheFileHandle(self,reopen=False,mode='a'):
     if self._fileHandle is None:
@@ -2586,13 +2587,17 @@ class Ixp(object):
         #self.mkDset(fGroup,sfield,self.config.base.__dict__[field].__dict__[sfield])
     #cfh.close()
   
-  def save(self, obj, parenth5handle, name=None, force=None):
+  def save(self, obj, parenth5handle, name=None, force=None, forceNotOverwrite=None):
     if hasattr(obj,'_isIxp') and obj._isIxp():
       return
     if force is None:
       force = self._forceOverwrite
     else:
       self._forceOverwrite = force
+    if forceNotOverwrite is None:
+      forceNotOverwrite = self._forceNotOverwrite
+    else:
+      self._forceNotOverwrite = forceNotOverwrite
     pH = parenth5handle
     isgr = hasattr(obj,'_ixpsaved')
     if name is None:
@@ -2607,14 +2612,21 @@ class Ixp(object):
           self.save(obj.__dict__[sfield[0]],fGroup,name=sfield[0])
     else:
       if name in list(pH.keys()) and not force:
-        rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(name,pH.name)
-        ret = raw_input(rawstr)
-        if ret=='a': del pH[name]; force = True; self._forceOverwrite = True
-        if ret=='y': del pH[name]
-        if ret=='n': pass
+	if not forceNotOverwrite:
+	  pass
+	else:
+	  
+	  rawstr = 'Overwrite %s in %s ? (y/n/a) ' %(name,pH.name)
+	  ret = raw_input(rawstr)
+	  if ret=='a': del pH[name]; force = True; self._forceOverwrite = True
+	  if ret=='y': del pH[name]
+	  if ret=='n': self._forceNotOverwrite = True; return
+	  #if ret=='na': pass
+      
       elif name in list(pH.keys()) and force:
         logbook("about to delete %s" %(name))
         del pH[name]
+
       self.mkDset(pH,name,obj)
 
 
@@ -3126,7 +3138,7 @@ def getProfileLimitsNew(Areadet,step=0,shots=list(range(10)),direction=False,lim
     limstot = np.round(tools.getRectangleCoordinates())
     I = tools.subset(I,limstot)
 
-  raise NotImplementedError('Use the source, luke!')
+  #raise NotImplementedError('Use the source, luke!')
   if direction == 'horizontal' or direction == 'both':
     if getLims:
       tools.nfigure('Select limits')
@@ -3154,7 +3166,7 @@ def getProfileLimitsNew(Areadet,step=0,shots=list(range(10)),direction=False,lim
   if direction == 'both':
     limsdict = dict(projection='box',limits=dict(total=limstot,vertical=limsver,horizontal=limshor))
 
-  tfun = ixppy.wrapFunc(extractProfilesFromData)
+  tfun = wrapFunc(extractProfilesFromData)
   profile = tfun(dat,limsdict)
   if det is None:
     return limsdict,profile
@@ -3183,7 +3195,7 @@ def getProfileLimits(Areadet,step=0,shots=list(range(10)),transpose=False,lims=N
     logbook('Select region of interest')
     lims = np.round(tools.getSpanCoordinates(direction))
   limsdict = dict(projection = direction+' range',limits=lims)
-  tfun = ixppy.wrapFunc(extractProfilesFromData,transposeStack=False)
+  tfun = wrapFunc(extractProfilesFromData,transposeStack=False)
   profile = tfun(dat,limsdict)
   if det is None:
     return limsdict,profile
