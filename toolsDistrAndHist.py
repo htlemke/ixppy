@@ -87,15 +87,6 @@ def digitize2D(x1,x2,bins1,bins2):
 	return bn
 
 
-<<<<<<< HEAD
-def digitizeND(positions, binings, maskInput=True):
-  mask = np.zeros_like(positions[0].shape,dtype=bool)
-  shape = []
-  inds_unravelled = []
-  for pos,bins in zip(positions,binnings):
-    inds = digitize(pos.ravel(),bins)
-    if maskInput:
-=======
 def digitizeND(positions, binnings, maskInput=True):
   mask = np.zeros(np.prod(positions[0].shape),dtype=bool)
   shape = []
@@ -104,7 +95,6 @@ def digitizeND(positions, binnings, maskInput=True):
     inds = np.digitize(pos.ravel(),bins)
     if maskInput:
       #de=bug
->>>>>>> 693984f96318e4cfc2e221cb48b00858456dec2f
       mask |= (inds==0)
       mask |= (inds==len(bins))
       inds -=1
@@ -114,7 +104,6 @@ def digitizeND(positions, binnings, maskInput=True):
     inds_unravelled.append(inds)
   if maskInput:
     inds_unravelled = [ti[~mask] for ti in inds_unravelled]
-<<<<<<< HEAD
   inds_ravelled = np.ravel_multi_index(inds,shape)
   return inds_ravelled,shape,mask 
 
@@ -129,20 +118,6 @@ def bincountND(inds_ravelled,shape,mask=None,weights=None):
 	minlength=np.prod(shape)).reshape(shape)
 
 #def mad(a, c=0.6745, axis=0):
-=======
-  inds_ravelled = np.ravel_multi_index(inds_unravelled,shape)
-  return inds_ravelled,tuple(shape),mask.reshape(positions[0].shape)   
-
-def bincountND(inds_ravelled,shape,mask=None,weights=None):
-  if not weights is None:
-    if not mask is None:
-      weights = weights[~mask]
-    weights = weights.ravel()
-  return np.bincount(inds_ravelled,
-      weights=weights,
-      minlength=np.prod(shape)).reshape(shape)
-   #def mad(a, c=0.6745, axis=0):
->>>>>>> 693984f96318e4cfc2e221cb48b00858456dec2f
 	#"""
 	#Median Absolute Deviation along given axis of an array:
 	#median(abs(a - median(a))) / c

@@ -183,6 +183,7 @@ ipm2        Lusi::IpmFexV*/MEC-XT2-IPM-02  notused notused
 ipm3        Lusi::IpmFexV*/MEC-XT2-IPM-03  notused notused
 
 
+
 # MEC area detectors, label as #*line, then line of alias, and data, time, and config datasets
 #* areaDet_mec
 princeton1   Princeton::Frame*/MecTargetChamber.0:Princeton.1/data  notused notused
@@ -195,6 +196,7 @@ princeton7   Princeton::Frame*/MecTargetChamber.0:Princeton.7/data  notused notu
 princeton8   Princeton::Frame*/MecTargetChamber.0:Princeton.8/data  notused notused
 princeton9   Princeton::Frame*/MecTargetChamber.0:Princeton.9/data  notused notused
 princetonxx  Princeton::FrameV2/MecTargetChamber.0:Princeton.5/data notused notused
+opal2       Camera::FrameV*/MecTargetChamber.0:Opal1000.2/image  notused  notused
 
 # Common point detectors
 #* pointDet_common
@@ -219,4 +221,6 @@ daqFilter  L3T::DataV*/Event  dummy  dummy
 xtcav Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/image Camera::FrameV1/XrayTransportDiagnostic.0:Opal1000.0/time dummy
 yagH2 Camera::FrameV1/XrayTransportDiagnostic.30:Tm6740.0/image Camera::FrameV1/XrayTransportDiagnostic.30:Tm6740.0/time  dummy
 yag3m Camera::FrameV1/XrayTransportDiagnostic.4:Tm6740.3/image Camera::FrameV1/XrayTransportDiagnostic.4:Tm6740.3/time dummy
-evrBool  EvrData::DataV4/NoDetector.0:Evr.0/present  dummy  dummy
+evrBool  EvrData::DataV4/NoDetector.0:*/Evr.0/present  dummy  dummy
+spec     Camera::FrameV*/XrayTransportDiagnostic.0:OrcaFl40.0/image  dummy dummy
+
