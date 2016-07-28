@@ -224,3 +224,37 @@ def sinTransform(x,y,dampingFactor=0.2):
     #tt =  scipy.integrate.simps(temp,x,axis=-1) 
     ret.append( scipy.integrate.simps(temp,x,axis=-1) )
   return r,np.array(ret)/r/np.pi/2
+
+def rfft(t,I,w,padding=None):
+  tstp = np.mean(np.diff(t))
+  Nrad = np.round(w/tstp)
+  wind = np.hanning( Nrad * 2 + 1)
+  if not padding is None:
+    t = np.hstack([ t[0]+np.arange(-Nrad,0)*tstp,
+                    t,
+		    t[-1]+np.arange(1,Nrad+1)*tstp])
+    I = np.hstack([ padding*np.ones(Nrad), I, padding*np.ones(Nrad)])
+  totlen = len(t)
+  freq = np.fft.fftfreq(totlen,tstp)
+  tmp = np.zeros_like(I)
+  ffts = []
+  to = t[Nrad:-Nrad]
+  for n,tt in enumerate(to):
+    minind = n
+    maxind = n+ 2*Nrad +1 
+    tmp[minind:maxind] = I[minind:maxind]*wind
+    ffts.append(np.fft.fft(tmp))
+    tmp[minind:maxind] = 0
+
+  mxi = np.ceil(totlen/2.)
+  return np.asarray(ffts).T[:mxi],to,freq[:mxi]
+
+def fftFreq(t,I):
+  tstp = np.mean(np.diff(t))
+  totlen = len(t)
+  freq = np.fft.fftfreq(totlen,tstp)
+  ft = np.fft.fft(I)
+  mxi = np.ceil(totlen/2.)
+  return ft[:mxi],freq[:mxi]
+
+

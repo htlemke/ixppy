@@ -712,7 +712,7 @@ class memdata(object):
     return self._stepStatFunc(len)
   #def sqrt(self):
     #return np.asarray([np.sqrt(d) for d in self._data])
-  def plot(self,weights=None):
+  def plot(self,weights=None,axh=None):
     i = self.median(weights=weights).ravel()
     if not self.grid is None:
       x,y,im = self.grid.format(i)
@@ -724,9 +724,13 @@ class memdata(object):
       scanfields = list(self.scan.__dict__.keys())
       scanfields = [tf for tf in scanfields if not tf[0]=='_']
       x = self.scan.__dict__[scanfields[0]]
-      tools.nfigure('memdata plot')
-      pl.errorbar(x,i,yerr=e,fmt='.-')
-      pl.xlabel(scanfields[0])
+      if axh is None:
+        tools.nfigure('memdata plot')
+        pl.errorbar(x,i,yerr=e,fmt='.-')
+        pl.xlabel(scanfields[0])
+      else:
+	axh.errorbar(x,i,yerr=e,fmt='.-')
+	axh.set_xlabel(scanfields[0])
 
   def getTime(self,resolution = 1e-9,asTime=False):
     return [getTime(ttime,resolution=resolution,asTime=asTime) for ttime in self.time]
@@ -2201,13 +2205,13 @@ def getClosestEvents(ts0,ts1,N,excludeFurtherThan=None):
 def getTime(tsi,resolution = 1e-9,asTime=False):
   """Takes structured second/nanosecond array and returns integer-clipped ms array.
   """
-  if tsi.dtype.names:
+  try:
     nam = tsi.dtype.names
     if (not asTime) and (('fiducials' in nam) and ('seconds' in nam)):
       tso = tsi
     elif ('nanoseconds' in nam) and ('seconds' in nam):
       tso = np.int64(tsi['seconds'])*int(1/resolution) + tsi['nanoseconds']/int(1e-9/resolution)
-  else:
+  except:
     tso = tsi
   return tso
 
