@@ -104,18 +104,20 @@ def digitizeND(positions, binnings, maskInput=True):
     inds_unravelled.append(inds)
   if maskInput:
     inds_unravelled = [ti[~mask] for ti in inds_unravelled]
-  inds_ravelled = np.ravel_multi_index(inds_unravelled,shape)
-  return inds_ravelled,tuple(shape),mask.reshape(positions[0].shape)   
+  inds_ravelled = np.ravel_multi_index(inds,shape)
+  return inds_ravelled,shape,mask 
 
 def bincountND(inds_ravelled,shape,mask=None,weights=None):
-  if not weights is None:
-    if not mask is None:
-      weights = weights[~mask]
-    weights = weights.ravel()
-  return np.bincount(inds_ravelled,
-      weights=weights,
-      minlength=np.prod(shape)).reshape(shape)
-   #def mad(a, c=0.6745, axis=0):
+  if mask is not None:
+    return np.bincount(inds_ravelled,
+	weights=weights[mask],
+	minlength=np.prod(shape)).reshape(shape)
+  else:
+    return np.bincount(inds_ravelled,
+	weights=weights[mask],
+	minlength=np.prod(shape)).reshape(shape)
+
+#def mad(a, c=0.6745, axis=0):
 	#"""
 	#Median Absolute Deviation along given axis of an array:
 	#median(abs(a - median(a))) / c
