@@ -175,6 +175,20 @@ cspad2  CsPad*/CxiDs2.0:Cspad.0/data  notused  notused
 opal0  Camera::FrameV1/AmoBPS.0:Opal1000.0/image  Camera::FrameV1/AmoBPS.0:Opal1000.0/time
 opal1  Camera::FrameV1/AmoVMI.0:Opal1000.0/image  Camera::FrameV1/AmoVMI.0:Opal1000.0/time
 
+
+# SXR area detectors, label as #*line, then line of alias, and data, time, and config datasets
+#* areaDet_sxr
+opal0 Camera::FrameV1/SxrBeamline.0:Opal1000.0/image Camera::FrameV1/SxrBeamline.0:Opal1000.0/time dummy
+acqiris  Acqiris::DataDescV1/SxrEndstation.0:Acqiris.2/waveforms  dummy  dummy 
+#opal0  Camera::FrameV1/SxrBeamline*Opal* dummy dummy
+
+
+# SXR area detectors, label as #*line, then line of alias, and data, time, and config datasets
+#* pointDet_sxr
+eventCode  EvrData                notused   EvrData*eventcodes
+crazyScanner0   UsdUsb::DataV1/SxrEndstation*USB.0 dummy dummy 
+crazyScanner1   UsdUsb::DataV1/SxrEndstation*USB.1 dummy dummy 
+
 # MEC area detectors, label as #*line, then line of alias, and data, time, and config datasets
 #* pointDet_mec
 ipm1        Lusi::IpmFexV*/MEC-HXM-IPM-01  notused notused
@@ -200,6 +214,8 @@ opal2       Camera::FrameV*/MecTargetChamber.0:Opal1000.2/image  notused  notuse
 
 # Common point detectors
 #* pointDet_common
+gmd     Bld::BldData*/GMD  dummy  dummy
+gasdet  Bld::BldDataFEEGasDetEnergy*/FEEGasDetEnergy notused notused
 phasec  BldDataPhaseCavity/PhaseCavity notused notused
 ebeam   BldDataEBeam*/EBeam notused notused
 gasdet  GasDetEnergy/FEEGasDetEnergy  notused notused
@@ -211,6 +227,7 @@ ebeam  Bld::BldDataEBeamV1/EBeam/data  Bld::BldDataEBeamV1/EBeam/time  dummy
 ebeam  Bld::BldDataEBeamV1/NoDetector.0:NoDevice.0/data  Bld::BldDataEBeamV1/NoDetector.0:NoDevice.0/time  dummy
 ebeam  Bld::BldDataEBeamV1/Ebeam/data  Bld::BldDataEBeamV1/Ebeam/time  dummy
 daqFilter  L3T::DataV*/Event  dummy  dummy
+
 #phasec  Bld::BldDataPhaseCavity/PhaseCavity/data  Bld::BldDataPhaseCavity/PhaseCavity/time dummy
 #phasec  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/data  Bld::BldDataPhaseCavity/NoDetector.0:NoDevice.1/time dummy
 #evr  EvrData::DataV3/NoDetector.0:Evr.0/evrData  EvrData::DataV3/NoDetector.0:Evr.0/time  dummy

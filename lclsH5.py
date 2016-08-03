@@ -712,7 +712,7 @@ def parseToCnf(fileHandle):
 
 def getDetNamefromPath(path,lowerit=False):
   name = 'data'
-  while name in ['evrData','data','time','image','array','channelValue']:
+  while name in ['waveforms','evrData','data','time','image','array','channelValue']:
     path,name = os.path.split(path)
   name = name.lower()
   name = name.replace(':','_')
